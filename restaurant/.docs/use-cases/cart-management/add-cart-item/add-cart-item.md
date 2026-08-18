@@ -47,15 +47,6 @@ Each branch is labelled by the Main Flow step it extends.
 2. [Sequence Diagram](images/sequence-diagram.png)
 3. [Pseudocode](images/pseduocode.txt)
 
-# Time Estimate
-1. Assuming system has been already set-up, i.e. deployed, integrated with e.g. Redis/DB, etc...
-2. Assuming knowledge of Java/Java Spring.
-3. 12-16 hours
-    3. 6-8 hours domain research for different solutions.
-    4. 4 hours implementation of the use-case.
-    5. 1-2 hours testing of the use-case.
-    6. 1-2 wasted time (e.g. meetings)
-
 # Notes
 
 1. Should we split this use-case into `increment-cart-item` / `decrement-cart-item`?
