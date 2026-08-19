@@ -1,5 +1,9 @@
 package com.mentorship.restaurant.persistence.entity;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,6 +16,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "customers")
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Customer {
 
     @Id
@@ -23,22 +30,4 @@ public class Customer {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    protected Customer() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
 }

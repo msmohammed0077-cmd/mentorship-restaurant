@@ -2,6 +2,10 @@ package com.mentorship.restaurant.persistence.entity;
 
 import java.math.BigDecimal;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,6 +18,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "menu_items")
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MenuItem {
 
     @Id
@@ -34,46 +41,4 @@ public class MenuItem {
     @Column(name = "menu_item_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal menuItemPrice;
 
-    protected MenuItem() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Menu getMenu() {
-        return menu;
-    }
-
-    public void setMenu(Menu menu) {
-        this.menu = menu;
-    }
-
-    public String getMenuItemCode() {
-        return menuItemCode;
-    }
-
-    public void setMenuItemCode(String menuItemCode) {
-        this.menuItemCode = menuItemCode;
-    }
-
-    public String getMenuItemImageUrl() {
-        return menuItemImageUrl;
-    }
-
-    public void setMenuItemImageUrl(String menuItemImageUrl) {
-        this.menuItemImageUrl = menuItemImageUrl;
-    }
-
-    public BigDecimal getMenuItemPrice() {
-        return menuItemPrice;
-    }
-
-    public void setMenuItemPrice(BigDecimal menuItemPrice) {
-        this.menuItemPrice = menuItemPrice;
-    }
 }

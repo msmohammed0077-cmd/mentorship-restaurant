@@ -2,6 +2,10 @@ package com.mentorship.restaurant.persistence.entity;
 
 import java.math.BigDecimal;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,6 +22,9 @@ import jakarta.persistence.UniqueConstraint;
     name = "cart_items",
     uniqueConstraints = @UniqueConstraint(name = "uq_cart_items_cart_menu_item", columnNames = {"cart_id", "menu_item_id"})
 )
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItem {
 
     @Id
@@ -39,46 +46,4 @@ public class CartItem {
     @Column(name = "cart_item_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal cartItemPrice;
 
-    protected CartItem() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Cart getCart() {
-        return cart;
-    }
-
-    public void setCart(Cart cart) {
-        this.cart = cart;
-    }
-
-    public MenuItem getMenuItem() {
-        return menuItem;
-    }
-
-    public void setMenuItem(MenuItem menuItem) {
-        this.menuItem = menuItem;
-    }
-
-    public Integer getCartItemQuantity() {
-        return cartItemQuantity;
-    }
-
-    public void setCartItemQuantity(Integer cartItemQuantity) {
-        this.cartItemQuantity = cartItemQuantity;
-    }
-
-    public BigDecimal getCartItemPrice() {
-        return cartItemPrice;
-    }
-
-    public void setCartItemPrice(BigDecimal cartItemPrice) {
-        this.cartItemPrice = cartItemPrice;
-    }
 }

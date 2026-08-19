@@ -1,5 +1,9 @@
 package com.mentorship.restaurant.persistence.entity;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,6 +16,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "carts")
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Cart {
 
     @Id
@@ -23,22 +30,4 @@ public class Cart {
     @JoinColumn(name = "customer_id", nullable = false, unique = true)
     private Customer customer;
 
-    protected Cart() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
-    }
 }

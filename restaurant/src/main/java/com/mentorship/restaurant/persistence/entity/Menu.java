@@ -1,5 +1,9 @@
 package com.mentorship.restaurant.persistence.entity;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,6 +16,9 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "menus")
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Menu {
 
     @Id
@@ -29,38 +36,4 @@ public class Menu {
     @Column(name = "menu_category", nullable = false, length = 100)
     private String menuCategory;
 
-    protected Menu() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Restaurant getRestaurant() {
-        return restaurant;
-    }
-
-    public void setRestaurant(Restaurant restaurant) {
-        this.restaurant = restaurant;
-    }
-
-    public String getMenuCode() {
-        return menuCode;
-    }
-
-    public void setMenuCode(String menuCode) {
-        this.menuCode = menuCode;
-    }
-
-    public String getMenuCategory() {
-        return menuCategory;
-    }
-
-    public void setMenuCategory(String menuCategory) {
-        this.menuCategory = menuCategory;
-    }
 }
