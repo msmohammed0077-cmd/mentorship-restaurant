@@ -1,345 +1,144 @@
-# 04 - PseudoCode: Modify Cart
+# Modify Cart Pseudocode
 
-## 1. Scope
+## Goal
 
-This pseudocode covers:
+This flow covers:
 
-- Changing a cart item's quantity.
-- Removing a cart item.
-- Adding or changing item notes.
-- Validating the branch, product, and requested quantity.
-- Saving and returning the updated cart.
+- viewing the cart before modification
+- failing fast if the cart does not exist
+- adding a new item through the add-cart-item flow
+- updating an existing item quantity with stock validation
+- updating item notes
+- returning the refreshed cart at the end
 
----
-
-## 2. Main Cart Operation
+## Main Flow
 
 ```text
-PROCEDURE ProcessCartRequest(actor, branchId, request)
+PROCEDURE ModifyCart(cartId, action)
 
-    VALIDATE actor IS NOT NULL
-    VALIDATE branchId IS NOT NULL
-    VALIDATE request IS NOT NULL
-    VALIDATE request.action IS SUPPORTED
+    cart ← FindCartById(cartId)
 
-    branch ← FindBranchById(branchId)
-
-    IF branch DOES NOT EXIST OR branch.active = false THEN
-        RETURN Error("Branch not found")
+    IF cart DOES NOT EXIST THEN
+        RAISE CartNotFoundException("Cart not found")
     END IF
 
-    IF branch.is_open = false THEN
-        RETURN Error("Branch is closed")
-    END IF
+    viewCart(cart)
 
-    actorContext ← ResolveActorContext(actor)
+    SWITCH action.type
 
-    BEGIN TRANSACTION
+        CASE "ADD_ITEM":
+            result ← AddCartItem(action.customerId, action.menuItemId, action.quantity)
 
-        cart ← FindActiveCart(
-            customerId = actorContext.customerId,
-            createdByUserId = actorContext.userId,
-            branchId = branchId,
-            source = actorContext.source
-        )
+        CASE "UPDATE_QUANTITY":
+            cartItem ← FindCartItemById(action.cartItemId)
 
-        IF cart DOES NOT EXIST THEN
-            cart ← CreateCart(actorContext, branch)
-        END IF
+            IF cartItem DOES NOT EXIST THEN
+                RAISE CartItemNotFoundException("Cart item not found")
+            END IF
 
-        SWITCH request.action
+            IF action.quantity <= 0 THEN
+                RAISE InvalidQuantityException("Quantity must be greater than zero")
+            END IF
 
-            CASE "CHANGE_QUANTITY":
-                ChangeCartItemQuantity(
-                    cart,
-                    request.cartItemId,
-                    request.quantity,
-                    actorContext
-                )
+            stockAvailable ← CheckStock(cartItem.menuItemId, action.quantity)
 
-            CASE "REMOVE_ITEM":
-                RemoveCartItem(cart, request.cartItemId)
+            IF stockAvailable = false THEN
+                RAISE OutOfStockException("Requested quantity is not available")
+            END IF
 
-            CASE "ADD_NOTES":
-                UpdateCartItemNotes(
-                    cart,
-                    request.cartItemId,
-                    request.notes,
-                    actorContext
-                )
+            cartItem.quantity ← action.quantity
+            SaveCartItem(cartItem)
+            result ← cart
 
-            DEFAULT:
-                ROLLBACK TRANSACTION
-                RETURN Error("Unsupported cart action")
+        CASE "ADD_NOTES":
+            cartItem ← FindCartItemById(action.cartItemId)
 
-        END SWITCH
+            IF cartItem DOES NOT EXIST THEN
+                RAISE CartItemNotFoundException("Cart item not found")
+            END IF
 
-        RecalculateCartTotals(cart)
-        TouchAuditFields(cart, actorContext)
-        SaveCart(cart)
+            cartItem.notes ← NormalizeNotes(action.notes)
+            SaveCartItem(cartItem)
+            result ← cart
 
-    COMMIT TRANSACTION
+        DEFAULT:
+            RAISE UnsupportedActionException("Unsupported cart modification")
 
-    updatedCart ← LoadCompleteCart(cart.id)
+    END SWITCH
 
-    RETURN Success(updatedCart)
+    updatedCart ← ReloadCart(cart.id)
 
-ON ItemUnavailableException
-    ROLLBACK TRANSACTION
-    RETURN Error("Selected item is unavailable")
+    viewUpdatedCart(updatedCart)
 
-ON InvalidQuantityException
-    ROLLBACK TRANSACTION
-    RETURN Error("Invalid item quantity")
-
-ON CartAccessDeniedException
-    ROLLBACK TRANSACTION
-    RETURN Error("Cart cannot be modified by this actor")
-
-ON UnexpectedException
-    ROLLBACK TRANSACTION
-    LOG exception
-    RETURN Error("Unable to update cart")
+    RETURN updatedCart
 
 END PROCEDURE
 ```
 
----
-
-## 3. Resolve Actor
+## Add Cart Item Flow
 
 ```text
-FUNCTION ResolveActorContext(actor)
+PROCEDURE AddCartItem(customerId, menuItemId, quantity)
 
-    IF actor.type = "CUSTOMER" THEN
-        RETURN {
-            customerId: actor.customerId,
-            userId: NULL,
-            source: "ONLINE",
-            auditUserId: actor.customerId,
-            adOrgId: actor.adOrgId,
-            adClientId: actor.adClientId
-        }
+    IF quantity <= 0 THEN
+        RAISE InvalidQuantityException("Quantity must be greater than zero")
     END IF
 
-    IF actor.type = "RESTAURANT_STAFF" THEN
-        RETURN {
-            customerId: actor.customerId,
-            userId: actor.userId,
-            source: "RESTAURANT",
-            auditUserId: actor.userId,
-            adOrgId: actor.adOrgId,
-            adClientId: actor.adClientId
-        }
+    menuItem ← FindMenuItemById(menuItemId)
+
+    IF menuItem DOES NOT EXIST THEN
+        RAISE MenuItemNotFoundException("Menu item not found")
     END IF
 
-    RAISE CartAccessDeniedException("Unsupported actor")
+    stockAvailable ← CheckStock(menuItemId, quantity)
 
-END FUNCTION
-```
+    IF stockAvailable = false THEN
+        RAISE OutOfStockException("Requested quantity is not available")
+    END IF
 
----
+    cart ← FindActiveCartByCustomerId(customerId)
 
-## 4. Create Cart
+    IF cart DOES NOT EXIST THEN
+        cart ← CreateCart(customerId)
+    END IF
 
-```text
-FUNCTION CreateCart(actorContext, branch)
-
-    cart ← NEW CART
-
-    cart.id ← GeneratePrimaryKey()
-    cart.uuid ← GenerateUUID()
-    cart.customer_id ← actorContext.customerId
-    cart.branch_id ← branch.id
-    cart.created_by_user_id ← actorContext.userId
-    cart.source ← actorContext.source
-    cart.status ← "ACTIVE"
-    cart.subtotal ← 0
-    cart.total ← 0
-
-    InitializeAuditFields(cart, actorContext)
+    cartItem ← BuildCartItem(menuItemId, quantity)
+    SaveCartItem(cartItem)
     SaveCart(cart)
 
     RETURN cart
 
-END FUNCTION
+END PROCEDURE
 ```
 
----
-
-## 5. Change Item Quantity
+## Validation Rules
 
 ```text
-PROCEDURE ChangeCartItemQuantity(
-    cart,
-    cartItemId,
-    newQuantity,
-    actorContext
-)
+PROCEDURE viewCart(cart)
 
-    VALIDATE newQuantity > 0
+    DISPLAY cart
 
-    cartItem ← FindCartItemById(cartItemId)
+END PROCEDURE
+```
 
-    ValidateCartItemOwnership(cart, cartItem)
+```text
+PROCEDURE viewUpdatedCart(cart)
 
-    product ← FindProductById(cartItem.product_id)
+    DISPLAY cart
 
-    IF product DOES NOT EXIST
-       OR product.active = false
-       OR product.is_available = false THEN
-        RAISE ItemUnavailableException
+END PROCEDURE
+```
+
+```text
+PROCEDURE CheckStock(menuItemId, quantity)
+
+    availableStock ← GetAvailableStock(menuItemId)
+
+    IF availableStock < quantity THEN
+        RETURN false
     END IF
 
-    CheckRequestedQuantityAvailability(
-        branchId = cart.branch_id,
-        productId = product.id,
-        requestedQuantity = newQuantity
-    )
-
-    cartItem.quantity ← newQuantity
-    TouchAuditFields(cartItem, actorContext)
-    SaveCartItem(cartItem)
+    RETURN true
 
 END PROCEDURE
-```
-
----
-
-## 6. Remove Item
-
-```text
-PROCEDURE RemoveCartItem(cart, cartItemId)
-
-    cartItem ← FindCartItemById(cartItemId)
-
-    ValidateCartItemOwnership(cart, cartItem)
-
-    DeleteOrDeactivateCartItem(cartItem.id)
-
-END PROCEDURE
-```
-
----
-
-## 7. Add or Change Notes
-
-```text
-PROCEDURE UpdateCartItemNotes(
-    cart,
-    cartItemId,
-    notes,
-    actorContext
-)
-
-    cartItem ← FindCartItemById(cartItemId)
-
-    ValidateCartItemOwnership(cart, cartItem)
-
-    cartItem.notes ← NormalizeNotes(notes)
-    TouchAuditFields(cartItem, actorContext)
-    SaveCartItem(cartItem)
-
-END PROCEDURE
-```
-
----
-
-## 8. Recalculate Cart Totals
-
-```text
-PROCEDURE RecalculateCartTotals(cart)
-
-    subtotal ← 0
-
-    cartItems ← FindActiveCartItems(cart.id)
-
-    FOR EACH cartItem IN cartItems
-
-        lineTotal ← cartItem.quantity × cartItem.unit_price
-        subtotal ← subtotal + lineTotal
-
-    END FOR
-
-    cart.subtotal ← RoundMoney(subtotal)
-    cart.total ← cart.subtotal
-
-END PROCEDURE
-```
-
----
-
-## 9. Ownership Validation
-
-```text
-PROCEDURE ValidateCartItemOwnership(cart, cartItem)
-
-    IF cartItem DOES NOT EXIST
-       OR cartItem.active = false THEN
-        RAISE Error("Cart item not found")
-    END IF
-
-    IF cartItem.cart_id ≠ cart.id THEN
-        RAISE CartAccessDeniedException
-    END IF
-
-END PROCEDURE
-```
-
----
-
-## 10. Audit Fields
-
-```text
-PROCEDURE InitializeAuditFields(entity, actorContext)
-
-    currentTime ← CurrentTimestamp()
-
-    entity.created ← currentTime
-    entity.createdby ← actorContext.auditUserId
-    entity.updated ← currentTime
-    entity.updatedby ← actorContext.auditUserId
-    entity.active ← true
-    entity.ad_org_id ← actorContext.adOrgId
-    entity.ad_client_id ← actorContext.adClientId
-
-END PROCEDURE
-```
-
-```text
-PROCEDURE TouchAuditFields(entity, actorContext)
-
-    entity.updated ← CurrentTimestamp()
-    entity.updatedby ← actorContext.auditUserId
-
-END PROCEDURE
-```
-
----
-
-## 11. Expected Result
-
-```text
-SUCCESS RESPONSE
-
-{
-    cartId,
-    uuid,
-    source,
-    status,
-    customer,
-    branch,
-    items: [
-        {
-            cartItemId,
-            product,
-            quantity,
-            unitPrice,
-            notes,
-            lineTotal
-        }
-    ],
-    subtotal,
-    total
-}
 ```
