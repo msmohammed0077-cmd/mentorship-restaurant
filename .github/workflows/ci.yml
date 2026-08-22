@@ -5,7 +5,6 @@ on:
     branches: [main]
   pull_request:
 
-# A new push to a branch makes the previous run pointless.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,7 +16,6 @@ jobs:
 
     defaults:
       run:
-        # The Maven project lives one level down from the repository root.
         working-directory: restaurant
 
     steps:
@@ -29,18 +27,20 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          # Caches ~/.m2/repository, keyed on the pom. Saves ~1 min per run.
           cache: maven
 
+      - name: Start PostgreSQL
+        # Same compose.yaml the application uses locally, so CI and local runs
+        # hit an identical database. --wait blocks until the healthcheck passes.
+        run: docker compose up -d --wait postgres
+
       - name: Build and run tests
-        # verify runs compile, test and package. -B is batch mode: no progress
-        # spam in the log. Tests use H2 today; once the add-to-cart work lands
-        # they need Postgres, which ubuntu-latest can start via Docker Compose
-        # with no extra configuration here.
+        # Booting the application context applies the Flyway migrations against
+        # the database above, then ddl-auto=validate checks the JPA entities
+        # match the schema those migrations produced.
         run: ./mvnw -B verify
 
       - name: Upload test reports
-        # Runs even when the build fails - that is exactly when the reports matter.
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
