@@ -5,10 +5,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Liveness endpoint. Deliberately does not touch the database: it answers
- * "is the application serving requests", not "is every dependency healthy".
- */
 @RestController
 @RequestMapping("/api/v1")
 public class HealthController {

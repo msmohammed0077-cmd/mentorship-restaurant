@@ -39,12 +39,3 @@ jobs:
         # the database above, then ddl-auto=validate checks the JPA entities
         # match the schema those migrations produced.
         run: ./mvnw -B verify
-
-      - name: Upload test reports
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
-        with:
-          name: surefire-reports
-          path: restaurant/target/surefire-reports/
-          retention-days: 7
-          if-no-files-found: ignore
