@@ -16,11 +16,8 @@ public class Restaurant {
     @Column(name = "restaurant_id")
     private Long id;
 
-    @Column(name = "restaurant_name", nullable = false, length = 150)
+    @Column(name = "restaurant_name", nullable = false, length = 255)
     private String restaurantName;
-
-    @Column(name = "restaurant_address", nullable = false, length = 255)
-    private String restaurantAddress;
 
     protected Restaurant() {
     }

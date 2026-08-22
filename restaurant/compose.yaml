@@ -17,6 +17,10 @@ services:
       retries: 10
 
   app:
+    # Behind a profile so `docker compose up` (and Spring Boot's docker-compose
+    # support during tests) starts only the database, not the application.
+    # Run it with: docker compose --profile app up
+    profiles: ["app"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,7 +32,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/restaurant
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     ports:
       - "8080:8080"
 

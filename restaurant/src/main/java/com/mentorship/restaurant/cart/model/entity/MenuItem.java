@@ -17,17 +17,14 @@ public class MenuItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "item_id")
+    @Column(name = "menu_item_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "menu_id", nullable = false)
     private Menu menu;
 
-    @Column(name = "item_name", nullable = false, length = 150)
-    private String itemName;
-
-    @Column(name = "item_price", nullable = false, precision = 10, scale = 2)
+    @Column(name = "menu_item_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal itemPrice;
 
     protected MenuItem() {

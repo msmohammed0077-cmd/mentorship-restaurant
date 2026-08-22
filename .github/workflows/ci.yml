@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: restaurant
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Start PostgreSQL
+        # Same compose.yaml the application uses locally, so CI and local runs
+        # hit an identical database. --wait blocks until the healthcheck passes.
+        run: docker compose up -d --wait postgres
+
+      - name: Build and run tests
+        # Booting the application context applies the Flyway migrations against
+        # the database above, then ddl-auto=validate checks the JPA entities
+        # match the schema those migrations produced.
+        run: ./mvnw -B verify
