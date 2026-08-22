@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.cart.infrastructure.persistence.entity;
+package com.mentorship.fooddelivery.cart.infrastructure.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

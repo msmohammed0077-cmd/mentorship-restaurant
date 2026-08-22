@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.cart.domain.exception;
+package com.mentorship.fooddelivery.cart.domain.exception;
 
 public class EmptyCartException extends RuntimeException {
 }
