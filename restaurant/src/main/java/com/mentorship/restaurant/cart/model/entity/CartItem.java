@@ -24,10 +24,10 @@ public class CartItem {
     private Cart cart;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "item_id", nullable = false)
+    @JoinColumn(name = "menu_item_id", nullable = false)
     private MenuItem menuItem;
 
-    @Column(name = "quantity", nullable = false)
+    @Column(name = "cart_item_quantity", nullable = false)
     private Integer quantity;
 
     protected CartItem() {
