@@ -1,4 +1,4 @@
-package com.mentorship.projects.fooddelivery.service;
+package com.mentorship.restaurant.cart.service;
 
 
 import org.springframework.stereotype.Service;

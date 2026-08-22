@@ -1,4 +1,4 @@
-package com.mentorship.projects.fooddelivery;
+package com.mentorship.restaurant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

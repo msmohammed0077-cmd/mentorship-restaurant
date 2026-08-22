@@ -1,4 +1,4 @@
-package com.mentorship.projects.fooddelivery;
+package com.mentorship.restaurant;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

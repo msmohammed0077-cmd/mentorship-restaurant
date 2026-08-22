@@ -1,4 +1,4 @@
-package com.mentorship.projects.fooddelivery.controller;
+package com.mentorship.restaurant.cart.controller;
 
 import org.springframework.web.bind.annotation.RestController;
 
