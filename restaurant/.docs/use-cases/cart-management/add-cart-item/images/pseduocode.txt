@@ -1,59 +1,94 @@
-class AddCartItemController {
-    constructor( useCase: AddCartItemUseCase) {}
+// Architecture follows the existing code layout:
+//
+//   cart
+//     controller       CartController
+//     service          CartService
+//     service.handler  AddToCartHandler          (command record)
+//     repository       CartRepository, CartItemRepository,
+//                      MenuItemRepository, CustomerRepository
+//     model.entity     Cart, CartItem, MenuItem, Menu, Restaurant, Customer
 
-    @AuthDecorators
-    @ApiDecorators
-    handle(command: AddCartItemCommand) {
-        return this.useCase.execute(command);
+class CartController {
+
+    constructor(cartService: CartService) {}
+
+    // POST /api/carts/items
+    // customerId comes from the request body for now; it moves to the
+    // authenticated principal once auth is wired up.
+    addItem(request: AddCartItemRequest): CartResponse {
+        return cartService.addItem(request.customerId, request.menuItemId, request.quantity)
     }
 }
 
 
-class AddCartItemUseCase {
-
-    constructor(restaurantService: RestaurantService, cartService: CartService, repository: AddCartItemRepository) {}
-
-    execute(command: AddCartItemCommand, userUuid) {
-
-        // error if anything fails
-        restaurantService.isRestaurantOpen(command.restaurantId)
-        restaurantService.isItemAvailable(command.itemId)
-
-        // error if a cart already exists => prompt to clear cart first
-        cartService.createCartForRestaurantIfNotExists()
-        repository.addCartItem(command, userUuid)
-        cartService.recalculateTotals()
-
-        return
-
-    }
-}
-
-
-// Shared classes between use-cases (may or may not exist in actual code, depending on how shared are the functions)
-// architecutre is:
-// modules
-//      Cart
-//        Services
-//              CartService
-//              CartServiceRepositry
-//          UseCases
-//              AddCartItem
 class CartService {
-    createCartIfNotExists(userUuid: string) {
-        
+
+    constructor(cartRepository, cartItemRepository, customerRepository, menuItemRepository) {}
+
+    addItem(customerId, menuItemId, quantity): CartResponse {
+
+        command = new AddToCartHandler(customerId, menuItemId, quantity)
+
+        if (command.quantity <= 0)
+            throw InvalidQuantityException
+
+        customer = customerRepository.findById(command.customerId)
+            orElseThrow CustomerNotFoundException
+
+        menuItem = menuItemRepository.findById(command.menuItemId)
+            orElseThrow MenuItemNotFoundException
+
+        restaurant = menuItem.menu.restaurant
+
+        // step 2
+        if (!restaurant.isOpen)
+            throw RestaurantClosedException("Restaurant is closed")
+
+        cart = cartRepository.findByCustomerId(command.customerId)   // may be empty
+
+        existingLine = cart.isPresent()
+            ? cartItemRepository.findByCartIdAndMenuItemId(cart.id, menuItem.id)
+            : empty
+
+        // step 3 - stock is checked against the resulting quantity, so an
+        // increment cannot walk past available stock one call at a time
+        resultingQuantity = existingLine.map(line -> line.quantity).orElse(0) + command.quantity
+        if (menuItem.stockQuantity < resultingQuantity)
+            throw OutOfStockException("Item is not in stock")
+
+        // step 4
+        if (cart.isPresent() && cart.restaurant.id != restaurant.id)
+            throw DifferentRestaurantException("Item is of different restaurant")
+
+        // step 5
+        if (cart.isEmpty())
+            cart = cartRepository.save(Cart.create(customer, restaurant))
+
+        // step 6 / flow 1a
+        if (existingLine.isPresent())
+            existingLine.increaseQuantityBy(command.quantity)
+        else
+            cartItemRepository.save(CartItem.create(cart, menuItem, command.quantity))
+
+        // totals are not stored - CartResponse computes them from the lines
+        return CartRestMapper.toResponse(cart)
     }
 }
 
-class RestaurantService {
 
-}
+// Totals are derived, never persisted.
+class CartRestMapper {
 
-// each service will have a repository
-class RestaurantServiceRepositry {
+    toResponse(cart: Cart): CartResponse {
+        lines = cart.items.map(line -> new CartItemResponse(
+            line.menuItem.itemName,
+            line.quantity,
+            line.menuItem.itemPrice,
+            line.menuItem.itemPrice * line.quantity
+        ))
 
-}
+        total = sum(lines.map(line -> line.lineTotal))
 
-class CartServiceRepository {
-
+        return new CartResponse(cart.id, cart.restaurant.id, lines, total)
+    }
 }
