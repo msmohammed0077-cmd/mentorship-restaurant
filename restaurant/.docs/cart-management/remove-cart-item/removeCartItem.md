@@ -5,8 +5,9 @@ This document describes the functionality for removing items from a shopping car
 
 ## Pseudo Code
 
-```
-Function removeCartItems(cartId, cartItemIds) {
+```text
+Transactional method
+Cart Function removeCartItems(cartId, cartItemIds) {
 
 validateInputs;
 
@@ -24,7 +25,7 @@ cartItems.remove(cartItem);
 
 if cartItems.size == 0 {
 deleteCart(cart);
-return cart.empty;
+return null;
 }
 
 cart.recalculateTotals()
