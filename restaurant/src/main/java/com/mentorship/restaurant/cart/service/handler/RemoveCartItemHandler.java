@@ -1,4 +1,3 @@
 package com.mentorship.restaurant.cart.service.handler;
 
-public class RemoveCartItemHandler {
-}
+public class RemoveCartItemHandler {}

@@ -11,6 +11,7 @@ Spring Boot backend for a restaurant ordering system, with PostgreSQL as the run
 - Flyway
 - Spring Security
 - SpringDoc OpenAPI UI
+- Spotless Java formatter
 
 ## Project Layout
 
@@ -72,6 +73,14 @@ Check your tools:
 java -version
 docker --version
 docker compose version
+```
+
+## Formatting
+
+Use Spotless to format Java files before committing:
+
+```bash
+./mvnw spotless:apply
 ```
 
 ## Run Locally

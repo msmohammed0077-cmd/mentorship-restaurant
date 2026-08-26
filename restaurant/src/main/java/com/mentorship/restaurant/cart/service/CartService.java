@@ -7,13 +7,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class CartService {
 
-    private final ModifyCartItemHandler modifyCartItemHandler;
+  private final ModifyCartItemHandler modifyCartItemHandler;
 
-    public CartService(ModifyCartItemHandler modifyCartItemHandler) {
-        this.modifyCartItemHandler = modifyCartItemHandler;
-    }
+  public CartService(ModifyCartItemHandler modifyCartItemHandler) {
+    this.modifyCartItemHandler = modifyCartItemHandler;
+  }
 
-    public CartResponse modifyItem(Long cartId, Long cartItemId, Integer quantity, String note) {
-        return modifyCartItemHandler.modifyItem(cartId, cartItemId, quantity, note);
-    }
+  public CartResponse modifyItem(Long cartId, Long cartItemId, Integer quantity, String note) {
+    return modifyCartItemHandler.modifyItem(cartId, cartItemId, quantity, note);
+  }
 }

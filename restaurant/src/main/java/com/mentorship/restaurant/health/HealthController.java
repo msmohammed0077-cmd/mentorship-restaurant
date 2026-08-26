@@ -9,14 +9,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class HealthController {
 
-    private final String applicationName;
+  private final String applicationName;
 
-    public HealthController(@Value("${spring.application.name}") String applicationName) {
-        this.applicationName = applicationName;
-    }
+  public HealthController(@Value("${spring.application.name}") String applicationName) {
+    this.applicationName = applicationName;
+  }
 
-    @GetMapping("/health")
-    public HealthResponse health() {
-        return new HealthResponse("UP", applicationName);
-    }
+  @GetMapping("/health")
+  public HealthResponse health() {
+    return new HealthResponse("UP", applicationName);
+  }
 }

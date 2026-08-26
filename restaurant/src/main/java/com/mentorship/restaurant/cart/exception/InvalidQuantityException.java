@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public class InvalidQuantityException extends RuntimeException {
 
-    public InvalidQuantityException(String message) {
-        super(message);
-    }
+  public InvalidQuantityException(String message) {
+    super(message);
+  }
 }

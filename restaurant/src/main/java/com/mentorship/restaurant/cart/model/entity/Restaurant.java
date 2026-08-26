@@ -21,18 +21,18 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Restaurant {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "restaurant_id")
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column(name = "restaurant_id")
+  private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
+  @OneToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "user_id", nullable = false, unique = true)
+  private User user;
 
-    @Column(name = "restaurant_name", nullable = false, length = 255)
-    private String restaurantName;
+  @Column(name = "restaurant_name", nullable = false, length = 255)
+  private String restaurantName;
 
-    @Column(name = "restaurant_description")
-    private String restaurantDescription;
+  @Column(name = "restaurant_description")
+  private String restaurantDescription;
 }

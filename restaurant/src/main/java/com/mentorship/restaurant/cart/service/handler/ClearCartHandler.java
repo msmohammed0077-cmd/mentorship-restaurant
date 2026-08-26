@@ -1,4 +1,3 @@
 package com.mentorship.restaurant.cart.service.handler;
 
-public class ClearCartHandler {
-}
+public class ClearCartHandler {}
