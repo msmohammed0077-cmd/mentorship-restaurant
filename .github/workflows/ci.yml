@@ -29,13 +29,7 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Start PostgreSQL
-        # Same compose.yaml the application uses locally, so CI and local runs
-        # hit an identical database. --wait blocks until the healthcheck passes.
-        run: docker compose up -d --wait postgres
-
       - name: Build and run tests
-        # Booting the application context applies the Flyway migrations against
-        # the database above, then ddl-auto=validate checks the JPA entities
-        # match the schema those migrations produced.
+        # Boots the application context against the H2 test database, applies
+        # Flyway migrations, and validates the JPA mappings.
         run: ./mvnw -B verify

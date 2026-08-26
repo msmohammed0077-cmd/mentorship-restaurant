@@ -17,10 +17,6 @@ services:
       retries: 10
 
   app:
-    # Behind a profile so `docker compose up` (and Spring Boot's docker-compose
-    # support during tests) starts only the database, not the application.
-    # Run it with: docker compose --profile app up
-    profiles: ["app"]
     build:
       context: .
       dockerfile: Dockerfile

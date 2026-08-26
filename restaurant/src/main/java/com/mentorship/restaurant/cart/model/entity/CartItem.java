@@ -9,9 +9,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "cart_items")
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItem {
 
     @Id
@@ -30,6 +39,9 @@ public class CartItem {
     @Column(name = "cart_item_quantity", nullable = false)
     private Integer quantity;
 
-    protected CartItem() {
-    }
+    @Column(name = "cart_item_note")
+    private String note;
+
+    @Column(name = "cart_item_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal itemPrice;
 }
