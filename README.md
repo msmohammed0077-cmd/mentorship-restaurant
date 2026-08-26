@@ -1,6 +1,6 @@
 # Restaurant App
 
-Spring Boot backend for a restaurant cart workflow. The current scope is the modify-cart API, with PostgreSQL as the runtime database and H2 only for tests.
+Spring Boot backend for a restaurant ordering system, with PostgreSQL as the runtime database and H2 only for tests.
 
 ## Stack
 
@@ -19,11 +19,11 @@ Spring Boot backend for a restaurant cart workflow. The current scope is the mod
 - [`restaurant/src/main/resources/application.properties`](./restaurant/src/main/resources/application.properties): shared app config
 - [`restaurant/src/main/resources/application-local.properties`](./restaurant/src/main/resources/application-local.properties): local PostgreSQL database
 - [`restaurant/src/main/resources/application-docker.properties`](./restaurant/src/main/resources/application-docker.properties): Docker PostgreSQL database
-- [`restaurant/src/main/java/com/mentorship/restaurant/cart/controller`](./restaurant/src/main/java/com/mentorship/restaurant/cart/controller): cart REST controller
-- [`restaurant/src/main/java/com/mentorship/restaurant/cart/service`](./restaurant/src/main/java/com/mentorship/restaurant/cart/service): cart service
-- [`restaurant/src/main/java/com/mentorship/restaurant/cart/service/handler`](./restaurant/src/main/java/com/mentorship/restaurant/cart/service/handler): cart command handlers
-- [`restaurant/src/main/java/com/mentorship/restaurant/cart/model`](./restaurant/src/main/java/com/mentorship/restaurant/cart/model): entities, requests, responses, and mappers
-- [`restaurant/src/main/java/com/mentorship/restaurant/exception`](./restaurant/src/main/java/com/mentorship/restaurant/exception): global API error handling
+- [`restaurant/src/main/java/com/mentorship/restaurant/RestaurantApplication.java`](./restaurant/src/main/java/com/mentorship/restaurant/RestaurantApplication.java): application entry point
+- [`restaurant/src/main/java/com/mentorship/restaurant/config/SecurityConfig.java`](./restaurant/src/main/java/com/mentorship/restaurant/config/SecurityConfig.java): security configuration
+- [`restaurant/src/main/java/com/mentorship/restaurant/health/HealthController.java`](./restaurant/src/main/java/com/mentorship/restaurant/health/HealthController.java): global health endpoint
+- [`restaurant/src/main/java/com/mentorship/restaurant/exception/GlobalExceptionHandler.java`](./restaurant/src/main/java/com/mentorship/restaurant/exception/GlobalExceptionHandler.java): global API error handling
+- [`restaurant/src/main/java/com/mentorship/restaurant/exception/ApiErrorResponse.java`](./restaurant/src/main/java/com/mentorship/restaurant/exception/ApiErrorResponse.java): shared error payload
 
 ## Current Setup
 
@@ -34,38 +34,6 @@ Spring Boot backend for a restaurant cart workflow. The current scope is the mod
 - Swagger UI is exposed at `/swagger-ui.html`.
 - OpenAPI JSON is exposed at `/v3/api-docs`.
 
-## API
-
-The current API scope is modify-cart:
-
-- `PUT /api/v1/cart/{cartId}/items/{cartItemId}`
-
-Request body:
-
-```json
-{
-  "quantity": 2,
-  "note": "No onions"
-}
-```
-
-Rules:
-
-- quantity must be positive
-- quantity cannot exceed menu item stock
-- note is persisted on the cart item
-
-Response fields are returned in snake_case, for example:
-
-```json
-{
-  "cart_id": 1,
-  "customer_id": 1,
-  "items": [],
-  "total": 185.00
-}
-```
-
 ## Error Handling
 
 Global API errors return a structured response from `com.mentorship.restaurant.exception`.
@@ -73,7 +41,7 @@ Global API errors return a structured response from `com.mentorship.restaurant.e
 Typical statuses:
 
 - `400 BAD_REQUEST` for validation errors
-- `404 NOT_FOUND` for missing cart items
+- `404 NOT_FOUND` for missing resources
 - `409 CONFLICT` for stock violations
 - `500 INTERNAL_SERVER_ERROR` for unexpected errors
 
@@ -85,13 +53,13 @@ Flyway migrations live under:
 
 Current migrations:
 
-- `V1__create_core_tables.sql`
-- `V2__seed_reference_data.sql`
-- `V3__seed_cart_data.sql`
-- `V4__add_menu_item_stock.sql`
-- `V5__add_cart_item_note.sql`
+- Core schema migration
+- Reference data seed migration
+- Sample data seed migration
+- Stock migration
+- Note migration
 
-Seeded data includes users, customers, restaurants, menus, menu items, carts, and cart items.
+Seeded data includes the core application reference records used by the API.
 
 ## Requirements
 
