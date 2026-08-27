@@ -46,23 +46,30 @@ Each branch is labelled by the Main Flow step it extends.
 
 ## Totals
 
-Totals are **not stored**. `Cart` carries no total column and `CartItem` carries no price
-snapshot; a cart's total is computed when the cart is read, as the sum of
-`quantity * MenuItem.itemPrice` over its lines.
+`CartItem` captures the item's price when the line is created
+(`cart_items.cart_item_price`, mapped as `CartItem.itemPrice`). Totals are computed from
+those captured prices, never from the current menu price.
 
-Consequence: a cart always reflects current menu prices. If a restaurant changes a price,
-open carts reprice silently. Accepted for now — capturing a price at add-time is a
-checkout-time concern.
+A cart therefore shows what the customer agreed to pay. If a restaurant changes a price,
+carts already holding that item are unaffected; the new price applies only to lines
+created afterwards. Incrementing an existing line keeps its original price.
 
 ## Data Model
 
-This use-case relies on three fields added alongside it:
+Added alongside this use-case (`V6`):
 
 | Table | Column | Purpose |
 | --- | --- | --- |
 | `restaurants` | `is_open` (boolean, not null) | Step 2 — open/closed check. A flag, not opening hours. |
-| `menu_items` | `stock_quantity` (integer, not null) | Step 3 — stock check. |
-| `carts` | `restaurant_id` (fk, not null) | Rule 2 — the cart's restaurant, stored rather than derived through `CartItem -> MenuItem -> Menu -> Restaurant`. |
+| `menu_items` | `menu_item_name` (varchar, not null) | The table held only `menu_item_code`; a cart line needs a readable name. |
+
+Already present: `menu_items.menu_item_stock` for the stock check,
+`cart_items.cart_item_price` for the price snapshot, and `uq_cart_items_cart_menu_item`,
+which enforces Rule 1 in the database.
+
+The cart's restaurant is **not stored**. It is read from the cart's lines
+(`CartRepository.findRestaurantIdsByCartId`), and an empty cart has none — which is why an
+empty cart accepts an item from any restaurant.
 
 ## Diagram
 
@@ -76,8 +83,8 @@ flowchart TD
     Line --> Stock{"stock >= existing + requested?"}
     Stock -- No --> RejStock[/Reject: Item is not in stock/]
     Stock -- Yes --> HasCart{Cart exists?}
-    HasCart -- No --> Create[Create cart for customer + item's restaurant]
-    HasCart -- Yes --> Same{Same restaurant as cart?}
+    HasCart -- No --> Create[Create cart for customer]
+    HasCart -- Yes --> Same{"Cart empty, or same restaurant?"}
     Same -- No --> RejOther[/Reject: Item is of different restaurant/]
     Same -- Yes --> InCart{Item already in cart?}
     Create --> Insert[Insert CartItem]
@@ -123,7 +130,7 @@ sequenceDiagram
     end
 
     opt no cart
-        S->>CR: save(new Cart(customer, restaurant))
+        S->>CR: save(new Cart(customer))
         CR-->>S: Cart
     end
 
@@ -133,7 +140,7 @@ sequenceDiagram
         S->>CIR: save(new CartItem(cart, menuItem, quantity))
     end
 
-    S-->>C: cart view (totals computed on read)
+    S-->>C: cart view (totals from the captured line prices)
     C-->>Customer: 200 OK
 ```
 
