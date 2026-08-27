@@ -1,8 +1,12 @@
 package com.mentorship.restaurant.exception;
 
 import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
+import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
+import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
 import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
+import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
+import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import org.springframework.http.HttpStatus;
@@ -16,19 +20,35 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     CartItemNotFoundException.class,
+    CustomerNotFoundException.class,
+    MenuItemNotFoundException.class,
     InvalidQuantityException.class,
-    OutOfStockException.class
+    OutOfStockException.class,
+    RestaurantClosedException.class,
+    DifferentRestaurantException.class
   })
   public ResponseEntity<ApiErrorResponse> handleCartExceptions(
       RuntimeException exception, HttpServletRequest request) {
-    HttpStatus status =
-        exception instanceof CartItemNotFoundException
-            ? HttpStatus.NOT_FOUND
-            : exception instanceof OutOfStockException
-                ? HttpStatus.CONFLICT
-                : HttpStatus.BAD_REQUEST;
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
 
-    return buildResponse(status, exception.getMessage(), request.getRequestURI());
+  /**
+   * Every cart exception must be listed above and here. handleGenericException catches anything
+   * unlisted and turns it into a 500, and @ResponseStatus on the exception itself is ignored once
+   * an advice matches.
+   */
+  private HttpStatus statusOf(RuntimeException exception) {
+    if (exception instanceof CartItemNotFoundException
+        || exception instanceof CustomerNotFoundException
+        || exception instanceof MenuItemNotFoundException) {
+      return HttpStatus.NOT_FOUND;
+    }
+    if (exception instanceof OutOfStockException
+        || exception instanceof RestaurantClosedException
+        || exception instanceof DifferentRestaurantException) {
+      return HttpStatus.CONFLICT;
+    }
+    return HttpStatus.BAD_REQUEST;
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
