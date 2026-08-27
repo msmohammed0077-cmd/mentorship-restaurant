@@ -2,75 +2,90 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `POST /api/v1/carts/items` so a customer can add a menu item to their cart, per `.docs/use-cases/cart-management/add-cart-item/add-cart-item.md`.
+**Goal:** Implement `POST /api/v1/carts/items` so a customer can add a menu item to their cart, per `add-cart-item.md` in this directory.
 
 **Architecture:** The insert-vs-increment rule lives on the `Cart` entity, not the service. `CartService.addItem` orchestrates: load, guard (open → stock → same restaurant), get-or-create cart, delegate to the domain, map to a response. Flyway owns the schema; Hibernate validates the entities against it at boot.
 
-**Tech Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Flyway, PostgreSQL 16 (via `compose.yaml`), JUnit 5 + Mockito + RestTestClient.
+**Tech Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Flyway, PostgreSQL 16 (via `compose.yaml`), H2 in tests, JUnit 5 + Mockito + RestTestClient, Spotless.
 
-**Baseline:** assumes `feat/GH-15-ci` (PR #25) is merged. That branch provides `flyway-database-postgresql`, entities aligned to the migrations, tests running against real PostgreSQL with `ddl-auto=validate`, and `spring-boot-starter-webmvc-test`.
+**Baseline:** `main` as of the Spotless commit. Migrations run to `V5`, so this plan's migration is **`V6`**.
 
 ---
 
-## Decisions this plan makes — confirm before starting
+## Decisions this plan makes
 
-The schema on `main` moved after the use-case doc was written. Two consequences change the design, and both contradict the doc as it stands.
+**1. The cart's restaurant is derived, not stored.** Per the team decision, no `restaurant_id` column is added to `carts`. A cart's restaurant is inferred from its lines: `CartItem → MenuItem → Menu → Restaurant`. An empty cart has no restaurant and therefore accepts any, which is exactly the doc's "cart is empty OR same restaurant" rule.
 
-**1. The price snapshot is mandatory, not absent.** `cart_items.cart_item_price NUMERIC(12,2) NOT NULL CHECK (>= 0)` already exists, so a `CartItem` cannot be inserted without it. The doc's Totals section says the opposite — that no snapshot exists and a cart always reflects current menu prices.
+Consequences: `Cart.getRestaurant()` returns `Optional<Restaurant>`; the guard becomes `cart.accepts(restaurant)`, true for an empty cart; `CartResponse.restaurantId` is `null` for an empty cart; and every cart load must fetch its lines, so the repository needs **one** query method rather than two.
 
-This plan **captures `menu_item_price` into `cart_item_price` when a line is created** and computes totals from the captured value. A later menu price change does not reprice open carts. This is the better behaviour; the doc gets corrected in Task 8.
+**2. The price snapshot is mandatory.** `cart_items.cart_item_price NOT NULL CHECK (>= 0)` already exists, so a line cannot be inserted without a price. The doc's Totals section claims the opposite. This plan captures `menu_item_price` into `cart_item_price` at creation and computes totals from the captured value, so a menu price change never reprices open carts. Incrementing a line **keeps** its original price. Task 8 corrects the doc.
 
-*Sub-decision:* incrementing an existing line **keeps the original price** rather than refreshing it. The customer pays what they saw when they added it. A weighted-average rewrite is the alternative and is more surprising.
+**3. `menu_item_name` is added.** `menu_items` has `menu_item_code` (`'NK-KOFTA-01'`) and `menu_item_note` (a description sentence), but no name. A cart response needs a readable name, so V6 adds one and backfills the six seeded rows by code.
 
-**2. `menu_items` has no name column.** It has `menu_item_code` (`'NK-KOFTA-01'`) and `menu_item_image_url`, but nothing human-readable, so `CartItemResponse` has nothing to show.
+**4. Stock already exists.** `V4` added `menu_items.menu_item_stock` (NOT NULL, seeded 40–80). This plan **does not** add a stock column; it maps the existing one. Note the name is `menu_item_stock`, not `stock_quantity`.
 
-This plan **adds `menu_item_name VARCHAR(150) NOT NULL`** in the same migration and backfills the six seeded rows. The alternative — returning the code as the name — avoids a schema change but ships a visibly wrong API.
-
-**3. Item options remain out of scope.** `uq_cart_items_cart_menu_item UNIQUE (cart_id, menu_item_id)` already enforces one line per item, which matches the doc's reduced Rule 1.
+**5. Concurrency is out of scope.** Two concurrent adds by the same customer can both find no cart, and the second violates `carts.customer_id`'s unique constraint, surfacing as a 500. Concurrent increments can lose an update. The database constraints prevent corruption; the failure mode is a poor error, under a rare interleaving. Recorded on PR #27 rather than solved here.
 
 ## Global Constraints
 
 - Java 17. Spring Boot 4.1.0 (parent POM; do not change the version).
 - Package root: `com.mentorship.restaurant.cart`.
-- **No new Maven dependencies.**
 - `spring.jpa.hibernate.ddl-auto=validate` everywhere. Flyway owns the schema.
 - Rejection messages verbatim from the spec: `"Restaurant is closed"`, `"Item is not in stock"`, `"Item is of different restaurant"`.
-- A `CartItem` is unique by menu item alone.
+- A `CartItem` is unique by menu item alone; `uq_cart_items_cart_menu_item` already enforces it.
 - Stock is checked against the **resulting** quantity (existing line + requested), never the requested quantity alone.
 - Auth is out of scope: `customerId` arrives in the request body.
 - Entities keep their `protected` no-arg constructor for JPA; construction goes through static factories.
-- Endpoints live under `/api/v1`, matching `/api/v1/health`.
-- Every task ends with a commit. Branch `feat/GH-21-api-add-cart-item`, cut from `main` after #25 merges.
+- Endpoints live under `/api/v1`.
+- **Run `./mvnw spotless:apply` before every commit** — Spotless is on `main` and CI fails on unformatted code.
+- Every task ends with a commit. Branch: `feat/GH-21-api-add-cart-item`.
 
 ## Schema as it stands
 
-```
+```text
 users(user_id, user_name, user_email UQ, user_password)
 customers(customer_id, user_id UQ -> users)
 restaurants(restaurant_id, user_id UQ -> users, restaurant_name, restaurant_description)
 menus(menu_id, restaurant_id -> restaurants, menu_code UQ, menu_category)
 menu_items(menu_item_id, menu_id -> menus, menu_item_code UQ, menu_item_image_url,
-           menu_item_price NUMERIC(12,2) CHECK >= 0)
+           menu_item_price NUMERIC(12,2) CHECK >= 0,
+           menu_item_stock INTEGER NOT NULL,          -- V4
+           menu_item_note VARCHAR(255))               -- V4
 carts(cart_id, customer_id UQ -> customers)
 cart_items(cart_item_id, cart_id -> carts, menu_item_id -> menu_items,
            cart_item_quantity INTEGER CHECK > 0,
            cart_item_price NUMERIC(12,2) CHECK >= 0,
+           cart_item_note VARCHAR(255),               -- V5
            UNIQUE (cart_id, menu_item_id))
 ```
 
-`V2__seed_reference_data.sql` seeds customers 1–2, restaurants 1–2, menus 1–2, and menu items 1–3 (restaurant 1) and 4–6 (restaurant 2).
+Seeded data: `V2` seeds users 1–4, customers 1–2, restaurants 1–2, menus 1–2, menu items 1–6. `V3` seeds carts 1–2 (for customers 1 and 2) with three lines.
 
-**Tests use the seeded rows rather than constructing entities.** Several NOT NULL columns — `restaurants.user_id`, `menus.menu_code`, `menus.menu_category`, `menu_items.menu_item_code` — are mapped by no entity, so an entity-built `Restaurant` or `MenuItem` cannot be inserted at all. This shapes every test in the plan.
+**Both seeded customers already own a cart**, so nothing exercises "create a cart when the customer has none". V6 seeds a third customer with no cart, reserved as this use-case's fixture.
+
+**Note on seed strategy:** global seed data shared by every test is brittle — one test's cleanup breaks another's fixture. The agreed direction is for each test to seed only the data it needs. That refactor is not in this plan; V6's third customer is a stopgap that keeps this use-case from mutating existing seeds.
+
+## The identity sequence bug
+
+`V2` and `V3` insert explicit primary keys (`cart_id`, `user_id`, …) into `GENERATED BY DEFAULT AS IDENTITY` columns. That does **not** advance the underlying sequence, so the first row the application inserts reuses id 1 and collides. Verified against a freshly migrated database:
+
+```text
+INSERT INTO carts (customer_id) VALUES (2) RETURNING cart_id;
+ERROR:  duplicate key value violates unique constraint "carts_pkey"
+DETAIL:  Key (cart_id)=(1) already exists.
+```
+
+This blocks the very first cart the API creates. V6 resynchronises every seeded table's sequence.
 
 ## File Structure
 
 **Migration (new)**
-- `src/main/resources/db/migration/V3__add_cart_item_fields.sql`
+- `src/main/resources/db/migration/V6__add_cart_item_fields.sql`
 
 **Domain (modified)**
 - `model/entity/Restaurant.java` — `isOpen` + accessors
-- `model/entity/MenuItem.java` — `menuItemName`, `stockQuantity`, `hasStockFor(int)`, accessors
-- `model/entity/Cart.java` — `restaurant`, `items`, `create`, `addItem`, `findItem`, `belongsTo`, accessors
+- `model/entity/MenuItem.java` — `menuItemName`, `menuItemStock`, `hasStockFor(int)`, accessors
+- `model/entity/Cart.java` — `items`, `create`, `addItem`, `findItem`, `getRestaurant`, `accepts`, accessors
 - `model/entity/CartItem.java` — `price`, `create`, `increaseQuantityBy`, accessors
 - `model/entity/Menu.java`, `Customer.java` — accessors only
 
@@ -80,35 +95,35 @@ cart_items(cart_item_id, cart_id -> carts, menu_item_id -> menu_items,
 - `controller/CartExceptionHandler.java`, `controller/response/ErrorResponse.java` — new
 
 **Plumbing (modified)**
-- `repository/CartRepository.java` — two query methods
+- `repository/CartRepository.java` — one query method
 - `service/CartService.java` — implement `addItem`
 - `model/mapper/CartRestMapper.java` — build `CartResponse`, compute the total
 - `controller/response/CartResponse.java`, `CartItemResponse.java` — reshape
 - `controller/CartController.java` — the endpoint
 - `model/request/AddCartItemRequest.java` — validation
+- `pom.xml` — restore `spring-boot-starter-webmvc-test`
 
 **Tests (new)**
-- `model/entity/TestEntities.java` — shared in-memory entity builders
+- `model/entity/TestEntities.java` — in-memory entity builders
 - `model/entity/CartTest.java`, `MenuItemTest.java` — pure unit
 - `model/mapper/CartRestMapperTest.java` — pure unit
-- `service/CartServiceTest.java` — Mockito, covers all rejections
-- `repository/CartRepositoryTest.java` — `@DataJpaTest`
+- `service/CartServiceTest.java` — Mockito, covers every rejection
 - `cart/AddCartItemEndpointTest.java` — `@SpringBootTest(RANDOM_PORT)` + `RestTestClient`
 
 **Docs (modified)**
-- `.docs/use-cases/cart-management/add-cart-item/add-cart-item.md`
+- `add-cart-item.md` in this directory
 
 ---
 
-### Task 1: Migration for the new fields
+### Task 1: Migration V6
 
 **Files:**
-- Create: `src/main/resources/db/migration/V3__add_cart_item_fields.sql`
+- Create: `src/main/resources/db/migration/V6__add_cart_item_fields.sql`
 - Test: `src/test/java/com/mentorship/restaurant/RestaurantApplicationTests.java` (exists; booting it is the test)
 
 **Interfaces:**
-- Consumes: the V1/V2 schema.
-- Produces: `restaurants.is_open BOOLEAN NOT NULL`, `menu_items.stock_quantity INTEGER NOT NULL`, `menu_items.menu_item_name VARCHAR(150) NOT NULL`, `carts.restaurant_id BIGINT NOT NULL`.
+- Consumes: the V1–V5 schema.
+- Produces: `restaurants.is_open BOOLEAN NOT NULL`, `menu_items.menu_item_name VARCHAR(150) NOT NULL`, customer 3 with no cart, and resynchronised identity sequences.
 
 - [ ] **Step 1: Write the migration**
 
@@ -117,81 +132,88 @@ cart_items(cart_item_id, cart_id -> carts, menu_item_id -> menu_items,
 ALTER TABLE restaurants
     ADD COLUMN is_open BOOLEAN NOT NULL DEFAULT TRUE;
 
--- Step 3 of the use-case: stock check.
-ALTER TABLE menu_items
-    ADD COLUMN stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0);
-
--- menu_items carried no human-readable name, only menu_item_code.
+-- menu_items has menu_item_code and menu_item_note, but no readable name.
 ALTER TABLE menu_items
     ADD COLUMN menu_item_name VARCHAR(150);
 
-UPDATE menu_items SET menu_item_name = CASE menu_item_code
-    WHEN 'NK-KOFTA-01'   THEN 'Kofta Platter'
-    WHEN 'NK-FALAFEL-01' THEN 'Falafel Sandwich'
-    WHEN 'NK-KOSHARI-01' THEN 'Koshari Bowl'
-    WHEN 'BY-CLASSIC-01' THEN 'Classic Burger'
-    WHEN 'BY-CHICKEN-01' THEN 'Chicken Burger'
-    WHEN 'BY-FRIES-01'   THEN 'Fries'
-    ELSE menu_item_code
-END;
+UPDATE menu_items SET menu_item_name = 'Kofta Platter'    WHERE menu_item_code = 'NK-KOFTA-01';
+UPDATE menu_items SET menu_item_name = 'Falafel Sandwich' WHERE menu_item_code = 'NK-FALAFEL-01';
+UPDATE menu_items SET menu_item_name = 'Koshari Bowl'     WHERE menu_item_code = 'NK-KOSHARI-01';
+UPDATE menu_items SET menu_item_name = 'Classic Burger'   WHERE menu_item_code = 'BY-CLASSIC-01';
+UPDATE menu_items SET menu_item_name = 'Chicken Burger'   WHERE menu_item_code = 'BY-CHICKEN-01';
+UPDATE menu_items SET menu_item_name = 'Fries'            WHERE menu_item_code = 'BY-FRIES-01';
+
+-- No such rows exist today; this only makes the NOT NULL below safe if any
+-- were added between V2 and here.
+UPDATE menu_items SET menu_item_name = menu_item_code WHERE menu_item_name IS NULL;
 
 ALTER TABLE menu_items
     ALTER COLUMN menu_item_name SET NOT NULL;
 
--- Give the seeded items stock so they are orderable.
-UPDATE menu_items SET stock_quantity = 20;
+-- A customer with no cart. V3 gave both existing customers one, leaving nothing
+-- to exercise "create a cart when the customer has none".
+INSERT INTO users (user_id, user_name, user_email, user_password) VALUES
+    (5, 'Sara Nabil', 'sara.nabil@example.com', '$2a$10$placeholder.customer3');
 
--- Business Rule 2: a cart belongs to exactly one restaurant. Added nullable,
--- backfilled from the cart's existing lines, then constrained.
-ALTER TABLE carts
-    ADD COLUMN restaurant_id BIGINT REFERENCES restaurants (restaurant_id);
+INSERT INTO customers (customer_id, user_id) VALUES
+    (3, 5);
 
-UPDATE carts c
-SET restaurant_id = (
-    SELECT m.restaurant_id
-    FROM cart_items ci
-             JOIN menu_items mi ON mi.menu_item_id = ci.menu_item_id
-             JOIN menus m ON m.menu_id = mi.menu_id
-    WHERE ci.cart_id = c.cart_id
-    LIMIT 1
-)
-WHERE restaurant_id IS NULL;
-
-DELETE FROM cart_items WHERE cart_id IN (SELECT cart_id FROM carts WHERE restaurant_id IS NULL);
-DELETE FROM carts WHERE restaurant_id IS NULL;
-
-ALTER TABLE carts
-    ALTER COLUMN restaurant_id SET NOT NULL;
-
-CREATE INDEX idx_carts_restaurant_id ON carts (restaurant_id);
+-- V2 and V3 inserted explicit ids into GENERATED BY DEFAULT AS IDENTITY columns,
+-- which does not advance the sequences. Without this the first row the
+-- application inserts reuses id 1 and violates the primary key.
+SELECT setval(pg_get_serial_sequence('users', 'user_id'),
+              (SELECT MAX(user_id) FROM users));
+SELECT setval(pg_get_serial_sequence('customers', 'customer_id'),
+              (SELECT MAX(customer_id) FROM customers));
+SELECT setval(pg_get_serial_sequence('restaurants', 'restaurant_id'),
+              (SELECT MAX(restaurant_id) FROM restaurants));
+SELECT setval(pg_get_serial_sequence('menus', 'menu_id'),
+              (SELECT MAX(menu_id) FROM menus));
+SELECT setval(pg_get_serial_sequence('menu_items', 'menu_item_id'),
+              (SELECT MAX(menu_item_id) FROM menu_items));
+SELECT setval(pg_get_serial_sequence('carts', 'cart_id'),
+              (SELECT MAX(cart_id) FROM carts));
+SELECT setval(pg_get_serial_sequence('cart_items', 'cart_item_id'),
+              (SELECT MAX(cart_item_id) FROM cart_items));
 ```
 
-An empty cart has no derivable restaurant, so it is deleted rather than guessed at.
+No stock column is added — `V4` already provides `menu_item_stock`. No `carts.restaurant_id` — the cart's restaurant is derived from its lines.
 
-- [ ] **Step 2: Apply it against a clean database**
+- [ ] **Step 2: Apply it and confirm the sequence fix**
 
 ```bash
 docker compose down -v
 docker compose up -d --wait postgres
-./mvnw -B test -Dtest=RestaurantApplicationTests
+./mvnw -B test -Dtest=RestaurantApplicationTests \
+  -Dspring.datasource.url=jdbc:postgresql://localhost:55433/restaurant \
+  -Dspring.datasource.driver-class-name=org.postgresql.Driver \
+  -Dspring.datasource.username=postgres -Dspring.datasource.password=postgres
 ```
 
-Expected: PASS, and the log shows `Successfully applied 3 migrations`.
+Expected: PASS, log shows `Successfully applied 6 migrations`.
 
-- [ ] **Step 3: Confirm the data landed**
+Then prove the collision is gone:
 
 ```bash
-docker exec restaurant-postgres psql -U postgres -d restaurant -c \
-  "SELECT menu_item_name, menu_item_price, stock_quantity FROM menu_items ORDER BY menu_item_id LIMIT 3;"
+docker exec restaurant-postgres psql -U postgres -d restaurant \
+  -c "INSERT INTO carts (customer_id) VALUES (3) RETURNING cart_id;"
 ```
 
-Expected: three named rows (`Kofta Platter`, `Falafel Sandwich`, `Koshari Bowl`) with `stock_quantity` 20.
-
-- [ ] **Step 4: Commit**
+Expected: returns `cart_id` 3, not a duplicate-key error. Clean up with:
 
 ```bash
-git add src/main/resources/db/migration/V3__add_cart_item_fields.sql
-git commit -m "feat(db): add open flag, stock, item name and cart restaurant"
+docker exec restaurant-postgres psql -U postgres -d restaurant \
+  -c "DELETE FROM carts WHERE customer_id = 3;"
+```
+
+Note `pg_get_serial_sequence` is PostgreSQL-specific and the test suite runs on H2. If `RestaurantApplicationTests` fails under H2 with an unknown-function error, wrap the seven `setval` statements so they run only on PostgreSQL — the simplest route is moving them into a `V6_1__resync_sequences.sql` excluded from the H2 profile, or switching the test datasource back to PostgreSQL. Resolve this before continuing; the rest of the plan assumes the sequences are correct.
+
+- [ ] **Step 3: Format and commit**
+
+```bash
+./mvnw -B spotless:apply
+git add src/main/resources/db/migration/V6__add_cart_item_fields.sql
+git commit -m "feat(db): add open flag, item name, a cart-less customer and sequence resync"
 ```
 
 ---
@@ -201,24 +223,21 @@ git commit -m "feat(db): add open flag, stock, item name and cart restaurant"
 **Files:**
 - Modify: `model/entity/Restaurant.java`, `MenuItem.java`, `Cart.java`, `CartItem.java`, `Menu.java`, `Customer.java`
 - Create: `src/test/java/com/mentorship/restaurant/cart/model/entity/TestEntities.java`
-- Test: `src/test/java/com/mentorship/restaurant/cart/model/entity/CartTest.java`
-- Test: `src/test/java/com/mentorship/restaurant/cart/model/entity/MenuItemTest.java`
+- Test: `src/test/java/com/mentorship/restaurant/cart/model/entity/CartTest.java`, `MenuItemTest.java`
 
 **Interfaces:**
 - Consumes: Task 1's columns.
 - Produces:
   - `Restaurant.getId(): Long`, `getRestaurantName(): String`, `isOpen(): boolean`
-  - `MenuItem.getId(): Long`, `getMenuItemName(): String`, `getMenuItemPrice(): BigDecimal`, `getStockQuantity(): Integer`, `getMenu(): Menu`, `getRestaurant(): Restaurant`, `hasStockFor(int): boolean`
-  - `Cart.create(Customer, Restaurant): Cart`, `getId(): Long`, `getCustomer(): Customer`, `getRestaurant(): Restaurant`, `getItems(): List<CartItem>`, `addItem(MenuItem, int): CartItem`, `findItem(Long): Optional<CartItem>`, `belongsTo(Restaurant): boolean`
+  - `MenuItem.getId(): Long`, `getMenuItemName(): String`, `getMenuItemPrice(): BigDecimal`, `getMenuItemStock(): Integer`, `getMenu(): Menu`, `getRestaurant(): Restaurant`, `hasStockFor(int): boolean`
+  - `Cart.create(Customer): Cart`, `getId(): Long`, `getCustomer(): Customer`, `getItems(): List<CartItem>`, `getRestaurant(): Optional<Restaurant>`, `accepts(Restaurant): boolean`, `addItem(MenuItem, int): CartItem`, `findItem(Long): Optional<CartItem>`
   - `CartItem.getId(): Long`, `getMenuItem(): MenuItem`, `getQuantity(): Integer`, `getPrice(): BigDecimal`
   - `Menu.getRestaurant(): Restaurant`, `Customer.getId(): Long`
-  - `TestEntities.restaurant(Long, String, boolean)`, `menu(Restaurant)`, `menuItem(Long, Menu, String, String, int)`, `customer(Long)` — test scope only
+  - `TestEntities.restaurant(Long, String, boolean)`, `menu(Restaurant)`, `menuItem(Long, Menu, String, String, int)`, `customer(Long)` — test scope
 
-Only `Cart` and `CartItem` get factories. `Restaurant`, `Menu` and `MenuItem` have unmapped NOT NULL columns and so are never constructed by application code.
+`Restaurant`, `Menu` and `MenuItem` carry NOT NULL columns no entity maps (`user_id`, `menu_code`, `menu_item_code`), so they get no factory and are never constructed by application code.
 
 - [ ] **Step 1: Write the test entity builders**
-
-`Restaurant`, `Menu` and `MenuItem` cannot be built through a constructor, and unit tests must not need a database. `TestEntities` populates fields reflectively — acceptable in test scope, and it keeps production code free of setters that exist only for tests.
 
 ```java
 package com.mentorship.restaurant.cart.model.entity;
@@ -253,7 +272,7 @@ public final class TestEntities {
         set(item, "menu", menu);
         set(item, "menuItemName", name);
         set(item, "menuItemPrice", new BigDecimal(price));
-        set(item, "stockQuantity", stock);
+        set(item, "menuItemStock", stock);
         return item;
     }
 
@@ -273,8 +292,7 @@ public final class TestEntities {
         }
     }
 
-    private TestEntities() {
-    }
+    private TestEntities() {}
 }
 ```
 
@@ -291,14 +309,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CartTest {
 
-    private final Restaurant restaurant = TestEntities.restaurant(1L, "Nile Kitchen", true);
-    private final Menu menu = TestEntities.menu(restaurant);
-    private final MenuItem kofta = TestEntities.menuItem(1L, menu, "Kofta Platter", "185.00", 20);
-    private final MenuItem falafel = TestEntities.menuItem(2L, menu, "Falafel Sandwich", "65.00", 20);
+    private final Restaurant nileKitchen = TestEntities.restaurant(1L, "Nile Kitchen", true);
+    private final Restaurant burgerYard = TestEntities.restaurant(2L, "Burger Yard", true);
+    private final Menu nileMenu = TestEntities.menu(nileKitchen);
+    private final MenuItem kofta = TestEntities.menuItem(1L, nileMenu, "Kofta Platter", "185.00", 20);
+    private final MenuItem falafel = TestEntities.menuItem(2L, nileMenu, "Falafel Sandwich", "65.00", 20);
 
     @Test
     void addsANewLineWhenTheItemIsNotInTheCart() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
 
         cart.addItem(kofta, 2);
 
@@ -308,7 +327,7 @@ class CartTest {
 
     @Test
     void capturesThePriceWhenTheLineIsCreated() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
 
         cart.addItem(kofta, 1);
 
@@ -317,7 +336,7 @@ class CartTest {
 
     @Test
     void incrementsTheExistingLineWhenTheItemIsAlreadyInTheCart() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
 
         cart.addItem(kofta, 2);
         cart.addItem(kofta, 3);
@@ -328,9 +347,9 @@ class CartTest {
 
     @Test
     void keepsTheOriginalPriceWhenIncrementing() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
         cart.addItem(kofta, 1);
-        MenuItem repriced = TestEntities.menuItem(1L, menu, "Kofta Platter", "999.00", 20);
+        MenuItem repriced = TestEntities.menuItem(1L, nileMenu, "Kofta Platter", "999.00", 20);
 
         cart.addItem(repriced, 1);
 
@@ -339,7 +358,7 @@ class CartTest {
 
     @Test
     void keepsSeparateLinesForDifferentItems() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
 
         cart.addItem(kofta, 1);
         cart.addItem(falafel, 1);
@@ -349,7 +368,7 @@ class CartTest {
 
     @Test
     void findsAnExistingLineByMenuItemId() {
-        Cart cart = Cart.create(null, restaurant);
+        Cart cart = Cart.create(null);
         cart.addItem(kofta, 1);
 
         assertThat(cart.findItem(1L)).isPresent();
@@ -357,11 +376,33 @@ class CartTest {
     }
 
     @Test
-    void recognisesItsOwnRestaurant() {
-        Cart cart = Cart.create(null, restaurant);
+    void hasNoRestaurantWhileEmpty() {
+        assertThat(Cart.create(null).getRestaurant()).isEmpty();
+    }
 
-        assertThat(cart.belongsTo(restaurant)).isTrue();
-        assertThat(cart.belongsTo(TestEntities.restaurant(2L, "Burger Yard", true))).isFalse();
+    @Test
+    void takesItsRestaurantFromItsLines() {
+        Cart cart = Cart.create(null);
+        cart.addItem(kofta, 1);
+
+        assertThat(cart.getRestaurant()).contains(nileKitchen);
+    }
+
+    @Test
+    void anEmptyCartAcceptsAnyRestaurant() {
+        Cart cart = Cart.create(null);
+
+        assertThat(cart.accepts(nileKitchen)).isTrue();
+        assertThat(cart.accepts(burgerYard)).isTrue();
+    }
+
+    @Test
+    void aNonEmptyCartAcceptsOnlyItsOwnRestaurant() {
+        Cart cart = Cart.create(null);
+        cart.addItem(kofta, 1);
+
+        assertThat(cart.accepts(nileKitchen)).isTrue();
+        assertThat(cart.accepts(burgerYard)).isFalse();
     }
 }
 ```
@@ -402,7 +443,7 @@ class MenuItemTest {
 ./mvnw -B test -Dtest='CartTest,MenuItemTest'
 ```
 
-Expected: compilation failure — `cannot find symbol: method create(...)`, `hasStockFor(...)`.
+Expected: compilation failure — `cannot find symbol: method create(...)`, `accepts(...)`, `hasStockFor(...)`.
 
 - [ ] **Step 4: Implement the entity changes**
 
@@ -412,8 +453,7 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     @Column(name = "is_open", nullable = false)
     private boolean open;
 
-    protected Restaurant() {
-    }
+    protected Restaurant() {}
 
     public Long getId() {
         return id;
@@ -428,7 +468,7 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     }
 ```
 
-`Menu.java` — accessors only:
+`Menu.java`:
 
 ```java
     public Long getId() {
@@ -440,7 +480,7 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     }
 ```
 
-`Customer.java` — accessor only:
+`Customer.java`:
 
 ```java
     public Long getId() {
@@ -448,7 +488,7 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     }
 ```
 
-`MenuItem.java` — add the two new columns, rename the price field to match its column, add behaviour. Delete the existing `itemPrice` field; `menuItemPrice` below replaces it:
+`MenuItem.java` — map the two columns V4 and V6 added, rename the price field to match its column (delete the old `itemPrice`), and add behaviour:
 
 ```java
     @Column(name = "menu_item_name", nullable = false, length = 150)
@@ -457,14 +497,13 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     @Column(name = "menu_item_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal menuItemPrice;
 
-    @Column(name = "stock_quantity", nullable = false)
-    private Integer stockQuantity;
+    @Column(name = "menu_item_stock", nullable = false)
+    private Integer menuItemStock;
 
-    protected MenuItem() {
-    }
+    protected MenuItem() {}
 
     public boolean hasStockFor(int quantity) {
-        return stockQuantity >= quantity;
+        return menuItemStock >= quantity;
     }
 
     public Long getId() {
@@ -487,19 +526,18 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
         return menuItemPrice;
     }
 
-    public Integer getStockQuantity() {
-        return stockQuantity;
+    public Integer getMenuItemStock() {
+        return menuItemStock;
     }
 ```
 
-`CartItem.java` — add the mandatory price snapshot plus behaviour:
+`CartItem.java` — add the mandatory price snapshot:
 
 ```java
     @Column(name = "cart_item_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
-    protected CartItem() {
-    }
+    protected CartItem() {}
 
     static CartItem create(Cart cart, MenuItem menuItem, Integer quantity) {
         CartItem item = new CartItem();
@@ -535,25 +573,19 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
     }
 ```
 
-`create` and `increaseQuantityBy` are package-private on purpose: a `CartItem` is only ever created or changed through its `Cart`.
+`create` and `increaseQuantityBy` are package-private: a `CartItem` is only made or changed through its `Cart`.
 
-`Cart.java` — the substantive one. Add imports `jakarta.persistence.CascadeType`, `ManyToOne`, `OneToMany`, `java.util.ArrayList`, `List`, `Objects`, `Optional`:
+`Cart.java` — no `restaurant` field. Add imports `jakarta.persistence.CascadeType`, `OneToMany`, `java.util.ArrayList`, `List`, `Objects`, `Optional`:
 
 ```java
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    private Restaurant restaurant;
-
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items = new ArrayList<>();
 
-    protected Cart() {
-    }
+    protected Cart() {}
 
-    public static Cart create(Customer customer, Restaurant restaurant) {
+    public static Cart create(Customer customer) {
         Cart cart = new Cart();
         cart.customer = customer;
-        cart.restaurant = restaurant;
         return cart;
     }
 
@@ -580,8 +612,19 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
                 .findFirst();
     }
 
-    public boolean belongsTo(Restaurant other) {
-        return Objects.equals(restaurant.getId(), other.getId());
+    /**
+     * Business Rule 2: the cart's restaurant is not stored. It is whichever
+     * restaurant its lines belong to, and an empty cart has none.
+     */
+    public Optional<Restaurant> getRestaurant() {
+        return items.stream().findFirst().map(line -> line.getMenuItem().getRestaurant());
+    }
+
+    /** True when the cart is empty, or already belongs to this restaurant. */
+    public boolean accepts(Restaurant other) {
+        return getRestaurant()
+                .map(current -> Objects.equals(current.getId(), other.getId()))
+                .orElse(true);
     }
 
     public Long getId() {
@@ -590,10 +633,6 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
 
     public Customer getCustomer() {
         return customer;
-    }
-
-    public Restaurant getRestaurant() {
-        return restaurant;
     }
 
     public List<CartItem> getItems() {
@@ -609,168 +648,79 @@ Expected: compilation failure — `cannot find symbol: method create(...)`, `has
 ./mvnw -B test -Dtest='CartTest,MenuItemTest'
 ```
 
-Expected: PASS, 10 tests.
+Expected: PASS, 13 tests.
 
 - [ ] **Step 6: Verify the entities still match the schema**
 
 ```bash
-docker compose up -d --wait postgres
 ./mvnw -B test -Dtest=RestaurantApplicationTests
 ```
 
-Expected: PASS. This catches a mistyped column name in the new mappings.
+Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Format and commit**
 
 ```bash
+./mvnw -B spotless:apply
 git add src/main/java/com/mentorship/restaurant/cart/model/entity src/test/java/com/mentorship/restaurant/cart/model/entity
 git commit -m "feat(cart): give the cart domain behaviour and the new fields"
 ```
 
 ---
 
-### Task 3: Repository lookups
+### Task 3: Repository lookup
+
+Because the cart's restaurant is derived from its lines, every load needs those lines. One query method covers it.
 
 **Files:**
 - Modify: `src/main/java/com/mentorship/restaurant/cart/repository/CartRepository.java`
-- Test: `src/test/java/com/mentorship/restaurant/cart/repository/CartRepositoryTest.java`
 
 **Interfaces:**
 - Consumes: Task 2's entities.
-- Produces: `CartRepository.findByCustomerId(Long): Optional<Cart>`, `CartRepository.findWithItemsByCustomerId(Long): Optional<Cart>`
+- Produces: `CartRepository.findWithItemsByCustomerId(Long): Optional<Cart>`
 
-- [ ] **Step 1: Write the failing repository test**
+No dedicated repository test: Task 7 exercises this query end to end against a real database, and a `@DataJpaTest` would duplicate it while needing its own fixture handling.
 
-`@AutoConfigureTestDatabase(replace = NONE)` is essential — without it Boot substitutes an embedded database and the PostgreSQL migrations never run. Fixtures are the seeded rows.
-
-```java
-package com.mentorship.restaurant.cart.repository;
-
-import java.util.Optional;
-
-import com.mentorship.restaurant.cart.model.entity.Cart;
-import com.mentorship.restaurant.cart.model.entity.Customer;
-import com.mentorship.restaurant.cart.model.entity.MenuItem;
-import com.mentorship.restaurant.cart.model.entity.Restaurant;
-import jakarta.persistence.EntityManager;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class CartRepositoryTest {
-
-    private static final Long SEEDED_CUSTOMER = 1L;
-    private static final Long SEEDED_RESTAURANT = 1L;
-    private static final Long SEEDED_MENU_ITEM = 1L;
-
-    @Autowired
-    private CartRepository cartRepository;
-
-    @Autowired
-    private EntityManager entityManager;
-
-    @Test
-    void returnsEmptyWhenTheCustomerHasNoCart() {
-        assertThat(cartRepository.findByCustomerId(SEEDED_CUSTOMER)).isEmpty();
-    }
-
-    @Test
-    void findsACartByCustomerId() {
-        cartRepository.save(Cart.create(customer(), restaurant()));
-
-        Optional<Cart> found = cartRepository.findByCustomerId(SEEDED_CUSTOMER);
-
-        assertThat(found).isPresent();
-        assertThat(found.get().getRestaurant().getId()).isEqualTo(SEEDED_RESTAURANT);
-    }
-
-    @Test
-    void loadsACartTogetherWithItsItems() {
-        Cart cart = Cart.create(customer(), restaurant());
-        cart.addItem(menuItem(), 2);
-        cartRepository.save(cart);
-
-        entityManager.flush();
-        entityManager.clear();
-
-        Optional<Cart> found = cartRepository.findWithItemsByCustomerId(SEEDED_CUSTOMER);
-
-        assertThat(found).isPresent();
-        assertThat(found.get().getItems()).hasSize(1);
-        assertThat(found.get().getItems().get(0).getQuantity()).isEqualTo(2);
-        assertThat(found.get().getItems().get(0).getPrice()).isEqualByComparingTo("185.00");
-    }
-
-    private Customer customer() {
-        return entityManager.getReference(Customer.class, SEEDED_CUSTOMER);
-    }
-
-    private Restaurant restaurant() {
-        return entityManager.find(Restaurant.class, SEEDED_RESTAURANT);
-    }
-
-    private MenuItem menuItem() {
-        return entityManager.find(MenuItem.class, SEEDED_MENU_ITEM);
-    }
-}
-```
-
-`@DataJpaTest` is transactional and rolls back after each test, so the seeded data survives untouched.
-
-- [ ] **Step 2: Run the test to verify it fails**
-
-```bash
-./mvnw -B test -Dtest=CartRepositoryTest
-```
-
-Expected: compilation failure — `cannot find symbol: method findByCustomerId`.
-
-- [ ] **Step 3: Add the query methods**
+- [ ] **Step 1: Add the query method**
 
 ```java
 package com.mentorship.restaurant.cart.repository;
 
-import java.util.Optional;
-
 import com.mentorship.restaurant.cart.model.entity.Cart;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface CartRepository extends JpaRepository<Cart, Long> {
 
-    Optional<Cart> findByCustomerId(Long customerId);
-
     @Query("""
             select c from Cart c
             left join fetch c.items i
-            left join fetch i.menuItem
+            left join fetch i.menuItem m
+            left join fetch m.menu mm
+            left join fetch mm.restaurant
             where c.customer.id = :customerId
             """)
     Optional<Cart> findWithItemsByCustomerId(Long customerId);
 }
 ```
 
-The `join fetch` on `menuItem` matters: the mapper reads each line's name, and with `open-in-view=false` a lazy hop outside the transaction throws `LazyInitializationException`.
+The fetch chain runs all the way to `restaurant` because `Cart.getRestaurant()` walks it, and with `open-in-view=false` a lazy hop outside the transaction throws `LazyInitializationException`.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [ ] **Step 2: Verify it compiles**
 
 ```bash
-docker compose up -d --wait postgres
-./mvnw -B test -Dtest=CartRepositoryTest
+./mvnw -B -q compile
 ```
 
-Expected: PASS, 3 tests.
+Expected: no output, exit 0.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Format and commit**
 
 ```bash
-git add src/main/java/com/mentorship/restaurant/cart/repository src/test/java/com/mentorship/restaurant/cart/repository
-git commit -m "feat(cart): add cart lookup queries"
+./mvnw -B spotless:apply
+git add src/main/java/com/mentorship/restaurant/cart/repository
+git commit -m "feat(cart): add the cart lookup query"
 ```
 
 ---
@@ -853,17 +803,11 @@ public class InvalidQuantityException extends RuntimeException {
 
 Leave `EmptyCartException` and `CartNotEditableException` alone — they belong to other use-cases.
 
-- [ ] **Step 3: Verify it compiles**
+- [ ] **Step 3: Verify it compiles, format and commit**
 
 ```bash
 ./mvnw -B -q compile
-```
-
-Expected: no output, exit 0.
-
-- [ ] **Step 4: Commit**
-
-```bash
+./mvnw -B spotless:apply
 git add src/main/java/com/mentorship/restaurant/cart/exception
 git commit -m "feat(cart): add add-to-cart rejection exceptions"
 ```
@@ -873,10 +817,9 @@ git commit -m "feat(cart): add add-to-cart rejection exceptions"
 ### Task 5: The service and the mapper
 
 **Files:**
-- Modify: `service/CartService.java`, `model/mapper/CartRestMapper.java`, `controller/response/CartResponse.java`, `controller/response/CartItemResponse.java`
+- Modify: `service/CartService.java`, `model/mapper/CartRestMapper.java`, `controller/response/CartResponse.java`, `CartItemResponse.java`
 - Create: `src/test/java/com/mentorship/restaurant/cart/model/mapper/CartFixtures.java`
-- Test: `src/test/java/com/mentorship/restaurant/cart/model/mapper/CartRestMapperTest.java`
-- Test: `src/test/java/com/mentorship/restaurant/cart/service/CartServiceTest.java`
+- Test: `src/test/java/com/mentorship/restaurant/cart/model/mapper/CartRestMapperTest.java`, `src/test/java/com/mentorship/restaurant/cart/service/CartServiceTest.java`
 
 **Interfaces:**
 - Consumes: Tasks 2–4.
@@ -901,7 +844,7 @@ final class CartFixtures {
     private static final Menu MENU = TestEntities.menu(RESTAURANT);
 
     static Cart emptyCart() {
-        return Cart.create(null, RESTAURANT);
+        return Cart.create(TestEntities.customer(1L));
     }
 
     static Cart cartWith(String firstPrice, int firstQuantity, String secondPrice, int secondQuantity) {
@@ -913,8 +856,7 @@ final class CartFixtures {
         return cart;
     }
 
-    private CartFixtures() {
-    }
+    private CartFixtures() {}
 }
 ```
 
@@ -943,11 +885,18 @@ class CartRestMapperTest {
     }
 
     @Test
-    void returnsAZeroTotalForAnEmptyCart() {
+    void reportsTheRestaurantOfTheCartsLines() {
+        assertThat(mapper.toResponse(CartFixtures.cartWith("185.00", 1, "65.00", 1)).restaurantId())
+                .isEqualTo(1L);
+    }
+
+    @Test
+    void returnsAZeroTotalAndNoRestaurantForAnEmptyCart() {
         CartResponse response = mapper.toResponse(CartFixtures.emptyCart());
 
         assertThat(response.total()).isEqualByComparingTo("0");
         assertThat(response.items()).isEmpty();
+        assertThat(response.restaurantId()).isNull();
     }
 }
 ```
@@ -956,8 +905,6 @@ class CartRestMapperTest {
 
 ```java
 package com.mentorship.restaurant.cart.service;
-
-import java.util.Optional;
 
 import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
 import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
@@ -975,6 +922,7 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -994,19 +942,15 @@ class CartServiceTest {
     private static final Long CUSTOMER_ID = 1L;
     private static final Long MENU_ITEM_ID = 10L;
 
-    @Mock
-    private CartRepository cartRepository;
-    @Mock
-    private CartItemRepository cartItemRepository;
-    @Mock
-    private CustomerRepository customerRepository;
-    @Mock
-    private MenuItemRepository menuItemRepository;
+    @Mock private CartRepository cartRepository;
+    @Mock private CartItemRepository cartItemRepository;
+    @Mock private CustomerRepository customerRepository;
+    @Mock private MenuItemRepository menuItemRepository;
 
     private CartService cartService;
 
     private Customer customer;
-    private Restaurant openRestaurant;
+    private Restaurant nileKitchen;
     private MenuItem kofta;
 
     @BeforeEach
@@ -1015,8 +959,8 @@ class CartServiceTest {
                 menuItemRepository, new CartRestMapper());
 
         customer = TestEntities.customer(CUSTOMER_ID);
-        openRestaurant = TestEntities.restaurant(1L, "Nile Kitchen", true);
-        Menu menu = TestEntities.menu(openRestaurant);
+        nileKitchen = TestEntities.restaurant(1L, "Nile Kitchen", true);
+        Menu menu = TestEntities.menu(nileKitchen);
         kofta = TestEntities.menuItem(MENU_ITEM_ID, menu, "Kofta Platter", "185.00", 5);
 
         lenient().when(customerRepository.findById(CUSTOMER_ID)).thenReturn(Optional.of(customer));
@@ -1058,7 +1002,7 @@ class CartServiceTest {
 
     @Test
     void rejectsAQuantityBeyondStock() {
-        when(cartRepository.findByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
+        when(cartRepository.findWithItemsByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 6))
                 .isInstanceOf(OutOfStockException.class)
@@ -1067,9 +1011,9 @@ class CartServiceTest {
 
     @Test
     void rejectsAnIncrementThatWouldExceedStock() {
-        Cart cart = Cart.create(customer, openRestaurant);
+        Cart cart = Cart.create(customer);
         cart.addItem(kofta, 3);
-        when(cartRepository.findByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(cart));
+        when(cartRepository.findWithItemsByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 3))
                 .isInstanceOf(OutOfStockException.class)
@@ -1078,8 +1022,11 @@ class CartServiceTest {
 
     @Test
     void rejectsAnItemFromADifferentRestaurant() {
-        Cart cart = Cart.create(customer, TestEntities.restaurant(2L, "Burger Yard", true));
-        when(cartRepository.findByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(cart));
+        Restaurant burgerYard = TestEntities.restaurant(2L, "Burger Yard", true);
+        MenuItem burger = TestEntities.menuItem(20L, TestEntities.menu(burgerYard), "Classic Burger", "120.00", 5);
+        Cart cart = Cart.create(customer);
+        cart.addItem(burger, 1);
+        when(cartRepository.findWithItemsByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 1))
                 .isInstanceOf(DifferentRestaurantException.class)
@@ -1087,28 +1034,28 @@ class CartServiceTest {
     }
 
     @Test
+    void acceptsAnyRestaurantIntoAnExistingEmptyCart() {
+        when(cartRepository.findWithItemsByCustomerId(CUSTOMER_ID))
+                .thenReturn(Optional.of(Cart.create(customer)));
+
+        cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 1);
+
+        verify(cartRepository, never()).save(any(Cart.class));
+    }
+
+    @Test
     void createsACartWhenTheCustomerHasNone() {
-        when(cartRepository.findByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
+        when(cartRepository.findWithItemsByCustomerId(CUSTOMER_ID)).thenReturn(Optional.empty());
         when(cartRepository.save(any(Cart.class))).thenAnswer(call -> call.getArgument(0));
 
         cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 2);
 
         verify(cartRepository).save(any(Cart.class));
     }
-
-    @Test
-    void reusesTheExistingCart() {
-        Cart cart = Cart.create(customer, openRestaurant);
-        when(cartRepository.findByCustomerId(CUSTOMER_ID)).thenReturn(Optional.of(cart));
-
-        cartService.addItem(CUSTOMER_ID, MENU_ITEM_ID, 2);
-
-        verify(cartRepository, never()).save(any(Cart.class));
-    }
 }
 ```
 
-`rejectsAnIncrementThatWouldExceedStock` pins the resulting-quantity rule: stock 5, cart already holds 3, adding 3 more must fail even though 3 alone would pass.
+`rejectsAnIncrementThatWouldExceedStock` pins the resulting-quantity rule: stock 5, cart holds 3, adding 3 more must fail even though 3 alone would pass. `acceptsAnyRestaurantIntoAnExistingEmptyCart` pins the derived-restaurant rule — an emptied cart is not locked to its former restaurant.
 
 - [ ] **Step 3: Run both tests to verify they fail**
 
@@ -1133,9 +1080,7 @@ public record CartItemResponse(
         String menuItemName,
         BigDecimal price,
         Integer quantity,
-        BigDecimal lineTotal
-) {
-}
+        BigDecimal lineTotal) {}
 ```
 
 `CartResponse.java`:
@@ -1151,35 +1096,32 @@ public record CartResponse(
         Long customerId,
         Long restaurantId,
         List<CartItemResponse> items,
-        BigDecimal total
-) {
-}
+        BigDecimal total) {}
 ```
 
-`price` is the captured line price, not the current menu price.
+`price` is the captured line price, not the current menu price. `restaurantId` is null for an empty cart.
 
 - [ ] **Step 5: Implement the mapper**
 
 ```java
 package com.mentorship.restaurant.cart.model.mapper;
 
-import java.math.BigDecimal;
-import java.util.List;
-
 import com.mentorship.restaurant.cart.controller.response.CartItemResponse;
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
 import com.mentorship.restaurant.cart.model.entity.Cart;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
 import com.mentorship.restaurant.cart.model.entity.Customer;
+import com.mentorship.restaurant.cart.model.entity.Restaurant;
+import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CartRestMapper {
 
     public CartResponse toResponse(Cart cart) {
-        List<CartItemResponse> items = cart.getItems().stream()
-                .map(this::toItemResponse)
-                .toList();
+        List<CartItemResponse> items =
+                cart.getItems().stream().map(this::toItemResponse).toList();
 
         BigDecimal total = items.stream()
                 .map(CartItemResponse::lineTotal)
@@ -1189,10 +1131,9 @@ public class CartRestMapper {
         return new CartResponse(
                 cart.getId(),
                 customer == null ? null : customer.getId(),
-                cart.getRestaurant().getId(),
+                cart.getRestaurant().map(Restaurant::getId).orElse(null),
                 items,
-                total
-        );
+                total);
     }
 
     private CartItemResponse toItemResponse(CartItem line) {
@@ -1202,19 +1143,14 @@ public class CartRestMapper {
                 line.getMenuItem().getMenuItemName(),
                 line.getPrice(),
                 line.getQuantity(),
-                line.getPrice().multiply(BigDecimal.valueOf(line.getQuantity()))
-        );
+                line.getPrice().multiply(BigDecimal.valueOf(line.getQuantity())));
     }
 }
 ```
 
-The total derives from the captured line prices, so it is stable against menu price changes.
-
 - [ ] **Step 6: Implement the service**
 
 Add the mapper to the constructor and replace the body of `addItem`. Leave the other five methods throwing `UnsupportedOperationException` — they belong to #3, #4, #5, #6, #7.
-
-Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Customer`, `MenuItem`, `Restaurant`, `CartRestMapper`, `org.springframework.transaction.annotation.Transactional`.
 
 ```java
     private final CartRestMapper cartRestMapper;
@@ -1224,8 +1160,7 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
             CartItemRepository cartItemRepository,
             CustomerRepository customerRepository,
             MenuItemRepository menuItemRepository,
-            CartRestMapper cartRestMapper
-    ) {
+            CartRestMapper cartRestMapper) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.customerRepository = customerRepository;
@@ -1241,9 +1176,11 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
             throw new InvalidQuantityException("Quantity must be greater than zero");
         }
 
-        Customer customer = customerRepository.findById(command.customerId())
+        Customer customer = customerRepository
+                .findById(command.customerId())
                 .orElseThrow(() -> new NotFoundException("Customer not found"));
-        MenuItem menuItem = menuItemRepository.findById(command.menuItemId())
+        MenuItem menuItem = menuItemRepository
+                .findById(command.menuItemId())
                 .orElseThrow(() -> new NotFoundException("Item not found"));
         Restaurant restaurant = menuItem.getRestaurant();
 
@@ -1252,7 +1189,7 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
             throw new RestaurantClosedException("Restaurant is closed");
         }
 
-        Cart cart = cartRepository.findByCustomerId(command.customerId()).orElse(null);
+        Cart cart = cartRepository.findWithItemsByCustomerId(command.customerId()).orElse(null);
 
         // Step 3 - against the resulting quantity, so repeated adds cannot walk
         // past available stock one call at a time.
@@ -1263,14 +1200,14 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
             throw new OutOfStockException("Item is not in stock");
         }
 
-        // Step 4
-        if (cart != null && !cart.belongsTo(restaurant)) {
+        // Step 4 - an empty cart accepts any restaurant.
+        if (cart != null && !cart.accepts(restaurant)) {
             throw new DifferentRestaurantException("Item is of different restaurant");
         }
 
         // Step 5
         if (cart == null) {
-            cart = cartRepository.save(Cart.create(customer, restaurant));
+            cart = cartRepository.save(Cart.create(customer));
         }
 
         // Step 6 / Flow 1a
@@ -1280,7 +1217,9 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
     }
 ```
 
-`cartItemRepository` stays injected but unused here — `CascadeType.ALL` on `Cart.items` persists new lines, and the other use-cases need the repository.
+`alreadyInCart + command.quantity()` is `int` arithmetic. It cannot overflow because Task 6 caps the request quantity with `@Max`; without that cap `Integer.MAX_VALUE` would wrap negative and pass the stock check.
+
+`cartItemRepository` stays injected but unused here — `CascadeType.ALL` on `Cart.items` persists new lines, and other use-cases need it.
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
@@ -1288,11 +1227,12 @@ Imports to add: `CartResponse`, the five exceptions, `Cart`, `CartItem`, `Custom
 ./mvnw -B test -Dtest='CartServiceTest,CartRestMapperTest'
 ```
 
-Expected: PASS, 11 tests.
+Expected: PASS, 12 tests.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Format and commit**
 
 ```bash
+./mvnw -B spotless:apply
 git add src/main/java/com/mentorship/restaurant/cart src/test/java/com/mentorship/restaurant/cart
 git commit -m "feat(cart): implement add-to-cart in the service layer"
 ```
@@ -1309,22 +1249,22 @@ git commit -m "feat(cart): implement add-to-cart in the service layer"
 - Consumes: Tasks 4–5.
 - Produces: `POST /api/v1/carts/items` returning `201 Created` with a `CartResponse`; `ErrorResponse(String message)`.
 
-No slice test here — Task 7 covers the endpoint end to end, and a `@WebMvcTest` would duplicate it.
-
 - [ ] **Step 1: Add validation to the request record**
 
 ```java
 package com.mentorship.restaurant.cart.model.request;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public record AddCartItemRequest(
         @NotNull Long customerId,
         @NotNull Long menuItemId,
-        @NotNull @Min(1) Integer quantity
-) {
-}
+        // Max keeps the service's int arithmetic safe: without it a quantity of
+        // Integer.MAX_VALUE would wrap negative when added to the existing line
+        // and slip past the stock check.
+        @NotNull @Min(1) @Max(1000) Integer quantity) {}
 ```
 
 - [ ] **Step 2: Create the error response record**
@@ -1332,8 +1272,7 @@ public record AddCartItemRequest(
 ```java
 package com.mentorship.restaurant.cart.controller.response;
 
-public record ErrorResponse(String message) {
-}
+public record ErrorResponse(String message) {}
 ```
 
 - [ ] **Step 3: Create the exception handler**
@@ -1357,9 +1296,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class CartExceptionHandler {
 
     @ExceptionHandler({
-            RestaurantClosedException.class,
-            OutOfStockException.class,
-            DifferentRestaurantException.class
+        RestaurantClosedException.class,
+        OutOfStockException.class,
+        DifferentRestaurantException.class
     })
     ResponseEntity<ErrorResponse> handleConflict(RuntimeException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -1426,18 +1365,11 @@ public class CartController {
 
 `customerId` comes from the body until authentication exists, at which point it moves to the authenticated principal.
 
-- [ ] **Step 5: Verify it compiles and existing tests still pass**
+- [ ] **Step 5: Verify existing tests still pass, format and commit**
 
 ```bash
-docker compose up -d --wait postgres
 ./mvnw -B test
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
+./mvnw -B spotless:apply
 git add src/main/java/com/mentorship/restaurant/cart/controller src/main/java/com/mentorship/restaurant/cart/model/request
 git commit -m "feat(cart): expose POST /api/v1/carts/items"
 ```
@@ -1446,25 +1378,40 @@ git commit -m "feat(cart): expose POST /api/v1/carts/items"
 
 ### Task 7: End-to-end verification
 
-Walks the main flow and the rejections that seeded data can express, over real HTTP against real PostgreSQL, following the pattern `HealthEndpointTest` established.
+Walks the main flow and the rejections the seeded data can express, over real HTTP.
 
 **Files:**
+- Modify: `pom.xml`
 - Test: `src/test/java/com/mentorship/restaurant/cart/AddCartItemEndpointTest.java`
 
 **Interfaces:**
 - Consumes: Tasks 1–6.
 
-Two constraints shape this test:
+Three constraints shape this test:
 
-1. **`@Transactional` rolls back nothing the server did.** Requests run on server threads in their own transactions, and the compose volume persists between runs. A cart left behind breaks the next test, because `carts.customer_id` is unique. So the test deletes carts in `@BeforeEach`.
-2. **Closed-restaurant and out-of-stock need fixtures the seed data lacks.** Both restaurants are open and every item has stock. Those flows are covered by `CartServiceTest` (Task 5), which is where they belong; this test proves what only end-to-end can — the wiring, the HTTP contract, and persistence.
+1. **`spring-boot-starter-webmvc-test` was removed from the pom** when the health test was deleted. It is what brings `spring-boot-resttestclient`, so `RestTestClient` is unavailable until it is restored.
+2. **`@Transactional` rolls back nothing the server did.** Requests run on server threads in their own transactions. The test therefore uses **customer 3**, seeded by V6 with no cart, and cleans up only that customer's cart. It never touches carts 1 or 2.
+3. **Closed-restaurant and out-of-stock need fixtures the seed data lacks** — both restaurants are open and every item has stock 40+. Those flows are covered by `CartServiceTest`.
 
-- [ ] **Step 1: Write the end-to-end test**
+- [ ] **Step 1: Restore the test dependency**
+
+In `pom.xml`, after `spring-boot-starter-test`:
+
+```xml
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+```
+
+- [ ] **Step 2: Write the end-to-end test**
 
 ```java
 package com.mentorship.restaurant.cart;
 
 import com.mentorship.restaurant.cart.repository.CartRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1480,144 +1427,169 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureRestTestClient
 class AddCartItemEndpointTest {
 
-    private static final long CUSTOMER = 1L;
+    /** Seeded by V6 with no cart, reserved for this test. Carts 1 and 2 are never touched. */
+    private static final long CUSTOMER = 3L;
+
     private static final long KOFTA = 1L;          // restaurant 1, 185.00
     private static final long FALAFEL = 2L;        // restaurant 1, 65.00
     private static final long CLASSIC_BURGER = 4L; // restaurant 2, 120.00
 
-    @Autowired
-    private RestTestClient client;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private CartRepository cartRepository;
+    @Autowired private RestTestClient client;
+    @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private CartRepository cartRepository;
 
     @BeforeEach
-    void clearCarts() {
-        // Requests run in the server's own transactions, so nothing here rolls
-        // back. carts.customer_id is unique, so leftovers break the next test.
-        jdbcTemplate.update("DELETE FROM cart_items");
-        jdbcTemplate.update("DELETE FROM carts");
+    @AfterEach
+    void clearThisCustomersCart() {
+        // Requests run in the server's own transactions, so nothing rolls back.
+        // Scoped to this customer: a blanket delete would destroy V3's seeded carts,
+        // and Flyway will not re-run V3 to restore them.
+        jdbcTemplate.update(
+                "DELETE FROM cart_items WHERE cart_id IN (SELECT cart_id FROM carts WHERE customer_id = ?)",
+                CUSTOMER);
+        jdbcTemplate.update("DELETE FROM carts WHERE customer_id = ?", CUSTOMER);
     }
 
     @Test
     void addsAnItemAndCreatesTheCart() {
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(KOFTA, 2))
                 .exchange()
-                .expectStatus().isCreated()
+                .expectStatus()
+                .isCreated()
                 .expectBody()
-                .jsonPath("$.restaurantId").isEqualTo(1)
-                .jsonPath("$.items.length()").isEqualTo(1)
-                .jsonPath("$.items[0].menuItemName").isEqualTo("Kofta Platter")
-                .jsonPath("$.items[0].quantity").isEqualTo(2)
-                .jsonPath("$.total").isEqualTo(370.00);
+                .jsonPath("$.restaurantId")
+                .isEqualTo(1)
+                .jsonPath("$.items.length()")
+                .isEqualTo(1)
+                .jsonPath("$.items[0].menuItemName")
+                .isEqualTo("Kofta Platter")
+                .jsonPath("$.items[0].quantity")
+                .isEqualTo(2)
+                .jsonPath("$.total")
+                .isEqualTo(370.00);
 
-        assertThat(cartRepository.findByCustomerId(CUSTOMER)).isPresent();
+        assertThat(cartRepository.findWithItemsByCustomerId(CUSTOMER)).isPresent();
     }
 
     @Test
     void incrementsInsteadOfAddingASecondLine() {
         addItem(KOFTA, 2);
 
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(KOFTA, 1))
                 .exchange()
-                .expectStatus().isCreated()
+                .expectStatus()
+                .isCreated()
                 .expectBody()
-                .jsonPath("$.items.length()").isEqualTo(1)
-                .jsonPath("$.items[0].quantity").isEqualTo(3)
-                .jsonPath("$.total").isEqualTo(555.00);
+                .jsonPath("$.items.length()")
+                .isEqualTo(1)
+                .jsonPath("$.items[0].quantity")
+                .isEqualTo(3)
+                .jsonPath("$.total")
+                .isEqualTo(555.00);
     }
 
     @Test
     void keepsSeparateLinesForDifferentItemsOfTheSameRestaurant() {
         addItem(KOFTA, 1);
 
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(FALAFEL, 1))
                 .exchange()
-                .expectStatus().isCreated()
+                .expectStatus()
+                .isCreated()
                 .expectBody()
-                .jsonPath("$.items.length()").isEqualTo(2)
-                .jsonPath("$.total").isEqualTo(250.00);
+                .jsonPath("$.items.length()")
+                .isEqualTo(2)
+                .jsonPath("$.total")
+                .isEqualTo(250.00);
     }
 
     @Test
     void rejectsAnItemFromADifferentRestaurant() {
         addItem(KOFTA, 1);
 
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(CLASSIC_BURGER, 1))
                 .exchange()
-                .expectStatus().isEqualTo(409)
+                .expectStatus()
+                .isEqualTo(409)
                 .expectBody()
-                .jsonPath("$.message").isEqualTo("Item is of different restaurant");
+                .jsonPath("$.message")
+                .isEqualTo("Item is of different restaurant");
     }
 
     @Test
     void rejectsAnUnknownItem() {
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(9999L, 1))
                 .exchange()
-                .expectStatus().isNotFound();
+                .expectStatus()
+                .isNotFound();
     }
 
     @Test
     void rejectsAQuantityOfZero() {
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(KOFTA, 0))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus()
+                .isBadRequest();
     }
 
     private String body(long menuItemId, int quantity) {
         return """
                 {"customerId": %d, "menuItemId": %d, "quantity": %d}
-                """.formatted(CUSTOMER, menuItemId, quantity);
+                """
+                .formatted(CUSTOMER, menuItemId, quantity);
     }
 
     private void addItem(long menuItemId, int quantity) {
-        client.post().uri("/api/v1/carts/items")
+        client.post()
+                .uri("/api/v1/carts/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body(menuItemId, quantity))
                 .exchange()
-                .expectStatus().isCreated();
+                .expectStatus()
+                .isCreated();
     }
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [ ] **Step 3: Run it**
 
 ```bash
-docker compose up -d --wait postgres
 ./mvnw -B test -Dtest=AddCartItemEndpointTest
 ```
 
 Expected: PASS, 6 tests.
 
-- [ ] **Step 3: Run the whole suite from a clean database**
+- [ ] **Step 4: Run the whole suite**
 
 ```bash
-docker compose down -v
-docker compose up -d --wait postgres
 ./mvnw -B verify
 ```
 
-Expected: PASS. 10 (entities) + 3 (repository) + 11 (service, mapper) + 6 (endpoint) + 1 (health) + 1 (context) = 32 tests.
+Expected: PASS. 13 (entities) + 12 (service, mapper) + 6 (endpoint) + 1 (context) = 32 tests.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Format and commit**
 
 ```bash
-git add src/test/java/com/mentorship/restaurant/cart/AddCartItemEndpointTest.java
+./mvnw -B spotless:apply
+git add pom.xml src/test/java/com/mentorship/restaurant/cart/AddCartItemEndpointTest.java
 git commit -m "test(cart): cover add-to-cart end to end"
 ```
 
@@ -1625,14 +1597,12 @@ git commit -m "test(cart): cover add-to-cart end to end"
 
 ### Task 8: Correct the use-case doc
 
-The doc contradicts the schema on two points. Left uncorrected, the next reader implements the wrong thing.
+The doc contradicts the schema and the team's decision on two points.
 
 **Files:**
-- Modify: `.docs/use-cases/cart-management/add-cart-item/add-cart-item.md`
+- Modify: `add-cart-item.md` in this directory
 
 - [ ] **Step 1: Replace the Totals section**
-
-It currently says totals are computed on read from the current menu price and that no snapshot exists. Replace with:
 
 ```markdown
 ## Totals
@@ -1653,32 +1623,35 @@ original price.
 | Table | Column | Purpose |
 | --- | --- | --- |
 | `restaurants` | `is_open` (boolean, not null) | Step 2 — open/closed check. A flag, not opening hours. |
-| `menu_items` | `stock_quantity` (integer, not null) | Step 3 — stock check. |
 | `menu_items` | `menu_item_name` (varchar, not null) | The table held only `menu_item_code`; a cart response needs a readable name. |
-| `carts` | `restaurant_id` (fk, not null) | Rule 2 — the cart's restaurant, stored rather than derived. |
 
-Already present before this use-case: `cart_items.cart_item_price` (the price
-snapshot) and `uq_cart_items_cart_menu_item`, which enforces Rule 1 in the
-database.
+Already present: `menu_items.menu_item_stock` for the stock check,
+`cart_items.cart_item_price` for the price snapshot, and
+`uq_cart_items_cart_menu_item`, which enforces Rule 1 in the database.
+
+The cart's restaurant is **not stored**. It is derived from the cart's lines
+(`CartItem -> MenuItem -> Menu -> Restaurant`), and an empty cart has none —
+which is why an empty cart accepts an item from any restaurant.
 ```
 
-- [ ] **Step 3: Update the sequence diagram note**
+- [ ] **Step 3: Update the diagrams**
 
-Its final note says totals are computed on read. Change it to say totals come from the captured line prices.
+The flowchart and sequence diagram both describe totals computed on read and a cart that stores its restaurant. Update the mapper note to say totals come from the captured line prices, and the cart-creation step to `Create cart for customer` with no restaurant.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Format and commit**
 
 ```bash
-git add .docs/use-cases/cart-management/add-cart-item/add-cart-item.md
-git commit -m "docs: correct add-cart-item totals to match the price snapshot"
+git add add-cart-item.md
+git commit -m "docs: correct add-cart-item totals and the derived restaurant"
 ```
 
-- [ ] **Step 5: Push and open the pull request**
+- [ ] **Step 5: Push**
 
 ```bash
-git push -u origin feat/GH-21-api-add-cart-item
-gh pr create --base main --title "feat: add to cart API (GH-21)" --body "Implements #21. Closes #21."
+git push
 ```
+
+PR #27 already exists for this branch; the implementation commits land on it.
 
 ---
 
@@ -1687,7 +1660,9 @@ gh pr create --base main --title "feat: add to cart API (GH-21)" --body "Impleme
 - Item options and options-based uniqueness.
 - Real opening hours — `is_open` is a flag.
 - Authentication; `customerId` stays in the request body.
-- **Stock decrement.** Stock is checked but never reduced; reserving stock belongs to checkout (#7). Two customers can both pass the check for the last item.
+- **Concurrency.** Two simultaneous adds by the same customer can both find no cart, and the second violates `carts.customer_id`'s unique constraint as a 500; concurrent increments can lose an update. The database constraints prevent corruption. Noted on PR #27.
+- **Stock decrement.** Stock is checked but never reduced; reserving it belongs to checkout (#7). Two customers can both pass the check for the last item.
 - Cart status / lifecycle. `carts.customer_id` stays unique, which checkout (#7) must resolve.
+- **Per-test seed data.** The agreed direction is that each test seeds what it needs instead of sharing global seeds. V6's cart-less customer is a stopgap, not that refactor.
 - The other five `CartService` methods (#3, #4, #5, #6, #7).
-- The Surefire/Failsafe split (#26). This plan's end-to-end test runs under Surefire, like the health test.
+- The Surefire/Failsafe split (#26).
