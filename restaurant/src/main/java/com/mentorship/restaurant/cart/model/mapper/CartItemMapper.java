@@ -12,7 +12,7 @@ public class CartItemMapper {
     return new CartItemResponse(
         cartItem.getId(),
         cartItem.getMenuItem().getId(),
-        cartItem.getMenuItem().getMenuItemCode(),
+        cartItem.getMenuItem().getName(),
         cartItem.getNote(),
         cartItem.getItemPrice(),
         cartItem.getQuantity());
