@@ -11,7 +11,7 @@ Run everything from `restaurant/`.
 ```bash
 ./mvnw -B verify            # compile + test + package (what CI runs)
 ./mvnw -B test -Dtest=Foo   # a single test class
-./mvnw spotless:apply       # REQUIRED before committing; CI fails on unformatted code
+./mvnw spotless:apply       # format before committing (see the JDK note below)
 docker compose up -d --wait postgres   # database only
 docker compose --profile app up        # database + application
 ```
@@ -45,6 +45,24 @@ Controller  -> CartService (delegates only)
             -> Entities          (anemic)
             -> Mappers           (responses)
 ```
+
+### Formatting, and the JDK it needs
+
+Spotless has **no lifecycle binding** in the pom, so `verify` does not run it and CI does not enforce formatting. Run `spotless:apply` yourself before committing.
+
+It also needs **JDK 21 or older**. `google-java-format` reaches into `javac` internals and dies on newer JDKs:
+
+```text
+NoSuchMethodError: com.sun.tools.javac.util.Log$DeferredDiagnosticHandler.getDiagnostics()
+```
+
+If your default JDK is newer (25 here), run it explicitly:
+
+```bash
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B spotless:apply
+```
+
+The rest of the build is unaffected — the pom targets release 17, so compiling and testing work on any modern JDK. CI uses Temurin 17.
 
 ## Database
 
