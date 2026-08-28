@@ -20,6 +20,7 @@ class AddCartItemEndpointTest {
   private static final long KOFTA = 1L; // restaurant 1, 185.00
   private static final long FALAFEL = 2L; // restaurant 1, 65.00
   private static final long CLASSIC_BURGER = 4L; // restaurant 2, 120.00
+  private static final long WINGS = 7L; // restaurant 3, which is closed
 
   @Autowired private RestTestClient client;
   @Autowired private JdbcTemplate jdbcTemplate;
@@ -110,6 +111,49 @@ class AddCartItemEndpointTest {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Item is of different restaurant");
+  }
+
+  @Test
+  void rejectsAClosedRestaurant() {
+    client
+        .post()
+        .uri("/api/v1/cart/items")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body(WINGS, 1))
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant is closed");
+  }
+
+  @Test
+  void rejectsAQuantityBeyondStock() {
+    // Kofta is seeded with stock 50; the request's @Max allows up to 1000.
+    client
+        .post()
+        .uri("/api/v1/cart/items")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body(KOFTA, 999))
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item is not in stock");
+  }
+
+  @Test
+  void rejectsAnUnknownCustomer() {
+    client
+        .post()
+        .uri("/api/v1/cart/items")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{\"customerId\": 9999, \"menuItemId\": 1, \"quantity\": 1}")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 
   @Test

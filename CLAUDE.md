@@ -89,15 +89,18 @@ ERROR:  duplicate key value violates unique constraint "carts_pkey"
 
 `V6` resynced every seeded table. **Any future migration that seeds explicit ids must do the same**, with `ALTER TABLE <t> ALTER COLUMN <pk> RESTART WITH <max+1>` — portable across PostgreSQL and H2, unlike `setval(pg_get_serial_sequence(...))`, which H2 does not implement.
 
-**Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart, reserved as the add-to-cart fixture. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
+**Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart and restaurant 3 closed, both reserved as add-to-cart fixtures. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
 
 ## Testing
 
 Tests run against **H2** (`MODE=PostgreSQL`) with `validate` and Flyway applied, so entity/migration drift is caught. PostgreSQL-only SQL in a migration will fail there — check both.
 
-- Unit tests with Mockito for handlers: fast, cover every rejection path.
-- `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `RestTestClient` for end-to-end. Needs `spring-boot-starter-webmvc-test`, which brings `spring-boot-resttestclient`.
-- `@Transactional` on a test rolls back nothing the server did over real HTTP — clean up explicitly.
+**Default to end-to-end**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `RestTestClient`, one class per use-case, covering the happy path and every rejection. Needs `spring-boot-starter-webmvc-test`, which brings `spring-boot-resttestclient`. Reach for a mocked unit test only when a branch cannot be triggered over HTTP.
+
+Two things that follow from testing over real HTTP:
+
+- **`@Transactional` rolls back nothing the server did** — requests run on server threads in their own transactions. Clean up explicitly, scoped to the rows the test created.
+- **Every rejection needs a fixture that can reach it.** Seed one if none exists, as `V6` does with the closed restaurant, or pick request values that trigger it — asking for 999 of an item stocked at 50 exercises the out-of-stock path with no fixture at all.
 
 ## Documentation
 
