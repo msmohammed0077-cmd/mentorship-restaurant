@@ -1,6 +1,6 @@
 -- Step 2 of the use-case: restaurant open/closed. A flag, not opening hours.
 ALTER TABLE restaurants
-    ADD COLUMN is_open BOOLEAN NOT NULL DEFAULT TRUE;
+    ADD COLUMN restaurant_is_open BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- menu_items has menu_item_code and menu_item_note, but no readable name.
 -- CartItemMapper currently puts the code into the response's itemName.

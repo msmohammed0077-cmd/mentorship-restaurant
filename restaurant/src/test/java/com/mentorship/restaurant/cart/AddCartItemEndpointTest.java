@@ -60,7 +60,7 @@ class AddCartItemEndpointTest {
   }
 
   @Test
-  void incrementsInsteadOfAddingASecondLine() {
+  void rejectsAnItemAlreadyInTheCart() {
     addItem(KOFTA, 2);
 
     client
@@ -70,14 +70,10 @@ class AddCartItemEndpointTest {
         .body(body(KOFTA, 1))
         .exchange()
         .expectStatus()
-        .isCreated()
+        .isEqualTo(409)
         .expectBody()
-        .jsonPath("$.items.length()")
-        .isEqualTo(1)
-        .jsonPath("$.items[0].quantity")
-        .isEqualTo(3)
-        .jsonPath("$.total")
-        .isEqualTo(555.00);
+        .jsonPath("$.message")
+        .isEqualTo("Item is already in cart");
   }
 
   @Test

@@ -8,6 +8,12 @@
 
 **Tech Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16 (via `compose.yaml`), H2 in tests, JUnit 5 + Mockito + RestTestClient, Spotless.
 
+> **Superseded in review:** flow 1a changed. Adding an item the cart already holds is now
+> rejected with 409 rather than incrementing the line, so quantity changes belong entirely to
+> modify-cart. The stock check is against the requested quantity alone, and `validateQuantity`
+> was dropped from the handler in favour of the request's validation annotations. `add-cart-item.md`
+> is the current specification; this plan records how the work was built.
+
 **Baseline:** `main` as of the Spotless commit. Migrations run to `V5`, so this plan's migration is **`V6`**.
 
 ---

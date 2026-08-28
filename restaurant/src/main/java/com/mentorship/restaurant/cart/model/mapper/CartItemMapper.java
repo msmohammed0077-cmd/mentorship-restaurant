@@ -13,6 +13,7 @@ public class CartItemMapper {
         cartItem.getId(),
         cartItem.getMenuItem().getId(),
         cartItem.getMenuItem().getName(),
+        cartItem.getMenuItem().getMenuItemCode(),
         cartItem.getNote(),
         cartItem.getItemPrice(),
         cartItem.getQuantity());

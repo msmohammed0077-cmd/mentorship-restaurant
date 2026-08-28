@@ -36,6 +36,6 @@ public class Restaurant {
   @Column(name = "restaurant_description")
   private String restaurantDescription;
 
-  @Column(name = "is_open", nullable = false)
-  private boolean open;
+  @Column(name = "restaurant_is_open", nullable = false)
+  private boolean isOpen;
 }

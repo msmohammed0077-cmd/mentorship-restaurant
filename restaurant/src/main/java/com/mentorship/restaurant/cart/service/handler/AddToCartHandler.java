@@ -1,9 +1,9 @@
 package com.mentorship.restaurant.cart.service.handler;
 
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
+import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
 import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
-import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
 import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
@@ -18,7 +18,6 @@ import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +45,6 @@ public class AddToCartHandler {
 
   @Transactional
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
-    validateQuantity(quantity);
-
     Customer customer =
         customerRepository
             .findById(customerId)
@@ -57,36 +54,30 @@ public class AddToCartHandler {
             .findById(menuItemId)
             .orElseThrow(() -> new MenuItemNotFoundException("Item not found"));
 
-    ensureRestaurantOpen(menuItem.getMenu().getRestaurant());
-
     Cart cart = cartRepository.findByCustomer_Id(customerId).orElse(null);
 
-    Optional<CartItem> existingLine =
-        cart == null
-            ? Optional.empty()
-            : cartItemRepository.findByCart_IdAndMenuItem_Id(cart.getId(), menuItem.getId());
-
-    ensureStockAvailable(existingLine, quantity, menuItem);
+    validateRequest(cart, menuItem, quantity);
 
     if (cart == null) {
       cart = createCartFor(customer);
-    } else {
-      ensureSameRestaurant(cart, menuItem.getMenu().getRestaurant());
     }
-
-    if (existingLine.isPresent()) {
-      increment(existingLine.get(), quantity, note);
-    } else {
-      cart.getItems().add(newLine(cart, menuItem, quantity, note));
-    }
+    cart.getItems().add(newLine(cart, menuItem, quantity, note));
 
     return cartMapper.toResponse(cart);
   }
 
-  private void validateQuantity(Integer quantity) {
-    if (quantity == null || quantity <= 0) {
-      throw new InvalidQuantityException("Quantity must be greater than zero");
+  /**
+   * The checks that need loaded state. Quantity is already bounded by the request's validation
+   * annotations, so nothing here re-checks it.
+   */
+  private void validateRequest(Cart cart, MenuItem menuItem, Integer quantity) {
+    Restaurant restaurant = menuItem.getMenu().getRestaurant();
+    ensureRestaurantOpen(restaurant);
+    if (cart != null) {
+      ensureItemNotAlreadyInCart(cart, menuItem);
+      ensureSameRestaurant(cart, restaurant);
     }
+    ensureStockAvailable(menuItem, quantity);
   }
 
   private void ensureRestaurantOpen(Restaurant restaurant) {
@@ -96,15 +87,14 @@ public class AddToCartHandler {
   }
 
   /**
-   * Checked against the resulting quantity, so repeated adds cannot walk past available stock one
-   * call at a time.
+   * Adding an item the cart already holds is an error, not an increment. Changing the quantity of
+   * an existing line is modify-cart's job.
    */
-  private void ensureStockAvailable(
-      Optional<CartItem> existingLine, Integer requested, MenuItem menuItem) {
-    int alreadyInCart = existingLine.map(CartItem::getQuantity).orElse(0);
-    Integer available = menuItem.getStock();
-    if (available == null || alreadyInCart + requested > available) {
-      throw new OutOfStockException("Item is not in stock");
+  private void ensureItemNotAlreadyInCart(Cart cart, MenuItem menuItem) {
+    if (cartItemRepository
+        .findByCart_IdAndMenuItem_Id(cart.getId(), menuItem.getId())
+        .isPresent()) {
+      throw new CartItemAlreadyExistsException("Item is already in cart");
     }
   }
 
@@ -116,17 +106,17 @@ public class AddToCartHandler {
     }
   }
 
+  private void ensureStockAvailable(MenuItem menuItem, Integer quantity) {
+    Integer available = menuItem.getStock();
+    if (available == null || quantity > available) {
+      throw new OutOfStockException("Item is not in stock");
+    }
+  }
+
   private Cart createCartFor(Customer customer) {
     Cart cart = new Cart();
     cart.setCustomer(customer);
     return cartRepository.save(cart);
-  }
-
-  private void increment(CartItem line, Integer quantity, String note) {
-    line.setQuantity(line.getQuantity() + quantity);
-    if (note != null) {
-      line.setNote(note);
-    }
   }
 
   private CartItem newLine(Cart cart, MenuItem menuItem, Integer quantity, String note) {

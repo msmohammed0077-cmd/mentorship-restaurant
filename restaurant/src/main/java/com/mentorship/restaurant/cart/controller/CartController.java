@@ -26,11 +26,6 @@ public class CartController {
     this.cartService = cartService;
   }
 
-  /**
-   * The cart is resolved from customerId rather than a path variable, because this endpoint creates
-   * the cart when none exists and the caller has no cartId before the first add. customerId moves
-   * to the authenticated principal once auth lands.
-   */
   @PostMapping("/items")
   public ResponseEntity<CartResponse> addItem(@Valid @RequestBody AddCartItemRequest request) {
     CartResponse response =

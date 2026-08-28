@@ -8,9 +8,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
 import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
-import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
 import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
@@ -26,7 +26,6 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,12 +79,6 @@ class AddToCartHandlerTest {
   }
 
   @Test
-  void rejectsAQuantityOfZeroOrLess() {
-    assertThatThrownBy(() -> handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 0, null))
-        .isInstanceOf(InvalidQuantityException.class);
-  }
-
-  @Test
   void rejectsAnUnknownCustomer() {
     when(customerRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -121,15 +114,14 @@ class AddToCartHandlerTest {
   }
 
   @Test
-  void rejectsAnIncrementThatWouldExceedStock() {
-    CartItem existing = line(kofta, 3);
+  void rejectsAnItemAlreadyInTheCart() {
     when(cartRepository.findByCustomer_Id(CUSTOMER_ID)).thenReturn(Optional.of(cart));
     when(cartItemRepository.findByCart_IdAndMenuItem_Id(CART_ID, MENU_ITEM_ID))
-        .thenReturn(Optional.of(existing));
+        .thenReturn(Optional.of(line(kofta, 1)));
 
-    assertThatThrownBy(() -> handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 3, null))
-        .isInstanceOf(OutOfStockException.class)
-        .hasMessage("Item is not in stock");
+    assertThatThrownBy(() -> handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 1, null))
+        .isInstanceOf(CartItemAlreadyExistsException.class)
+        .hasMessage("Item is already in cart");
   }
 
   @Test
@@ -186,21 +178,6 @@ class AddToCartHandlerTest {
     assertThat(cart.getItems()).hasSize(1);
     assertThat(cart.getItems().get(0).getItemPrice()).isEqualByComparingTo("185.00");
     assertThat(cart.getItems().get(0).getNote()).isEqualTo("extra spicy");
-  }
-
-  @Test
-  void incrementsTheExistingLineAndKeepsItsPrice() {
-    CartItem existing = line(kofta, 1);
-    existing.setItemPrice(new BigDecimal("150.00"));
-    when(cartRepository.findByCustomer_Id(CUSTOMER_ID)).thenReturn(Optional.of(cart));
-    when(cartItemRepository.findByCart_IdAndMenuItem_Id(CART_ID, MENU_ITEM_ID))
-        .thenReturn(Optional.of(existing));
-
-    handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 2, null);
-
-    assertThat(existing.getQuantity()).isEqualTo(3);
-    assertThat(existing.getItemPrice()).isEqualByComparingTo("150.00");
-    verify(cartItemRepository, never()).save(any(CartItem.class));
   }
 
   private MenuItem menuItem(Restaurant restaurant, String price, int stock) {
