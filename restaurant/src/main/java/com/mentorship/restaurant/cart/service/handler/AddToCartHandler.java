@@ -17,7 +17,6 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
-import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,10 +97,12 @@ public class AddToCartHandler {
     }
   }
 
-  /** An empty cart has no restaurant of its own, so it accepts an item from any of them. */
+  /**
+   * An empty cart holds no line from another restaurant, so it accepts an item from any of them.
+   */
   private void ensureSameRestaurant(Cart cart, Restaurant restaurant) {
-    List<Long> restaurantIds = cartRepository.findRestaurantIdsByCartId(cart.getId());
-    if (!restaurantIds.isEmpty() && !restaurantIds.contains(restaurant.getId())) {
+    if (cartItemRepository.existsByCart_IdAndMenuItem_Menu_Restaurant_IdNot(
+        cart.getId(), restaurant.getId())) {
       throw new DifferentRestaurantException("Item is of different restaurant");
     }
   }

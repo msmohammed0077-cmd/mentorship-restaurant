@@ -26,7 +26,6 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +73,9 @@ class AddToCartHandlerTest {
     lenient()
         .when(cartItemRepository.findByCart_IdAndMenuItem_Id(CART_ID, MENU_ITEM_ID))
         .thenReturn(Optional.empty());
-    lenient().when(cartRepository.findRestaurantIdsByCartId(CART_ID)).thenReturn(List.of());
+    lenient()
+        .when(cartItemRepository.existsByCart_IdAndMenuItem_Menu_Restaurant_IdNot(CART_ID, 1L))
+        .thenReturn(false);
     lenient().when(cartItemRepository.save(any(CartItem.class))).thenAnswer(c -> c.getArgument(0));
   }
 
@@ -127,7 +128,8 @@ class AddToCartHandlerTest {
   @Test
   void rejectsAnItemFromADifferentRestaurant() {
     when(cartRepository.findByCustomer_Id(CUSTOMER_ID)).thenReturn(Optional.of(cart));
-    when(cartRepository.findRestaurantIdsByCartId(CART_ID)).thenReturn(List.of(2L));
+    when(cartItemRepository.existsByCart_IdAndMenuItem_Menu_Restaurant_IdNot(CART_ID, 1L))
+        .thenReturn(true);
 
     assertThatThrownBy(() -> handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 1, null))
         .isInstanceOf(DifferentRestaurantException.class)
@@ -137,7 +139,8 @@ class AddToCartHandlerTest {
   @Test
   void acceptsAnyRestaurantIntoAnEmptyCart() {
     when(cartRepository.findByCustomer_Id(CUSTOMER_ID)).thenReturn(Optional.of(cart));
-    when(cartRepository.findRestaurantIdsByCartId(CART_ID)).thenReturn(List.of());
+    when(cartItemRepository.existsByCart_IdAndMenuItem_Menu_Restaurant_IdNot(CART_ID, 1L))
+        .thenReturn(false);
 
     handler.addItem(CUSTOMER_ID, MENU_ITEM_ID, 1, null);
 
