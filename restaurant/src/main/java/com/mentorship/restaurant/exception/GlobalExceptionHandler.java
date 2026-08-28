@@ -2,6 +2,7 @@ package com.mentorship.restaurant.exception;
 
 import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
 import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
+import com.mentorship.restaurant.cart.exception.CartNotFoundException;
 import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
 import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
@@ -22,6 +23,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler({
     CartItemNotFoundException.class,
     CartItemAlreadyExistsException.class,
+    CartNotFoundException.class,
     CustomerNotFoundException.class,
     MenuItemNotFoundException.class,
     InvalidQuantityException.class,
@@ -41,6 +43,7 @@ public class GlobalExceptionHandler {
    */
   private HttpStatus statusOf(RuntimeException exception) {
     if (exception instanceof CartItemNotFoundException
+        || exception instanceof CartNotFoundException
         || exception instanceof CustomerNotFoundException
         || exception instanceof MenuItemNotFoundException) {
       return HttpStatus.NOT_FOUND;
