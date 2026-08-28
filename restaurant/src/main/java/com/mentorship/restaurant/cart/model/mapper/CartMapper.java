@@ -24,12 +24,4 @@ public class CartMapper {
                     item.getItemPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity())))
             .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
   }
-
-  public CartResponse toResponse(Long cartId) {
-    return new CartResponse(
-        cartId,
-        0L,
-        java.util.Collections.emptyList(),
-        java.math.BigDecimal.ZERO);
-  }
 }
