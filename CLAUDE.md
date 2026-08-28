@@ -20,11 +20,15 @@ docker compose --profile app up        # database + application
 
 The pattern is set by `ModifyCartItemHandler`. Follow it rather than inventing a new shape.
 
-**One `@Service` handler per use-case** holds the logic, annotated `@Transactional`, with guards as private methods (`validateQuantity`, `ensureStockAvailable`). Named `<UseCase>Handler` in `cart/service/handler/`.
+**One `@Service` handler per use-case** holds the logic, annotated `@Transactional`, with guards as private methods (`ensureStockAvailable`, `ensureSameRestaurant`). Named `<UseCase>Handler` in `cart/service/handler/`.
 
 **`CartService` only delegates.** One method per use-case, no logic, no repositories.
 
-**Entities are anemic data holders.** `@Getter @Setter @NoArgsConstructor(access = PROTECTED)`, no behaviour, no factories, no queries. Do not put business rules on an entity.
+**Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no factories, no queries. Do not put business rules on an entity.
+
+`@NoArgsConstructor(access = PROTECTED)` is the default, but `Cart` and `CartItem` use a plain `@NoArgsConstructor` because handlers construct them from another package. Widen an entity only when application code has to build it.
+
+**Lombok and `boolean` fields:** `private boolean isOpen` generates `isOpen()` **and `setOpen()`** — it strips the `is` prefix from the setter but not the getter.
 
 **Every lookup is a repository method.** Nothing filters or searches inside an entity or a service — if you need to find something, add a query to the repository.
 
@@ -35,6 +39,10 @@ The pattern is set by `ModifyCartItemHandler`. Follow it rather than inventing a
 **Controllers return `ResponseEntity<T>`**, base path `/api/v1/...`, `@Valid @RequestBody`, `@Tag` for springdoc.
 
 **Exceptions live in `cart/exception/`**, carry their message, and **must be registered in `com.mentorship.restaurant.exception.GlobalExceptionHandler`** — its `@ExceptionHandler(Exception.class)` catches anything unlisted and returns 500, and `@ResponseStatus` on the exception is ignored once an advice matches.
+
+### Where validation goes
+
+Shape and range live on the request as Jakarta annotations (`@NotNull`, `@Positive`, `@Max`) and are rejected with a 400 before the handler runs. Handlers only check what needs loaded state — is the restaurant open, is the item in stock, is it already in the cart. Do not re-check a bound in the handler; that code is unreachable over HTTP.
 
 ### Layering
 
@@ -66,6 +74,8 @@ The rest of the build is unaffected — the pom targets release 17, so compiling
 
 ## Database
 
+**Columns are prefixed with their table's noun:** `restaurant_name`, `restaurant_is_open`, `menu_item_stock`, `cart_item_price`. Keep new columns consistent with that.
+
 **Flyway owns the schema; `ddl-auto=validate` everywhere.** Never let Hibernate generate DDL. Add a numbered migration in `restaurant/src/main/resources/db/migration/` and map the entity to it — a mismatch fails the build at boot, which is the intended safety net.
 
 Two things to know before writing a migration:
@@ -79,7 +89,7 @@ ERROR:  duplicate key value violates unique constraint "carts_pkey"
 
 `V6` resynced every seeded table. **Any future migration that seeds explicit ids must do the same**, with `ALTER TABLE <t> ALTER COLUMN <pk> RESTART WITH <max+1>` — portable across PostgreSQL and H2, unlike `setval(pg_get_serial_sequence(...))`, which H2 does not implement.
 
-**Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for both customers. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
+**Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart, reserved as the add-to-cart fixture. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
 
 ## Testing
 
@@ -91,7 +101,9 @@ Tests run against **H2** (`MODE=PostgreSQL`) with `validate` and Flyway applied,
 
 ## Documentation
 
-Use-cases live in `restaurant/.docs/use-cases/<area>/<use-case>/`, each with a spec and its diagrams as inline Mermaid. Implementation plans sit beside the spec they implement. When code and spec disagree, fix the spec in the same PR.
+Use-cases live in `restaurant/.docs/use-cases/<area>/<use-case>/`, each with a spec and its diagrams as inline Mermaid. **The spec is the source of truth — when code and spec disagree, fix the spec in the same PR.**
+
+Implementation plans are gitignored (`.docs/use-cases/**/implementation-plan.md`). They are working notes; anything worth keeping belongs in the spec.
 
 ## Conventions
 
