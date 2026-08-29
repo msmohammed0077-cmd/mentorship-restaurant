@@ -34,6 +34,9 @@ public class MenuItem {
   @Column(name = "menu_item_code", nullable = false, unique = true, length = 100)
   private String menuItemCode;
 
+  @Column(name = "menu_item_name", nullable = false, length = 150)
+  private String name;
+
   @Column(name = "menu_item_image_url")
   private String menuItemImageUrl;
 
