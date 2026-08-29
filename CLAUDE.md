@@ -2,7 +2,7 @@
 
 Spring Boot food-delivery backend. The Maven project lives in `restaurant/`; the repository root holds CI and top-level docs.
 
-**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, H2 in tests, Spotless.
+**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, Spotless.
 
 ## Commands
 
@@ -87,13 +87,13 @@ INSERT INTO carts (customer_id) VALUES (2) RETURNING cart_id;
 ERROR:  duplicate key value violates unique constraint "carts_pkey"
 ```
 
-`V6` resynced every seeded table. **Any future migration that seeds explicit ids must do the same**, with `ALTER TABLE <t> ALTER COLUMN <pk> RESTART WITH <max+1>` — portable across PostgreSQL and H2, unlike `setval(pg_get_serial_sequence(...))`, which H2 does not implement.
+`V6` resynced every seeded table. **Any future migration that seeds explicit ids must do the same**, with `ALTER TABLE <t> ALTER COLUMN <pk> RESTART WITH <max+1>` so the identity columns stay aligned with the seeded rows.
 
 **Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart and restaurant 3 closed, both reserved as add-to-cart fixtures. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
 
 ## Testing
 
-Tests run against **H2** (`MODE=PostgreSQL`) with `validate` and Flyway applied, so entity/migration drift is caught. PostgreSQL-only SQL in a migration will fail there — check both.
+Tests run against **PostgreSQL** with `validate` and Flyway applied, so entity/migration drift is caught.
 
 **Default to end-to-end**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `RestTestClient`, one class per use-case, covering the happy path and every rejection. Needs `spring-boot-starter-webmvc-test`, which brings `spring-boot-resttestclient`. Reach for a mocked unit test only when a branch cannot be triggered over HTTP.
 
