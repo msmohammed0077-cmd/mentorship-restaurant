@@ -1,13 +1,13 @@
 # Restaurant App
 
-Spring Boot backend for a restaurant ordering system, with PostgreSQL as the runtime database and H2 only for tests.
+Spring Boot backend for a restaurant ordering system, with PostgreSQL as the runtime and test database.
 
 ## Stack
 
 - Java 17
 - Spring Boot 4.1.0
 - PostgreSQL runtime database
-- H2 in-memory test database
+- PostgreSQL test database
 - Flyway
 - Spring Security
 - SpringDoc OpenAPI UI

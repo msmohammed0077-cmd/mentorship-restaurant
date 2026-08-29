@@ -14,6 +14,21 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: restaurant
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d restaurant"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: restaurant
@@ -30,6 +45,6 @@ jobs:
           cache: maven
 
       - name: Build and run tests
-        # Boots the application context against the H2 test database, applies
+        # Boots the application context against PostgreSQL, applies
         # Flyway migrations, and validates the JPA mappings.
         run: ./mvnw -B verify
