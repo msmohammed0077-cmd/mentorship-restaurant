@@ -24,12 +24,18 @@ public abstract class CartEndpointTestSupport {
 
   @BeforeEach
   @AfterEach
-  protected void clearTestCustomersCart() {
+  protected void resetCartFixtures() {
     // Requests run in the server's own transactions, so endpoint tests clean up explicitly.
     jdbcTemplate.update(
         "DELETE FROM cart_items WHERE cart_id IN (SELECT cart_id FROM carts WHERE customer_id = ?)",
         CUSTOMER_WITHOUT_CART);
     jdbcTemplate.update("DELETE FROM carts WHERE customer_id = ?", CUSTOMER_WITHOUT_CART);
+    jdbcTemplate.update("UPDATE menu_items SET menu_item_stock = 50 WHERE menu_item_id = ?", KOFTA);
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_stock = 75 WHERE menu_item_id = ?", FALAFEL);
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_stock = 40 WHERE menu_item_id = ?", CLASSIC_BURGER);
+    jdbcTemplate.update("UPDATE menu_items SET menu_item_stock = 30 WHERE menu_item_id = ?", WINGS);
   }
 
   protected String addItemBody(long menuItemId, int quantity) {
@@ -75,5 +81,27 @@ public abstract class CartEndpointTestSupport {
       throw new IllegalStateException("Cart item not found for cart " + cartId);
     }
     return cartItemId;
+  }
+
+  protected int stockFor(long menuItemId) {
+    Integer stock =
+        jdbcTemplate.queryForObject(
+            "SELECT menu_item_stock FROM menu_items WHERE menu_item_id = ?",
+            Integer.class,
+            menuItemId);
+    if (stock == null) {
+      throw new IllegalStateException("Stock not found for menu item " + menuItemId);
+    }
+    return stock;
+  }
+
+  protected int cartItemCountFor(long cartId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM cart_items WHERE cart_id = ?", Integer.class, cartId);
+    if (count == null) {
+      throw new IllegalStateException("Cart item count not found for cart " + cartId);
+    }
+    return count;
   }
 }
