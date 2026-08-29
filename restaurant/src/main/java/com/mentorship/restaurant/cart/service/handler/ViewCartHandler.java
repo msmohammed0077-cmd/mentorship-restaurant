@@ -10,6 +10,7 @@ import com.mentorship.restaurant.cart.repository.CartRepository;
 import java.util.Collections;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ViewCartHandler {
@@ -24,6 +25,7 @@ public class ViewCartHandler {
     this.cartMapper = cartMapper;
   }
 
+  @Transactional(readOnly = true)
   public CartResponse viewCart(Long cartId) {
     Cart cart =
         cartRepository

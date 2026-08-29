@@ -1,7 +1,9 @@
 package com.mentorship.restaurant.cart.service;
 
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
+import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.service.handler.AddToCartHandler;
+import com.mentorship.restaurant.cart.service.handler.CheckoutCartHandler;
 import com.mentorship.restaurant.cart.service.handler.ClearCartHandler;
 import com.mentorship.restaurant.cart.service.handler.ModifyCartItemHandler;
 import com.mentorship.restaurant.cart.service.handler.RemoveCartItemHandler;
@@ -17,18 +19,21 @@ public class CartService {
   private final ClearCartHandler clearCartHandler;
   private final AddToCartHandler addToCartHandler;
   private final RemoveCartItemHandler removeCartItemHandler;
+  private final CheckoutCartHandler checkoutCartHandler;
 
   public CartService(
       ModifyCartItemHandler modifyCartItemHandler,
       ViewCartHandler viewCartHandler,
       ClearCartHandler clearCartHandler,
       AddToCartHandler addToCartHandler,
-      RemoveCartItemHandler removeCartItemHandler) {
+      RemoveCartItemHandler removeCartItemHandler,
+      CheckoutCartHandler checkoutCartHandler) {
     this.modifyCartItemHandler = modifyCartItemHandler;
     this.viewCartHandler = viewCartHandler;
     this.clearCartHandler = clearCartHandler;
     this.addToCartHandler = addToCartHandler;
     this.removeCartItemHandler = removeCartItemHandler;
+    this.checkoutCartHandler = checkoutCartHandler;
   }
 
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
@@ -49,5 +54,9 @@ public class CartService {
 
   public CartResponse removeCartItems(Long cartId, List<Long> cartItemIds) {
     return removeCartItemHandler.removeCartItems(cartId, cartItemIds);
+  }
+
+  public CheckoutCartResponse checkout(Long cartId) {
+    return checkoutCartHandler.checkout(cartId);
   }
 }
