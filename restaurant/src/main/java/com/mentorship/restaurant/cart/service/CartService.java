@@ -15,7 +15,7 @@ public class CartService {
   private final ClearCartHandler clearCartHandler;
   private final AddToCartHandler addToCartHandler;
 
-  public CartService(ModifyCartItemHandler modifyCartItemHandler, ViewCartHandler viewCartHandler, ClearCartHandler clearCartHandler) {
+  public CartService(ModifyCartItemHandler modifyCartItemHandler, ViewCartHandler viewCartHandler, ClearCartHandler clearCartHandler, AddToCartHandler addToCartHandler) {
     this.modifyCartItemHandler = modifyCartItemHandler;
     this.viewCartHandler = viewCartHandler;
     this.clearCartHandler = clearCartHandler;
