@@ -27,7 +27,9 @@ public class RemoveCartItemHandler {
   @Transactional
   public CartResponse removeCartItems(Long cartId, List<Long> cartItemIds) {
     Cart cart =
-        cartRepository.findById(cartId).orElseThrow(() -> new CartNotFoundException("Cart not found"));
+        cartRepository
+            .findById(cartId)
+            .orElseThrow(() -> new CartNotFoundException("Cart not found"));
 
     List<CartItem> items = cart.getItems();
     removeCartItems(cartItemIds, items);
