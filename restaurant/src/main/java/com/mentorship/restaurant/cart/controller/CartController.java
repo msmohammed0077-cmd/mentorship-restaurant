@@ -1,12 +1,15 @@
 package com.mentorship.restaurant.cart.controller;
 
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
+import com.mentorship.restaurant.cart.model.request.AddCartItemRequest;
 import com.mentorship.restaurant.cart.model.request.UpdateCartItemRequest;
 import com.mentorship.restaurant.cart.service.CartService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +24,17 @@ public class CartController {
 
   public CartController(CartService cartService) {
     this.cartService = cartService;
+  }
+
+  @PostMapping("/items")
+  public ResponseEntity<CartResponse> addItem(@Valid @RequestBody AddCartItemRequest request) {
+    CartResponse response =
+        cartService.addItem(
+            request.getCustomerId(),
+            request.getMenuItemId(),
+            request.getQuantity(),
+            request.getNote());
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @PutMapping("/{cartId}/items/{cartItemId}")
