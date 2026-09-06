@@ -1,23 +1,17 @@
 package com.mentorship.restaurant.exception;
 
-import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
-import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
-import com.mentorship.restaurant.cart.exception.CartNotFoundException;
-import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
-import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
-import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
-import com.mentorship.restaurant.cart.exception.OutOfStockException;
-import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
+import com.mentorship.restaurant.cart.exception.CartException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
@@ -25,41 +19,33 @@ public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-  @ExceptionHandler({
-    CartItemNotFoundException.class,
-    CartItemAlreadyExistsException.class,
-    CartNotFoundException.class,
-    CustomerNotFoundException.class,
-    MenuItemNotFoundException.class,
-    InvalidQuantityException.class,
-    OutOfStockException.class,
-    RestaurantClosedException.class,
-    DifferentRestaurantException.class
-  })
-  public ResponseEntity<ApiErrorResponse> handleCartExceptions(
-      RuntimeException exception, HttpServletRequest request) {
+  /**
+   * Handles every CartException. Extending CartException is all a new exception has to do, so
+   * there is no list here to forget to update.
+   */
+  @ExceptionHandler(CartException.class)
+  public ResponseEntity<ApiErrorResponse> handleCartException(
+      CartException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
   /**
-   * Every cart exception must be listed above and here. handleGenericException catches anything
-   * unlisted and turns it into a 500, and @ResponseStatus on the exception itself is ignored once
-   * an advice matches.
+   * Reads the status the exception declares with @ResponseStatus. findMergedAnnotation searches
+   * the type hierarchy, so a subclass inherits its parent's status even though @ResponseStatus is
+   * not itself @Inherited.
+   *
+   * <p>A missing annotation falls back to 500 rather than something plausible like 400, so the
+   * omission is loud the first time the exception is thrown instead of quietly returning a wrong
+   * status forever.
    */
-  private HttpStatus statusOf(RuntimeException exception) {
-    if (exception instanceof CartItemNotFoundException
-        || exception instanceof CartNotFoundException
-        || exception instanceof CustomerNotFoundException
-        || exception instanceof MenuItemNotFoundException) {
-      return HttpStatus.NOT_FOUND;
+  private HttpStatus statusOf(CartException exception) {
+    ResponseStatus annotation =
+        AnnotatedElementUtils.findMergedAnnotation(exception.getClass(), ResponseStatus.class);
+    if (annotation == null) {
+      log.warn("{} declares no @ResponseStatus", exception.getClass().getName());
+      return HttpStatus.INTERNAL_SERVER_ERROR;
     }
-    if (exception instanceof OutOfStockException
-        || exception instanceof RestaurantClosedException
-        || exception instanceof DifferentRestaurantException
-        || exception instanceof CartItemAlreadyExistsException) {
-      return HttpStatus.CONFLICT;
-    }
-    return HttpStatus.BAD_REQUEST;
+    return HttpStatus.valueOf(annotation.value().value());
   }
 
   /** Reports every invalid field, so one round trip tells the caller everything that is wrong. */

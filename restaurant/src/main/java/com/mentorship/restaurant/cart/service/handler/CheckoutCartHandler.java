@@ -2,7 +2,7 @@ package com.mentorship.restaurant.cart.service.handler;
 
 import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
-import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
+import com.mentorship.restaurant.cart.exception.EmptyCartException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
 import com.mentorship.restaurant.cart.repository.CartRepository;
@@ -31,7 +31,7 @@ public class CheckoutCartHandler {
             .orElseThrow(() -> new CartItemNotFoundException("Cart not found"));
     List<CartItem> cartItems = cart.getItems();
     if (cartItems.isEmpty()) {
-      throw new InvalidQuantityException("Cart is empty");
+      throw new EmptyCartException("Cart is empty");
     }
 
     cartItems.forEach(this::decrementStockAtomically);
