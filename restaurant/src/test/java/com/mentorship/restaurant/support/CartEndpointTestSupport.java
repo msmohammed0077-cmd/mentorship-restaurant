@@ -95,6 +95,34 @@ public abstract class CartEndpointTestSupport {
     return stock;
   }
 
+  protected long cartItemIdFor(long cartId, long menuItemId) {
+    Long cartItemId =
+        jdbcTemplate.queryForObject(
+            "SELECT cart_item_id FROM cart_items WHERE cart_id = ? AND menu_item_id = ?",
+            Long.class,
+            cartId,
+            menuItemId);
+    if (cartItemId == null) {
+      throw new IllegalStateException("Cart item not found for menu item " + menuItemId);
+    }
+    return cartItemId;
+  }
+
+  protected boolean cartExists(long cartId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM carts WHERE cart_id = ?", Integer.class, cartId);
+    return count != null && count > 0;
+  }
+
+  /**
+   * Only for the menu items resetCartFixtures restores, so the change cannot leak between tests.
+   */
+  protected void setStock(long menuItemId, int stock) {
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_stock = ? WHERE menu_item_id = ?", stock, menuItemId);
+  }
+
   protected int cartItemCountFor(long cartId) {
     Integer count =
         jdbcTemplate.queryForObject(
