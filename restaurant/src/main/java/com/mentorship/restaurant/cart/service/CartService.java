@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.cart.service;
 
-import com.mentorship.restaurant.cart.controller.response.CartResponse;
-import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
+import com.mentorship.restaurant.cart.model.response.CartResponse;
+import com.mentorship.restaurant.cart.model.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.service.handler.AddToCartHandler;
 import com.mentorship.restaurant.cart.service.handler.CheckoutCartHandler;
 import com.mentorship.restaurant.cart.service.handler.ClearCartHandler;
@@ -9,8 +9,8 @@ import com.mentorship.restaurant.cart.service.handler.ModifyCartItemHandler;
 import com.mentorship.restaurant.cart.service.handler.RemoveCartItemHandler;
 import com.mentorship.restaurant.cart.service.handler.ViewCartHandler;
 import java.util.List;
-import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor

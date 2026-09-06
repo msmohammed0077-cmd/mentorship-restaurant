@@ -41,7 +41,9 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
   int deleteAllByCart_IdAndIdIn(
       @Param("cartId") Long cartId, @Param("cartItemIds") Collection<Long> cartItemIds);
 
-  /** Failure path only: names the ids that were actually present so the 404 can say which missed. */
+  /**
+   * Failure path only: names the ids that were actually present so the 404 can say which missed.
+   */
   @Query(
       """
       select cartItem.id from CartItem cartItem

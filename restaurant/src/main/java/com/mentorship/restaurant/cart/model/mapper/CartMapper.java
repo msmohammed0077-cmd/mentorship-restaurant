@@ -1,9 +1,9 @@
 package com.mentorship.restaurant.cart.model.mapper;
 
-import com.mentorship.restaurant.cart.controller.response.CartResponse;
 import com.mentorship.restaurant.cart.model.entity.Cart;
-import org.springframework.stereotype.Component;
+import com.mentorship.restaurant.cart.model.response.CartResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

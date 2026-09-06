@@ -20,8 +20,8 @@ public class GlobalExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   /**
-   * Handles every CartException. Extending CartException is all a new exception has to do, so
-   * there is no list here to forget to update.
+   * Handles every CartException. Extending CartException is all a new exception has to do, so there
+   * is no list here to forget to update.
    */
   @ExceptionHandler(CartException.class)
   public ResponseEntity<ApiErrorResponse> handleCartException(
@@ -30,9 +30,9 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Reads the status the exception declares with @ResponseStatus. findMergedAnnotation searches
-   * the type hierarchy, so a subclass inherits its parent's status even though @ResponseStatus is
-   * not itself @Inherited.
+   * Reads the status the exception declares with @ResponseStatus. findMergedAnnotation searches the
+   * type hierarchy, so a subclass inherits its parent's status even though @ResponseStatus is not
+   * itself @Inherited.
    *
    * <p>A missing annotation falls back to 500 rather than something plausible like 400, so the
    * omission is loud the first time the exception is thrown instead of quietly returning a wrong

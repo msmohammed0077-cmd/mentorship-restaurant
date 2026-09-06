@@ -1,17 +1,17 @@
 package com.mentorship.restaurant.cart.service.handler;
 
-import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.exception.CartNotFoundException;
 import com.mentorship.restaurant.cart.exception.EmptyCartException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.model.entity.Cart;
+import com.mentorship.restaurant.cart.model.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
