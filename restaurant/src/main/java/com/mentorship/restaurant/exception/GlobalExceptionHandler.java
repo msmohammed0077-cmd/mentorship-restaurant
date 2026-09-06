@@ -11,6 +11,9 @@ import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -19,6 +22,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler({
     CartItemNotFoundException.class,
@@ -57,23 +62,31 @@ public class GlobalExceptionHandler {
     return HttpStatus.BAD_REQUEST;
   }
 
+  /** Reports every invalid field, so one round trip tells the caller everything that is wrong. */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiErrorResponse> handleValidationException(
       MethodArgumentNotValidException exception, HttpServletRequest request) {
     String message =
         exception.getBindingResult().getFieldErrors().stream()
-            .findFirst()
             .map(fieldError -> fieldError.getField() + " " + fieldError.getDefaultMessage())
-            .orElse("Validation failed");
+            .collect(Collectors.joining(", "));
 
-    return buildResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        message.isEmpty() ? "Validation failed" : message,
+        request.getRequestURI());
   }
 
+  /**
+   * The message is deliberately fixed: an unhandled exception's own message can carry SQL, class
+   * names or connection details, none of which belong in a response. The detail goes to the log.
+   */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
       Exception exception, HttpServletRequest request) {
+    log.error("Unhandled exception on {}", request.getRequestURI(), exception);
     return buildResponse(
-        HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), request.getRequestURI());
+        HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request.getRequestURI());
   }
 
   private ResponseEntity<ApiErrorResponse> buildResponse(
