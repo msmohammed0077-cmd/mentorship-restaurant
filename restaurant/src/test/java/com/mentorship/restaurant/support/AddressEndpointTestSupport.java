@@ -38,6 +38,19 @@ public abstract class AddressEndpointTestSupport {
         .formatted(label);
   }
 
+  protected String updatedAddressBody(String label) {
+    return """
+        {
+          "label": "%s",
+          "line": "45 Ramses Street",
+          "city": "Giza",
+          "area": "Mohandessin",
+          "note": "Ring twice"
+        }
+        """
+        .formatted(label);
+  }
+
   protected long addAddress(String label) {
     client
         .post()
