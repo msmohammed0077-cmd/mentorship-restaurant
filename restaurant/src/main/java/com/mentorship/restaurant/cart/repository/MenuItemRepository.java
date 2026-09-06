@@ -11,9 +11,13 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
   /**
    * Decrements stock only when the current quantity is sufficient.
    *
+   * <p>Clearing the persistence context detaches whatever the caller was holding, so callers must
+   * take what they need from their entities before the first call and re-read anything they need
+   * afterwards.
+   *
    * @return the number of rows updated, which is 1 when the decrement succeeds
    */
-  @Modifying
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
   @Query(
       """
       update MenuItem menuItem
