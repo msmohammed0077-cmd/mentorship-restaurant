@@ -10,9 +10,11 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -46,6 +48,24 @@ public class GlobalExceptionHandler {
     return buildResponse(
         HttpStatus.BAD_REQUEST,
         message.isEmpty() ? "Validation failed" : message,
+        request.getRequestURI());
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+      MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        exception.getName() + " is not a valid value",
+        request.getRequestURI());
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiErrorResponse> handleMissingParameter(
+      MissingServletRequestParameterException exception, HttpServletRequest request) {
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        exception.getParameterName() + " is required",
         request.getRequestURI());
   }
 

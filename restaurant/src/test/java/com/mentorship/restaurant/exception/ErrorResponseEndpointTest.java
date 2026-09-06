@@ -28,15 +28,30 @@ class ErrorResponseEndpointTest extends CartEndpointTestSupport {
   }
 
   @Test
-  void hidesInternalDetailFromUnexpectedErrors() {
+  void rejectsAMalformedCartId() {
     client
         .get()
         .uri("/api/v1/cart/{cartId}", "not-a-number")
         .exchange()
         .expectStatus()
-        .is5xxServerError()
+        .isBadRequest()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("An unexpected error occurred");
+        .isEqualTo("cartId is not a valid value");
+  }
+
+  @Test
+  void rejectsAMissingCartItemIdsParameter() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    client
+        .delete()
+        .uri("/api/v1/cart/{cartId}/items", cartId)
+        .exchange()
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("cartItemIds is required");
   }
 }
