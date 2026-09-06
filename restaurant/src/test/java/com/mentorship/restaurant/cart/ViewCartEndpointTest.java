@@ -30,10 +30,6 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
         .isEqualTo(370.00);
   }
 
-  /**
-   * Stock belongs to add, modify and checkout. A cart whose item has since outrun its stock is
-   * still a cart the customer is entitled to look at, so this reads back rather than failing.
-   */
   @Test
   void viewsACartWhoseQuantityExceedsCurrentStock() {
     long cartId = createCartWithItem(KOFTA, 40);

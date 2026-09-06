@@ -27,7 +27,6 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
     assertThat(cartItemCountFor(cartId)).isZero();
   }
 
-  /** An empty cart is a state conflict, not a malformed request. */
   @Test
   void rejectsAnEmptyCart() {
     long cartId = createCartWithItem(KOFTA, 2);
@@ -57,10 +56,6 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
         .isEqualTo("Cart not found");
   }
 
-  /**
-   * Stock is decremented one line at a time, so a rejection partway through must undo the lines
-   * already taken. Asserted on both items because the order the lines are visited is not defined.
-   */
   @Test
   void leavesEverythingUntouchedWhenAnItemIsOutOfStock() {
     long cartId = createCartWithItem(KOFTA, 2);

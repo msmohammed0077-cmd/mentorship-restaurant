@@ -19,25 +19,12 @@ public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-  /**
-   * Handles every CartException. Extending CartException is all a new exception has to do, so there
-   * is no list here to forget to update.
-   */
   @ExceptionHandler(CartException.class)
   public ResponseEntity<ApiErrorResponse> handleCartException(
       CartException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
-  /**
-   * Reads the status the exception declares with @ResponseStatus. findMergedAnnotation searches the
-   * type hierarchy, so a subclass inherits its parent's status even though @ResponseStatus is not
-   * itself @Inherited.
-   *
-   * <p>A missing annotation falls back to 500 rather than something plausible like 400, so the
-   * omission is loud the first time the exception is thrown instead of quietly returning a wrong
-   * status forever.
-   */
   private HttpStatus statusOf(CartException exception) {
     ResponseStatus annotation =
         AnnotatedElementUtils.findMergedAnnotation(exception.getClass(), ResponseStatus.class);
@@ -48,7 +35,6 @@ public class GlobalExceptionHandler {
     return HttpStatus.valueOf(annotation.value().value());
   }
 
-  /** Reports every invalid field, so one round trip tells the caller everything that is wrong. */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiErrorResponse> handleValidationException(
       MethodArgumentNotValidException exception, HttpServletRequest request) {
@@ -63,10 +49,6 @@ public class GlobalExceptionHandler {
         request.getRequestURI());
   }
 
-  /**
-   * The message is deliberately fixed: an unhandled exception's own message can carry SQL, class
-   * names or connection details, none of which belong in a response. The detail goes to the log.
-   */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
       Exception exception, HttpServletRequest request) {

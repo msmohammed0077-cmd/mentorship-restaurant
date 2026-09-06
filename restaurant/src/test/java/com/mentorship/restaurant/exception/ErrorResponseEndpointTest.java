@@ -6,7 +6,6 @@ import org.springframework.http.MediaType;
 
 class ErrorResponseEndpointTest extends CartEndpointTestSupport {
 
-  /** Field error order is not deterministic, so this asserts on containment, not equality. */
   @Test
   void reportsEveryInvalidField() {
     client
@@ -28,14 +27,6 @@ class ErrorResponseEndpointTest extends CartEndpointTestSupport {
                     .contains("quantity"));
   }
 
-  /**
-   * An unhandled exception's own message can carry SQL or class names, so the response says only
-   * that something went wrong.
-   *
-   * <p>That this path is a 500 at all is a separate bug: Spring MVC's own
-   * MethodArgumentTypeMismatchException should be a 400, and will be once the advice extends
-   * ResponseEntityExceptionHandler. The assertion here is about what the body may disclose.
-   */
   @Test
   void hidesInternalDetailFromUnexpectedErrors() {
     client

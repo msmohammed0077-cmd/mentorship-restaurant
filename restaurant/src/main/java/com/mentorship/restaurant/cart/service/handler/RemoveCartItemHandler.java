@@ -22,20 +22,10 @@ public class RemoveCartItemHandler {
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
 
-  /**
-   * Removing the last item empties the cart but does not delete it. A customer who removes
-   * everything still has a cart, which is what clearCart already returns and what a following GET
-   * expects to find.
-   *
-   * <p>The cart is read only after the delete: see ClearCartHandler for why loading it first would
-   * leave a stale item collection behind.
-   */
   @Transactional
   public CartResponse removeCartItems(Long cartId, List<Long> cartItemIds) {
-    // Before the delete, so a missing cart is reported as such rather than as items not found.
     ensureCartExists(cartId);
 
-    // The same id twice would delete one row, which would otherwise read as a missing item.
     Set<Long> requestedIds = new LinkedHashSet<>(cartItemIds);
     ensureAllItemsInCart(cartId, requestedIds);
 
@@ -55,13 +45,6 @@ public class RemoveCartItemHandler {
     }
   }
 
-  /**
-   * Checked before the delete rather than inferred from its row count afterwards. The count says
-   * how many ids missed but not which, and by the time it is known the rows that did match are
-   * already gone, so there is nothing left to compare against.
-   *
-   * <p>Scoping the lookup by cart is what stops one cart removing another's items.
-   */
   private void ensureAllItemsInCart(Long cartId, Set<Long> requestedIds) {
     List<Long> present = cartItemRepository.findIdsByCart_IdAndIdIn(cartId, requestedIds);
     if (present.size() == requestedIds.size()) {

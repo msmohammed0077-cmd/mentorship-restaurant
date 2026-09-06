@@ -115,9 +115,6 @@ public abstract class CartEndpointTestSupport {
     return count != null && count > 0;
   }
 
-  /**
-   * Only for the menu items resetCartFixtures restores, so the change cannot leak between tests.
-   */
   protected void setStock(long menuItemId, int stock) {
     jdbcTemplate.update(
         "UPDATE menu_items SET menu_item_stock = ? WHERE menu_item_id = ?", stock, menuItemId);

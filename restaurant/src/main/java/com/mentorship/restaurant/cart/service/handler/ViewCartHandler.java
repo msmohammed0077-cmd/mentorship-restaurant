@@ -16,11 +16,6 @@ public class ViewCartHandler {
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
 
-  /**
-   * Reports what is in the cart and nothing more. Stock is checked when an item is added, modified
-   * and at checkout; a cart whose item has since outrun its stock is still a cart the customer is
-   * entitled to look at.
-   */
   @Transactional(readOnly = true)
   public CartResponse viewCart(Long cartId) {
     Cart cart =

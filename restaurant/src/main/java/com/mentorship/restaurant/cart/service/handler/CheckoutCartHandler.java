@@ -21,18 +21,8 @@ public class CheckoutCartHandler {
   private final CartItemRepository cartItemRepository;
   private final MenuItemRepository menuItemRepository;
 
-  /** What checkout consumes from one cart line, read before any bulk query runs. */
   private record Line(Long menuItemId, Integer quantity) {}
 
-  /**
-   * Decrements stock atomically, then empties the cart.
-   *
-   * <p>The order matters. decrementStockIfAvailable clears the persistence context, which detaches
-   * the Cart and everything hanging off it, so the lines are copied out first and nothing after
-   * that point touches a managed entity. Emptying the cart is a bulk delete for the same reason:
-   * clearing cart.getItems() and relying on orphanRemoval would mutate a detached collection that
-   * Hibernate has stopped watching, and the rows would silently survive.
-   */
   @Transactional
   public CheckoutCartResponse checkout(Long cartId) {
     Cart cart =

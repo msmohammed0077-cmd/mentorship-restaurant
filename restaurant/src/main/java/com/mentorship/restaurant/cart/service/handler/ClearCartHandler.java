@@ -18,15 +18,6 @@ public class ClearCartHandler {
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
 
-  /**
-   * Existence is checked with existsById rather than findById on purpose. A Cart loaded before the
-   * bulk delete would be left holding a stale item collection, and mapping it would describe rows
-   * that no longer exist. Not loading one makes that mistake impossible; the Cart is read after the
-   * delete instead.
-   *
-   * <p>Clearing an already-empty cart is a no-op that still returns the cart, so the operation is
-   * idempotent.
-   */
   @Transactional
   public CartResponse clearCart(Long cartId) {
     ensureCartExists(cartId);

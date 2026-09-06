@@ -29,7 +29,6 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
         .jsonPath("$.total")
         .isEqualTo(0);
 
-    // The response is built from the entity, which can read empty while the rows survive.
     assertThat(cartItemCountFor(cartId)).isZero();
     assertThat(cartExists(cartId)).isTrue();
   }

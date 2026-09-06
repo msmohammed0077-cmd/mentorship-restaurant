@@ -30,7 +30,6 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     assertThat(cartItemCountFor(cartId)).isEqualTo(1);
   }
 
-  /** The cart outlives its last item; clearCart already behaves this way. */
   @Test
   void removesTheLastItemAndKeepsTheCart() {
     long cartId = createCartWithItem(KOFTA, 2);
@@ -55,7 +54,6 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     assertThat(cartExists(cartId)).isTrue();
   }
 
-  /** The count assertion is the point: a partial delete must not survive the rejection. */
   @Test
   void rejectsAnUnknownCartItemAndRemovesNothing() {
     long cartId = createCartWithItem(KOFTA, 1);
@@ -75,7 +73,6 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     assertThat(cartItemCountFor(cartId)).isEqualTo(1);
   }
 
-  /** Proves the delete is scoped by cart and not by item id alone. */
   @Test
   void rejectsACartItemBelongingToAnotherCart() {
     long cartId = createCartWithItem(KOFTA, 1);
@@ -93,7 +90,6 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     assertThat(cartItemCountFor(SEEDED_CART)).isEqualTo(otherCartItemCount);
   }
 
-  /** A missing cart is reported as such, which only holds while the guard precedes the delete. */
   @Test
   void rejectsAnUnknownCart() {
     client
@@ -107,7 +103,6 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
         .isEqualTo("Cart not found");
   }
 
-  /** The same id twice deletes one row, which must not read as a missing item. */
   @Test
   void acceptsDuplicateIds() {
     long cartId = createCartWithItem(KOFTA, 1);
