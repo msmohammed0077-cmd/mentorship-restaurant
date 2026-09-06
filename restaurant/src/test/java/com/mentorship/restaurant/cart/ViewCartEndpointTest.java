@@ -29,4 +29,51 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
         .jsonPath("$.total")
         .isEqualTo(370.00);
   }
+
+  @Test
+  void viewsACartWhoseQuantityExceedsCurrentStock() {
+    long cartId = createCartWithItem(KOFTA, 40);
+    setStock(KOFTA, 1);
+
+    client
+        .get()
+        .uri("/api/v1/cart/{cartId}", cartId)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.items[0].quantity")
+        .isEqualTo(40);
+  }
+
+  @Test
+  void viewsAnEmptyCart() {
+    long cartId = createCartWithItem(KOFTA, 2);
+    client.delete().uri("/api/v1/cart/{cartId}", cartId).exchange().expectStatus().isOk();
+
+    client
+        .get()
+        .uri("/api/v1/cart/{cartId}", cartId)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.items.length()")
+        .isEqualTo(0)
+        .jsonPath("$.total")
+        .isEqualTo(0);
+  }
+
+  @Test
+  void rejectsAnUnknownCart() {
+    client
+        .get()
+        .uri("/api/v1/cart/{cartId}", 999999L)
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Cart not found");
+  }
 }

@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.cart.controller.response;
+package com.mentorship.restaurant.cart.model.response;
 
 import java.math.BigDecimal;
 import java.util.List;

@@ -32,13 +32,27 @@ The pattern is set by `ModifyCartItemHandler`. Follow it rather than inventing a
 
 **Every lookup is a repository method.** Nothing filters or searches inside an entity or a service — if you need to find something, add a query to the repository.
 
+**Constructor injection is generated.** `@RequiredArgsConstructor` on the class, `private final` fields — do not hand-write a constructor that only assigns fields. `HealthController` is the exception: its parameter carries `@Value`, and Lombok drops annotations on generated parameters without a `lombok.config`.
+
 **Mappers build responses.** `CartMapper` / `CartItemMapper` in `cart/model/mapper/`, `@Component`.
 
-**Requests and responses are Lombok `@Data` classes** (not records) with Jakarta validation annotations, in `cart/model/request/` and `cart/controller/response/`.
+**Requests and responses are Lombok `@Data` classes** (not records) with Jakarta validation annotations, in `cart/model/request/` and `cart/model/response/`.
 
 **Controllers return `ResponseEntity<T>`**, base path `/api/v1/...`, `@Valid @RequestBody`, `@Tag` for springdoc.
 
-**Exceptions live in `cart/exception/`**, carry their message, and **must be registered in `com.mentorship.restaurant.exception.GlobalExceptionHandler`** — its `@ExceptionHandler(Exception.class)` catches anything unlisted and returns 500, and `@ResponseStatus` on the exception is ignored once an advice matches.
+**Exceptions live in `cart/exception/`**, carry their message, **extend `CartException`**, and **declare their status with `@ResponseStatus`**. `GlobalExceptionHandler` catches `CartException` and reads the status back off the annotation, so extending the base class is the only registration step. An exception that extends `RuntimeException` directly falls through to `@ExceptionHandler(Exception.class)` and becomes a 500; one that extends `CartException` without `@ResponseStatus` also returns 500, deliberately, so the omission is noticed.
+
+**The generic 500 never echoes the exception.** `handleGenericException` returns a fixed message and logs the detail — an unhandled exception's own message can carry SQL, class names or connection details.
+
+### Persistence rules
+
+**Multi-row deletes are one statement.** An explicit `@Modifying @Query` scoped to the cart, never a loop and never `orphanRemoval` over a mutated collection. A *derived* `deleteAllBy...` with no `@Query` loads every row and deletes them one at a time, which defeats the point.
+
+**Never `save()` an entity that is already managed** inside `@Transactional`. Dirty checking issues the `UPDATE` at flush; the extra call is noise.
+
+**A bulk query and the entities it affects cannot share a transaction safely.** A `@Modifying` query bypasses the persistence context, so a collection loaded before it goes stale and `clearAutomatically` detaches the entity outright. Take what you need out of the entity *before* the first such query, and re-read anything you need after it — `ClearCartHandler` and `CheckoutCartHandler` are the worked examples. Checking existence with `existsById` rather than `findById` is the cheap way to make the mistake impossible, because there is then no stale entity in scope to map.
+
+**Reads do not validate business state.** `viewCart` reports what is in the cart. Stock, opening hours and the rest belong to the operations that change something — a read must not fail because the world moved on.
 
 ### Where validation goes
 

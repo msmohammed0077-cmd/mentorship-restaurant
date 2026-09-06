@@ -1,60 +1,40 @@
 package com.mentorship.restaurant.exception;
 
-import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
-import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
-import com.mentorship.restaurant.cart.exception.CartNotFoundException;
-import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
-import com.mentorship.restaurant.cart.exception.InvalidQuantityException;
-import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
-import com.mentorship.restaurant.cart.exception.OutOfStockException;
-import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
+import com.mentorship.restaurant.cart.exception.CartException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler({
-    CartItemNotFoundException.class,
-    CartItemAlreadyExistsException.class,
-    CartNotFoundException.class,
-    CustomerNotFoundException.class,
-    MenuItemNotFoundException.class,
-    InvalidQuantityException.class,
-    OutOfStockException.class,
-    RestaurantClosedException.class,
-    DifferentRestaurantException.class
-  })
-  public ResponseEntity<ApiErrorResponse> handleCartExceptions(
-      RuntimeException exception, HttpServletRequest request) {
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(CartException.class)
+  public ResponseEntity<ApiErrorResponse> handleCartException(
+      CartException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
-  /**
-   * Every cart exception must be listed above and here. handleGenericException catches anything
-   * unlisted and turns it into a 500, and @ResponseStatus on the exception itself is ignored once
-   * an advice matches.
-   */
-  private HttpStatus statusOf(RuntimeException exception) {
-    if (exception instanceof CartItemNotFoundException
-        || exception instanceof CartNotFoundException
-        || exception instanceof CustomerNotFoundException
-        || exception instanceof MenuItemNotFoundException) {
-      return HttpStatus.NOT_FOUND;
+  private HttpStatus statusOf(CartException exception) {
+    ResponseStatus annotation =
+        AnnotatedElementUtils.findMergedAnnotation(exception.getClass(), ResponseStatus.class);
+    if (annotation == null) {
+      log.warn("{} declares no @ResponseStatus", exception.getClass().getName());
+      return HttpStatus.INTERNAL_SERVER_ERROR;
     }
-    if (exception instanceof OutOfStockException
-        || exception instanceof RestaurantClosedException
-        || exception instanceof DifferentRestaurantException
-        || exception instanceof CartItemAlreadyExistsException) {
-      return HttpStatus.CONFLICT;
-    }
-    return HttpStatus.BAD_REQUEST;
+    return HttpStatus.valueOf(annotation.value().value());
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -62,18 +42,39 @@ public class GlobalExceptionHandler {
       MethodArgumentNotValidException exception, HttpServletRequest request) {
     String message =
         exception.getBindingResult().getFieldErrors().stream()
-            .findFirst()
             .map(fieldError -> fieldError.getField() + " " + fieldError.getDefaultMessage())
-            .orElse("Validation failed");
+            .collect(Collectors.joining(", "));
 
-    return buildResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        message.isEmpty() ? "Validation failed" : message,
+        request.getRequestURI());
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+      MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        exception.getName() + " is not a valid value",
+        request.getRequestURI());
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiErrorResponse> handleMissingParameter(
+      MissingServletRequestParameterException exception, HttpServletRequest request) {
+    return buildResponse(
+        HttpStatus.BAD_REQUEST,
+        exception.getParameterName() + " is required",
+        request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
       Exception exception, HttpServletRequest request) {
+    log.error("Unhandled exception on {}", request.getRequestURI(), exception);
     return buildResponse(
-        HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), request.getRequestURI());
+        HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request.getRequestURI());
   }
 
   private ResponseEntity<ApiErrorResponse> buildResponse(
