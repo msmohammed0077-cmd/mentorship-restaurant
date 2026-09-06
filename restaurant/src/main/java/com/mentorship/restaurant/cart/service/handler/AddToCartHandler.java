@@ -19,8 +19,10 @@ import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class AddToCartHandler {
 
   private final CartRepository cartRepository;
@@ -28,19 +30,6 @@ public class AddToCartHandler {
   private final CustomerRepository customerRepository;
   private final MenuItemRepository menuItemRepository;
   private final CartMapper cartMapper;
-
-  public AddToCartHandler(
-      CartRepository cartRepository,
-      CartItemRepository cartItemRepository,
-      CustomerRepository customerRepository,
-      MenuItemRepository menuItemRepository,
-      CartMapper cartMapper) {
-    this.cartRepository = cartRepository;
-    this.cartItemRepository = cartItemRepository;
-    this.customerRepository = customerRepository;
-    this.menuItemRepository = menuItemRepository;
-    this.cartMapper = cartMapper;
-  }
 
   @Transactional
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {

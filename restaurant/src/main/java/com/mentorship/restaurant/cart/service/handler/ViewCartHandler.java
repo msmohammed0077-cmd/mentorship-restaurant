@@ -7,17 +7,14 @@ import com.mentorship.restaurant.cart.model.mapper.CartMapper;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ViewCartHandler {
 
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
-
-  public ViewCartHandler(CartRepository cartRepository, CartMapper cartMapper) {
-    this.cartRepository = cartRepository;
-    this.cartMapper = cartMapper;
-  }
 
   /**
    * Reports what is in the cart and nothing more. Stock is checked when an item is added, modified

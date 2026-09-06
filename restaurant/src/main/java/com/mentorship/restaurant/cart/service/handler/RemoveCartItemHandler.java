@@ -12,20 +12,15 @@ import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class RemoveCartItemHandler {
 
   private final CartItemRepository cartItemRepository;
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
-
-  public RemoveCartItemHandler(
-      CartItemRepository cartItemRepository, CartRepository cartRepository, CartMapper cartMapper) {
-    this.cartItemRepository = cartItemRepository;
-    this.cartRepository = cartRepository;
-    this.cartMapper = cartMapper;
-  }
 
   /**
    * Removing the last item empties the cart but does not delete it. A customer who removes

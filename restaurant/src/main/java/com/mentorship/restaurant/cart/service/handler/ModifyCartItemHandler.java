@@ -8,17 +8,14 @@ import com.mentorship.restaurant.cart.model.mapper.CartMapper;
 import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ModifyCartItemHandler {
 
   private final CartItemRepository cartItemRepository;
   private final CartMapper cartMapper;
-
-  public ModifyCartItemHandler(CartItemRepository cartItemRepository, CartMapper cartMapper) {
-    this.cartItemRepository = cartItemRepository;
-    this.cartMapper = cartMapper;
-  }
 
   @Transactional
   public CartResponse modifyItem(Long cartId, Long cartItemId, Integer quantity, String note) {

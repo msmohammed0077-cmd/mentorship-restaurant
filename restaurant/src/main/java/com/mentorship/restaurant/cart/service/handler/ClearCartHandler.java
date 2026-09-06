@@ -8,20 +8,15 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ClearCartHandler {
 
   private final CartItemRepository cartItemRepository;
   private final CartRepository cartRepository;
   private final CartMapper cartMapper;
-
-  public ClearCartHandler(
-      CartItemRepository cartItemRepository, CartRepository cartRepository, CartMapper cartMapper) {
-    this.cartItemRepository = cartItemRepository;
-    this.cartRepository = cartRepository;
-    this.cartMapper = cartMapper;
-  }
 
   /**
    * Existence is checked with existsById rather than findById on purpose. A Cart loaded before the

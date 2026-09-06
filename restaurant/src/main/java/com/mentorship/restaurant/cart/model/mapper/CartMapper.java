@@ -3,15 +3,13 @@ package com.mentorship.restaurant.cart.model.mapper;
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
 import com.mentorship.restaurant.cart.model.entity.Cart;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class CartMapper {
 
   private final CartItemMapper cartItemMapper;
-
-  public CartMapper(CartItemMapper cartItemMapper) {
-    this.cartItemMapper = cartItemMapper;
-  }
 
   public CartResponse toResponse(Cart cart) {
     return new CartResponse(

@@ -11,22 +11,15 @@ import com.mentorship.restaurant.cart.repository.MenuItemRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class CheckoutCartHandler {
 
   private final CartRepository cartRepository;
   private final CartItemRepository cartItemRepository;
   private final MenuItemRepository menuItemRepository;
-
-  public CheckoutCartHandler(
-      CartRepository cartRepository,
-      CartItemRepository cartItemRepository,
-      MenuItemRepository menuItemRepository) {
-    this.cartRepository = cartRepository;
-    this.cartItemRepository = cartItemRepository;
-    this.menuItemRepository = menuItemRepository;
-  }
 
   /** What checkout consumes from one cart line, read before any bulk query runs. */
   private record Line(Long menuItemId, Integer quantity) {}
