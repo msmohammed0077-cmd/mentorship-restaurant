@@ -4,6 +4,7 @@ import com.mentorship.restaurant.customer.model.request.AddAddressRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateAddressRequest;
 import com.mentorship.restaurant.customer.model.response.AddressResponse;
 import com.mentorship.restaurant.customer.service.handler.AddAddressHandler;
+import com.mentorship.restaurant.customer.service.handler.DeleteAddressHandler;
 import com.mentorship.restaurant.customer.service.handler.SetDefaultAddressHandler;
 import com.mentorship.restaurant.customer.service.handler.UpdateAddressHandler;
 import com.mentorship.restaurant.customer.service.handler.ViewAddressesHandler;
@@ -19,6 +20,7 @@ public class AddressService {
   private final SetDefaultAddressHandler setDefaultAddressHandler;
   private final ViewAddressesHandler viewAddressesHandler;
   private final UpdateAddressHandler updateAddressHandler;
+  private final DeleteAddressHandler deleteAddressHandler;
 
   public AddressResponse addAddress(Long customerId, AddAddressRequest request) {
     return addAddressHandler.addAddress(customerId, request);
@@ -31,6 +33,10 @@ public class AddressService {
   public AddressResponse updateAddress(
       Long customerId, Long addressId, UpdateAddressRequest request) {
     return updateAddressHandler.updateAddress(customerId, addressId, request);
+  }
+
+  public void deleteAddress(Long customerId, Long addressId) {
+    deleteAddressHandler.deleteAddress(customerId, addressId);
   }
 
   public AddressResponse setDefaultAddress(Long customerId, Long addressId) {
