@@ -40,4 +40,4 @@ Directory where all Foodie documentation lives. This is the entry point — star
 
 ## Notes
 1. Structure is subject to change.
-2. Specs carrying a "does not yet follow the template" note at the top were written before the structure was agreed; they are queued for reshaping, not for deletion.
+2. Specs written before this structure was agreed are queued for reshaping to the template, not for deletion.

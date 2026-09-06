@@ -24,13 +24,13 @@ use-cases/
 
 ### Cart Management
 
-| Use case | Spec | Follows the template |
-| --- | --- | --- |
-| Add Cart Item | [add-cart-item](./cart-management/add-cart-item/add-cart-item.md) | ✅ reference |
-| Modify Cart | [modify-cart](./cart-management/modify-cart/modify-cart.md) | ⚠️ see the note at the top of the file |
-| Remove Cart Item | [remove-cart-item](./cart-management/remove-cart-item/remove-cart-item.md) | ⚠️ see the note at the top of the file |
-| View Cart | [view-cart](./cart-management/view-cart/view-cart.md) | ⚠️ see the note at the top of the file |
-| Clear Cart | [clear-cart](./cart-management/clear-cart/clear-cart.md) | ⚠️ see the note at the top of the file |
+| Use case | Spec |
+| --- | --- |
+| Add Cart Item | [add-cart-item](./cart-management/add-cart-item/add-cart-item.md) |
+| Modify Cart | [modify-cart](./cart-management/modify-cart/modify-cart.md) |
+| Remove Cart Item | [remove-cart-item](./cart-management/remove-cart-item/remove-cart-item.md) |
+| View Cart | [view-cart](./cart-management/view-cart/view-cart.md) |
+| Clear Cart | [clear-cart](./cart-management/clear-cart/clear-cart.md) |
 
 ### Order Management
 
