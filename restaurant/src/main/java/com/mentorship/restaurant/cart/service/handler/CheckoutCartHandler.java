@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.cart.service.handler;
 
 import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
-import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
+import com.mentorship.restaurant.cart.exception.CartNotFoundException;
 import com.mentorship.restaurant.cart.exception.EmptyCartException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
@@ -28,7 +28,7 @@ public class CheckoutCartHandler {
     var cart =
         cartRepository
             .findById(cartId)
-            .orElseThrow(() -> new CartItemNotFoundException("Cart not found"));
+            .orElseThrow(() -> new CartNotFoundException("Cart not found"));
     List<CartItem> cartItems = cart.getItems();
     if (cartItems.isEmpty()) {
       throw new EmptyCartException("Cart is empty");

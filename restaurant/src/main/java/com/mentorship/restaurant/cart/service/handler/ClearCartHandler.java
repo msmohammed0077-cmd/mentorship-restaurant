@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.cart.service.handler;
 
 import com.mentorship.restaurant.cart.controller.response.CartResponse;
-import com.mentorship.restaurant.cart.exception.CartItemNotFoundException;
+import com.mentorship.restaurant.cart.exception.CartNotFoundException;
 import com.mentorship.restaurant.cart.model.entity.Cart;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
 import com.mentorship.restaurant.cart.model.mapper.CartMapper;
@@ -30,7 +30,7 @@ public class ClearCartHandler {
     Cart cart =
         cartRepository
             .findById(cartId)
-            .orElseThrow(() -> new CartItemNotFoundException("Cart not found"));
+            .orElseThrow(() -> new CartNotFoundException("Cart not found"));
     List<CartItem> cartItems =
         cartItemRepository.findAllByCart_Id(cartId).orElse(Collections.emptyList());
 
