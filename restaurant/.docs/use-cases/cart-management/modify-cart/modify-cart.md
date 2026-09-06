@@ -1,3 +1,14 @@
+> [!NOTE]
+> **Does not yet follow [`_use-case-template.md`](../../_use-case-template.md).**
+> Relocated from `.docs/cart-management/modify-cart-diagrams/03- PseudoCode - Modify-Cart.md` (GH-28); the two PNGs moved into `images/`. Content is unchanged and still owned by its author.
+>
+> Still missing, for whoever picks this up:
+>
+> - **Actor**, **Preconditions**, **Postconditions** — none are stated.
+> - **Exception Flows** — Validation Rules lists conditions but not the message or status each rejection returns.
+> - **Data Model** — no tables or columns.
+> - The `images/` PNGs are not referenced from this file at all, and the template asks for inline Mermaid instead.
+
 # Modify Cart Pseudocode
 
 ## Goal

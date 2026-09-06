@@ -1,3 +1,14 @@
+> [!NOTE]
+> **Does not yet follow [`_use-case-template.md`](../../_use-case-template.md).**
+> Relocated from `.docs/cart-management/view-cart/food_delivery_view_cart.md` (GH-28). Content is unchanged and still owned by its author.
+>
+> Still missing, for whoever picks this up:
+>
+> - **Business Rules** — section 6 states the one-restaurant-per-cart rule in prose; it needs to be a numbered list the Alternative Flows extend.
+> - **Data Model** — section 10 is a *suggested* domain model, not the tables and columns this use case actually reads.
+> - **Notes** — scope boundaries and deliberately-open questions.
+> - Section 4 duplicates price/availability rules that belong in [add-cart-item](../add-cart-item/add-cart-item.md); the two need reconciling.
+
 # Food Delivery System --- Cart Management
 
 ## Use Case: View Cart

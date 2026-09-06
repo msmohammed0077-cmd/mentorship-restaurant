@@ -8,7 +8,7 @@ _Owner: TODO · Last reviewed: TODO_
 
 | Layer | Choice | Notes / rationale |
 | --- | --- | --- |
-| Customer app | TODO | Mobile (see [NFR](./nfr.md)) |
+| Customer app | TODO | Mobile (TODO: non-functional requirements doc) |
 | Restaurant dashboard | TODO | |
 | Backend | TODO | |
 | Datastore | TODO | |

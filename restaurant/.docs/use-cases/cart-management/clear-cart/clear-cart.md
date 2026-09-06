@@ -1,3 +1,14 @@
+> [!NOTE]
+> **Does not yet follow [`_use-case-template.md`](../../_use-case-template.md).**
+> Relocated from `.docs/cart-management/clear-cart/food_delivery_clear_cart.md` (GH-28). Content is unchanged and still owned by its author.
+>
+> Still missing, for whoever picks this up:
+>
+> - **Business Rules** — the invariants are implied by the flows but never stated as a numbered list the Alternative Flows can refer back to.
+> - **Data Model** — no table/column list, and the hard-delete vs soft-delete decision in section 8 is left open rather than recorded.
+> - **Notes** — scope boundaries and deliberately-open questions.
+> - Diagrams are prose/Mermaid inside numbered sections rather than under a single `## Diagram` heading.
+
 # Food Delivery System — Cart Management
 ## Use Case: Clear Cart
 
