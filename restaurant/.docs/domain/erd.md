@@ -5,7 +5,8 @@ Data model for Foodie. The **schema-as-code** (migrations / Prisma / SQL) should
 _Owner: TODO · Last reviewed: TODO_
 
 ## Diagram
-1. ![ERD](./images/erd.drawio.png)
+
+1. [Food Delivery ERD (PDF)](./images/food-delivery-erd.pdf) — exported from the DrawIO source.
 
 ## Notes
 1. Originally designed in DrawIO (images have embedded SVG, editable in DrawIO). Prefer the Mermaid/text version above so schema changes diff in PRs.

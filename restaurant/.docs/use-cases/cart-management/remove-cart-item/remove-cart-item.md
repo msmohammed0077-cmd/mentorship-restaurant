@@ -37,7 +37,7 @@ return updated cart;
 ```
 
 ## Sequence Diagram
-![mermaid-diagram-1787311601791.png](Sequence-Diagram.png)
+![Sequence diagram](images/sequence-diagram.png)
 
 ## Flow Diagram
-![Flow-Diagram.png](Flow-Diagram.png)
+![Flow diagram](images/flow-diagram.png)
