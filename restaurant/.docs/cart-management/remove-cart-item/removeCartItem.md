@@ -9,30 +9,34 @@ This document describes the functionality for removing items from a shopping car
 Transactional method
 Cart Function removeCartItems(cartId, cartItemIds) {
 
-validateInputs;
+  // Checked before the delete, so a missing cart is reported as a missing cart
+  // rather than as missing items.
+  if not cartExists(cartId) {
+    throw CART_NOT_FOUND_EXCEPTION;
+  }
 
-//Retrieve the customer's cart
-cart = getCartById.orThrow(CART_NOT_FOUND_EXCEPTION);
+  // The same id twice deletes one row, which would otherwise read as a missing item.
+  requestedIds = deduplicate(cartItemIds);
 
-cartItems = cart.getCartItems;
+  // Scoped by cart, so one cart cannot remove another's items. Checked before the
+  // delete rather than inferred from its row count: the count says how many ids
+  // missed but not which, and by then the matching rows are already gone.
+  presentIds = findCartItemIds(cartId, requestedIds);
+  if presentIds.size != requestedIds.size {
+    throw CART_ITEM_NOT_FOUND_EXCEPTION(requestedIds - presentIds);
+  }
 
-for (cartItemId : cartItemIds) {
-cartItem = cartItems.findCartItemById(cartItemId)
-.orThrow(CART_ITEM_NOT_FOUND_EXCEPTION);
+  // One statement, not one delete per row.
+  deleteCartItems(cartId, requestedIds);
 
-cartItems.remove(cartItem);
-}
+  // Read after the delete. A cart loaded before it keeps a stale item collection,
+  // and the bulk delete detaches it, so the response would describe rows that no
+  // longer exist.
+  cart = getCartById(cartId).orThrow(CART_NOT_FOUND_EXCEPTION);
 
-if cartItems.size == 0 {
-deleteCart(cart);
-return null;
-}
-
-cart.recalculateTotals()
-updatedCart = saveCart(cart);
-
-return updated cart;
-
+  // Removing the last item empties the cart but does not delete it. A customer who
+  // removes everything still has a cart, and a following GET expects to find one.
+  return cart;
 }
 ```
 
