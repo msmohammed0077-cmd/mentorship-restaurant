@@ -23,9 +23,6 @@ Directory where all Foodie documentation lives. This is the entry point — star
 | Template | Use it for |
 | --- | --- |
 | [`use-cases/_use-case-template.md`](./use-cases/_use-case-template.md) | a new use-case spec |
-| [`_templates/epic.md`](./_templates/epic.md) | an umbrella GitHub issue |
-| [`_templates/issue.md`](./_templates/issue.md) | a sub-issue under an epic |
-| [`_templates/task.md`](./_templates/task.md) | a single-PR slice of an issue |
 | [`decisions/_template.md`](./decisions/_template.md) | an architecture decision record |
 
 ## Conventions
