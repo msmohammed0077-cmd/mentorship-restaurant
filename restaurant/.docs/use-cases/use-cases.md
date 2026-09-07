@@ -14,5 +14,6 @@ _Owner: TODO · Last reviewed: TODO_
 ### Order Management
 - [Update Order Status](./order-management/update-order-status/update-order-status.md)
 - [Restaurant Accept / Reject Order](./order-management/accept-reject-order/accept-reject-order.md)
+- [View Order History](./order-management/view-order-history/view-order-history.md)
 
 
