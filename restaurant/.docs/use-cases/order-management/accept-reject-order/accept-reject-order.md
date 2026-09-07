@@ -196,6 +196,17 @@ flowchart TD
 Compensation runs **after** the transition succeeds, inside the same transaction. Restocking an
 order that was not actually moved would hand back stock twice.
 
+## Two things the build changed
+
+**SYSTEM has no restaurant.** The auto-reject sweep calls the same handler a restaurant does, but
+passes no `restaurantId`. The ownership check therefore skips the comparison for `SYSTEM` — while
+still checking existence, so the sweep cannot resurrect an order deleted while it was running.
+
+**A malformed body was a 500 before this ticket.** `GlobalExceptionHandler` had no
+`HttpMessageNotReadableException` handler, so a reason outside the set — or any unparseable JSON on
+any endpoint — returned 500. It now returns 400 with a **fixed** message: Jackson's own names the
+failing type, package and all, and this project's rule is that error responses do not echo internals.
+
 ## Structure
 
 ```text

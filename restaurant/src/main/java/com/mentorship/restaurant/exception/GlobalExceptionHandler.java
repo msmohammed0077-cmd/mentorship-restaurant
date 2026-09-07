@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -81,6 +82,18 @@ public class GlobalExceptionHandler {
         HttpStatus.BAD_REQUEST,
         exception.getParameterName() + " is required",
         request.getRequestURI());
+  }
+
+  /**
+   * A body Jackson cannot read — malformed JSON, or a value outside an enum's set. The message is
+   * fixed rather than the exception's own: Jackson names the failing type, package and all.
+   */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiErrorResponse> handleUnreadableBody(
+      HttpMessageNotReadableException exception, HttpServletRequest request) {
+    log.warn("Unreadable request body on {}: {}", request.getRequestURI(), exception.getMessage());
+    return buildResponse(
+        HttpStatus.BAD_REQUEST, "Request body is malformed", request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)

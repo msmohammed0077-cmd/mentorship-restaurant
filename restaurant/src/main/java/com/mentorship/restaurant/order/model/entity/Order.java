@@ -55,6 +55,13 @@ public class Order {
   @Column(name = "order_prep_time_minutes")
   private Integer prepTimeMinutes;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "order_rejection_reason", length = 32)
+  private RejectionReason rejectionReason;
+
+  @Column(name = "order_rejection_note")
+  private String rejectionNote;
+
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<OrderItem> items = new ArrayList<>();
 }
