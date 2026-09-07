@@ -198,9 +198,16 @@ order that was not actually moved would hand back stock twice.
 
 ## Two things the build changed
 
-**SYSTEM has no restaurant.** The auto-reject sweep calls the same handler a restaurant does, but
-passes no `restaurantId`. The ownership check therefore skips the comparison for `SYSTEM` — while
-still checking existence, so the sweep cannot resurrect an order deleted while it was running.
+**SYSTEM has no restaurant, and callers may not claim to be it.** The auto-reject sweep calls the
+same handler a restaurant does, but passes no `restaurantId`. The ownership check therefore skips
+the comparison for `SYSTEM` — while still checking existence, so the sweep cannot resurrect an order
+deleted while it was running.
+
+That skip made `role` dangerous the moment it was bindable from a query parameter. Code review
+verified the hole live: `POST /orders/{id}/reject?restaurantId=999&role=SYSTEM` returned **200** and
+rejected an order owned by another restaurant, defeating the 403 ownership check and the 400
+reserved-reason guard at once. **Every endpoint now refuses `SYSTEM` at the controller boundary**, so
+it can only ever arrive from the scheduler, and two regression tests hold that line.
 
 **A malformed body was a 500 before this ticket.** `GlobalExceptionHandler` had no
 `HttpMessageNotReadableException` handler, so a reason outside the set — or any unparseable JSON on
@@ -215,7 +222,8 @@ OrderStatusController -> OrderService (delegates only)
                       -> RejectOrderHandler    (@Service, @Transactional)
                           -> UpdateOrderStatusHandler  (#47's transition + history)
                           -> CompensateOrderHandler    (restock; #41 calls this too)
-                      -> AutoRejectStaleOrdersJob (@Scheduled)
+                      -> AutoRejectStaleOrdersHandler  (the sweep's logic)
+                      -> AutoRejectStaleOrdersJob      (@Scheduled trigger only)
 ```
 
 `AcceptOrderHandler` and `RejectOrderHandler` are separate services rather than branches in one:
@@ -245,6 +253,13 @@ creates them until #35.
 | Unknown order | 404 |
 | Auto-reject sweep past 15 minutes | `REJECTED`, `NO_RESPONSE`, actor `SYSTEM`, stock restored |
 | Auto-reject sweep inside 15 minutes | untouched |
+| A caller supplying `role=SYSTEM` on reject | 403, order untouched |
+| A caller supplying `role=SYSTEM` on accept | 403, order untouched |
+
+**The scheduled timer is disabled under test** (`app.orders.auto-reject.enabled=false`). A background
+sweep and a suite that seeds `PLACED` orders with past timestamps are in a race the suite would
+eventually lose — it passed only because the run finishes well inside the sweep's interval. The sweep
+test calls the handler directly, which exercises the same code without the timing.
 
 The two "stock not restored twice" cases matter most. A double restock is silent, permanent, and
 invisible until inventory drifts.

@@ -257,6 +257,39 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }
 
+  @Test
+  void refusesACallerSupplyingTheSystemRole() {
+    long orderId = seedOrder("PLACED", NILE_KITCHEN);
+
+    // SYSTEM skips the ownership check by design. Accepting it over HTTP let
+    // anyone reject any restaurant's order, defeating both the 403 ownership
+    // check and the 400 reserved-reason guard at once.
+    client
+        .post()
+        .uri("/api/v1/orders/{id}/reject?restaurantId={r}&role=SYSTEM", orderId, 999L)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{\"reason\": \"NO_RESPONSE\"}")
+        .exchange()
+        .expectStatus()
+        .isForbidden();
+
+    assertThat(statusOf(orderId)).isEqualTo("PLACED");
+  }
+
+  @Test
+  void refusesACallerSupplyingTheSystemRoleOnAccept() {
+    long orderId = seedOrder("PLACED", NILE_KITCHEN);
+
+    client
+        .post()
+        .uri("/api/v1/orders/{id}/accept?restaurantId={r}&role=SYSTEM", orderId, 999L)
+        .exchange()
+        .expectStatus()
+        .isForbidden();
+
+    assertThat(statusOf(orderId)).isEqualTo("PLACED");
+  }
+
   private void rejectFor(long orderId, String reason) {
     client
         .post()

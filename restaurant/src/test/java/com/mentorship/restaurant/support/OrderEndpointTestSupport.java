@@ -14,7 +14,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// The auto-reject sweep and a suite that seeds PLACED orders with past
+// timestamps are in a race the suite would eventually lose. The timer is off;
+// the sweep test calls the handler directly, which exercises the same code.
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "app.orders.auto-reject.enabled=false")
 @AutoConfigureRestTestClient
 @ActiveProfiles({"local", "test"})
 public abstract class OrderEndpointTestSupport {

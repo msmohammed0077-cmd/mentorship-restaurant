@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.order.controller;
 
+import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.request.AcceptOrderRequest;
 import com.mentorship.restaurant.order.model.request.RejectOrderRequest;
@@ -23,6 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderStatusController {
   private final OrderService orderService;
 
+  /**
+   * SYSTEM is the scheduler's identity, not a caller's. It skips the ownership check by design, so
+   * accepting it over HTTP would let anyone reject any restaurant's order. Refused at the boundary
+   * rather than deeper down, so no handler has to know the difference.
+   */
+  private void refuseSystemRole(ActorRole role) {
+    if (role == ActorRole.SYSTEM) {
+      throw new TransitionNotAllowedForRoleException("Role SYSTEM may not be supplied by a caller");
+    }
+  }
+
   @PostMapping("/{orderId}/accept")
   public ResponseEntity<OrderStatusResponse> accept(
       @PathVariable Long orderId,
@@ -30,6 +42,7 @@ public class OrderStatusController {
       @RequestParam ActorRole role,
       // Optional: accepting without a prep time is the common case.
       @Valid @RequestBody(required = false) AcceptOrderRequest request) {
+    refuseSystemRole(role);
     Integer prepTimeMinutes = request == null ? null : request.getPrepTimeMinutes();
     return ResponseEntity.ok(orderService.accept(orderId, restaurantId, role, prepTimeMinutes));
   }
@@ -40,6 +53,7 @@ public class OrderStatusController {
       @RequestParam Long restaurantId,
       @RequestParam ActorRole role,
       @Valid @RequestBody RejectOrderRequest request) {
+    refuseSystemRole(role);
     return ResponseEntity.ok(
         orderService.reject(orderId, restaurantId, role, request.getReason(), request.getNote()));
   }
@@ -47,12 +61,14 @@ public class OrderStatusController {
   @PostMapping("/{orderId}/preparing")
   public ResponseEntity<OrderStatusResponse> startPreparing(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
+    refuseSystemRole(role);
     return ResponseEntity.ok(orderService.startPreparing(orderId, restaurantId, role));
   }
 
   @PostMapping("/{orderId}/ready-for-pickup")
   public ResponseEntity<OrderStatusResponse> readyForPickup(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
+    refuseSystemRole(role);
     return ResponseEntity.ok(orderService.readyForPickup(orderId, restaurantId, role));
   }
 }
