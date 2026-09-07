@@ -30,6 +30,6 @@ public class OrderHistoryController {
       @Valid @ModelAttribute ViewOrderHistoryRequest request) {
     return ResponseEntity.ok(
         orderService.viewOrderHistory(
-            request.getCustomerId(), request.getLimit(), request.getCursor()));
+            request.getCustomerId(), request.getRole(), request.getLimit(), request.getCursor()));
   }
 }

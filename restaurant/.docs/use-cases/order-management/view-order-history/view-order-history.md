@@ -12,7 +12,7 @@ Customer
 ## Preconditions
 
 1. The customer exists.
-2. The user behind that customer holds the `orders.read_order` permission.
+2. The caller's role is `CUSTOMER`.
 
 ## Scope
 
@@ -40,54 +40,37 @@ Two deviations from the issue text, both agreed:
 4. **Reads do not validate business state.** This reports what exists; it never fails because the
    world moved on.
 
-## Permissions
+## Authorisation
 
-Authentication does not exist and this ticket does not add it. It mimics the **seam**, not the
-storage.
+There is no auth in this project and this ticket does not add any, per #34. The caller passes a role
+and the handler checks it, exactly as #47's and #48's endpoints do.
 
-The intended end state is `user -> many roles -> many permissions`, resolved once at login and
-cached in Redis so later requests need no database call. None of that is built. What is built is the
-question the handler asks:
-
-```java
-interface PermissionResolver {
-  Set<String> permissionsOf(Long userId);
-}
+```http
+GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
 ```
 
-Permissions hang off the **user**, not the customer — a customer is one role a user plays, and the
-same user may later be a restaurant too. The handler resolves `customerId -> userId` with a
-projection that answers both questions in one query:
+A role other than `CUSTOMER` is refused with 403.
 
-```java
-Optional<Long> findUserIdById(Long customerId);   // CustomerRepository
-```
+> `customerId` and `role` are **scoping, not authorisation**. Any caller may pass any value. A known,
+> accepted gap, recorded rather than implied.
 
-An empty result *is* the "customer does not exist" answer, so no separate `existsById` call is
-needed and no entity enters scope.
+### The `PermissionResolver` that was here, and why it went
 
-The only implementation is a stub reading a configured map, **keyed by user id**. This project
-configures with `.properties`, not YAML:
+An earlier version of this use-case authorised through a `PermissionResolver` seam — the shape the
+eventual RBAC has (`user -> roles -> permissions`, resolved at login and cached in Redis) — on the
+grounds that the implementation could later be swapped behind the interface with no caller change.
 
-```properties
-# src/main/resources/application.properties
-app.permissions.1=orders.read_order
-app.permissions.2=orders.read_order
-```
+Code review killed it, correctly. The interface is the right shape, but:
 
-A user id absent from the map holds nothing — which is what makes the 403 path reachable without a
-fixture of its own.
+- **#34 froze "role as a parameter, do not build auth"**, and this is a sub-issue.
+- **#37 never asked for a 403 at all.**
+- The stub **denied by default**: only users 1 and 2 were configured, so every customer #35 creates
+  would have received 403 on their own order history, fixable only by editing production
+  configuration. A permission gate that has to be hand-fed is not a stand-in, it is an outage.
+- It left two authorisation mechanisms in one package, with no ticket number for reconciling them.
 
-> `customerId` in the query string is **scoping, not authorisation**. Until auth exists, any caller
-> may pass any `customerId`. A known, accepted gap, recorded rather than implied.
-
-### Why this differs from its sibling endpoints — deliberately
-
-#47's and #48's endpoints take a `role` parameter, as #34 prescribes. This one asks a
-`PermissionResolver` instead. **That is a deliberate choice, not an oversight**: the resolver is the
-shape the eventual RBAC has, so when it arrives the implementation is swapped behind the interface
-and no caller changes. The cost is that the order package carries two authorisation mechanisms until
-the others are migrated to the resolver. Worth its own ticket.
+The seam belongs in **its own ticket**, migrating #47, #48 and #37 together and choosing a default
+that does not lock real customers out.
 
 ## API
 
@@ -157,9 +140,19 @@ LIMIT :limit
 The row-value comparison is written out as an `OR` because HQL has no tuple comparison.
 
 The cursor is composite because `order_created_at` is not unique — two orders can share a timestamp,
-and `order_id` is what keeps the page boundary stable when they do. It is base64 of
-`<epochMillis>|<orderId>`, opaque so clients cannot construct one and depend on its shape. It is not
-a secret and not signed.
+and `order_id` is what keeps the page boundary stable when they do. It is base64 of `<epochSecond>|<nano>|<orderId>`,
+opaque so clients cannot construct one and depend on its shape. It is not a secret and not signed,
+so decoding treats every part as hostile.
+
+**Seconds and nanoseconds, not milliseconds.** `order_created_at` is microsecond-precision. A
+millisecond cursor rounds the boundary row's timestamp *down*, and the `<` comparison then skips
+every order inside that millisecond — they appear on **no page at all**, a silent and permanent gap
+in a customer's history. Review caught this; the regression test seeds two orders inside one
+millisecond and was confirmed to fail under the old encoding.
+
+Decoding rejects a cursor whose timestamp falls outside year 1–9999. Two hostile values previously
+reached the SQL bind and surfaced as 500s (`timestamp out of range`, `long overflow`) rather than the
+400 this section promised.
 
 `limit + 1` rows are read, so the last page is detected without a second count query.
 
@@ -176,22 +169,25 @@ One index is worth naming because this use-case is why it exists:
 idx_orders_customer_created ON orders (customer_id, order_created_at DESC, order_id DESC)
 ```
 
-That is the keyset query's exact access path.
+That is the keyset query's exact access path. It is created by `V7` alongside the table — review
+found the spec had claimed it while no migration created it, so both queries were seq-scanning.
 
 ## Main Success Scenario
 
 1. Customer requests their history, optionally with a page size and a cursor.
-2. System resolves the customer to a user, which also proves the customer exists.
-3. System verifies that user holds `orders.read_order`.
+2. System verifies the role is `CUSTOMER`, then that the customer exists.
 4. System reads one page, newest first, starting after the cursor if given.
 5. System returns the page and a cursor for the next one, or nothing if this was the last.
 
 ## Exception Flows
 
-- **1a. `customerId` missing, `limit` outside 1..50, or `cursor` malformed:** 400. Shape and range
-  are rejected by validation before the handler runs.
+- **1a. `customerId` or `role` missing, `limit` outside 1..50, or `cursor` malformed:** 400. Shape
+  and range are rejected by validation before the handler runs. `limit` is also `@NotNull`: an empty
+  `?limit=` binds null *over* the field default and null passes `@Min`/`@Max`, which used to reach
+  `limit + 1` and 500.
 - **2a. Customer does not exist:** 404 — "Customer not found".
-- **3a. The customer's user lacks `orders.read_order`:** 403 — "Missing permission: orders.read_order".
+- **2b. The role is not `CUSTOMER`:** 403. Checked before existence, so a caller with the wrong role
+  learns nothing about which customer ids exist.
 - **4a. Customer has no orders:** not an exception. 200, an empty list, no cursor.
 
 ## Postconditions
@@ -206,11 +202,11 @@ None. This is a read.
 flowchart TD
     Start([Customer requests history: customerId, limit, cursor]) --> Bind{"Params valid?"}
     Bind -- No --> Rej400[/Reject 400: invalid request/]
-    Bind -- Yes --> Exists{"Customer exists? (resolve customerId -> userId)"}
+    Bind -- Yes --> Role{"Role is CUSTOMER?"}
+    Role -- No --> Rej403[/Reject 403: wrong role/]
+    Role -- Yes --> Exists{Customer exists?}
     Exists -- No --> Rej404[/Reject 404: Customer not found/]
-    Exists -- Yes --> Perm{"User holds orders.read_order?"}
-    Perm -- No --> Rej403[/Reject 403: Missing permission/]
-    Perm -- Yes --> Read[Read limit+1 orders, newest first, after cursor]
+    Exists -- Yes --> Read[Read limit+1 orders, newest first, after cursor]
     Read --> More{"More rows than limit?"}
     More -- Yes --> WithCursor[Trim to limit, build next_cursor from last row]
     More -- No --> NoCursor[Return all rows, no cursor]
@@ -226,24 +222,21 @@ sequenceDiagram
     participant C as OrderHistoryController
     participant S as OrderService
     participant H as ViewOrderHistoryHandler
-    participant PR as PermissionResolver
     participant CR as CustomerRepository
     participant OR as OrderRepository
 
-    Customer->>C: GET /api/v1/orders?customerId&limit&cursor
+    Customer->>C: GET /api/v1/orders?customerId&role&limit&cursor
     C->>S: viewOrderHistory(request)
-    S->>H: viewOrderHistory(customerId, limit, cursor)
+    S->>H: viewOrderHistory(customerId, role, limit, cursor)
 
-    H->>CR: findUserIdById(customerId)
-    CR-->>H: Optional<Long> userId
-    alt empty
-        H-->>C: CustomerNotFoundException (404)
+    alt role is not CUSTOMER
+        H-->>C: TransitionNotAllowedForRoleException (403)
     end
 
-    H->>PR: permissionsOf(userId)
-    PR-->>H: Set<String>
-    alt lacks orders.read_order
-        H-->>C: PermissionDeniedException (403)
+    H->>CR: existsById(customerId)
+    CR-->>H: boolean
+    alt absent
+        H-->>C: CustomerNotFoundException (404)
     end
 
     alt no cursor
@@ -266,9 +259,6 @@ OrderHistoryController -> OrderService (delegates only)
                        -> OrderMapper              (@Component)
 ```
 
-`PermissionResolver` and `PermissionDeniedException` live in a `permission/` package. They are not
-an order concern, and every later ticket asks the same question.
-
 A separate controller from `OrderStatusController`: that one owns transitions, this one owns a read.
 
 ## Testing
@@ -283,7 +273,11 @@ A separate controller from `OrderStatusController`: that one owns transitions, t
 | Last page | no cursor |
 | **Two orders sharing `order_created_at`** | ordering falls to `order_id DESC` and stays stable across the page boundary |
 | Customer with no orders | 200, empty, no cursor |
-| Customer whose user lacks the permission | 403 |
+| A role other than `CUSTOMER` | 403 |
+| Missing `role` | 400 |
+| **Two orders inside one millisecond** | neither is skipped across the page boundary |
+| A cursor whose timestamp is out of range | 400, not 500 |
+| `?limit=` (empty) | 400, not 500 |
 | Unknown `customerId` | 404 |
 | `limit=0`, `limit=51`, malformed `cursor` | 400 |
 
@@ -294,8 +288,9 @@ Cleanup deletes only the orders each test created; `order_items` follows by casc
 # Notes
 
 1. **No filters, by decision.** See *Scope*.
-2. **`customerId` is scoping, not authorisation.** See *Permissions*.
-3. **This endpoint authorises differently from its siblings**, deliberately. See *Permissions*.
+2. **`customerId` and `role` are scoping, not authorisation.** See *Authorisation*.
+3. **The `PermissionResolver` seam was removed after review.** See *Authorisation* — it belongs in
+   its own ticket, with a default that does not lock real customers out.
 4. **No total count.** Keyset paging cannot cheaply produce one, so there is no `total_elements` or
    page count. A client needing "you have placed N orders" needs a separate counted endpoint.
 5. **Nothing here writes a status.** The vocabulary is #47's and this use-case only reads it.

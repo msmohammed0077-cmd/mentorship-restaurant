@@ -2,15 +2,14 @@ package com.mentorship.restaurant.order.service.handler;
 
 import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
+import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderSummaryProjection;
 import com.mentorship.restaurant.order.service.OrderCursor;
-import com.mentorship.restaurant.permission.PermissionDeniedException;
-import com.mentorship.restaurant.permission.PermissionResolver;
-import com.mentorship.restaurant.permission.Permissions;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +23,13 @@ public class ViewOrderHistoryHandler {
 
   private final CustomerRepository customerRepository;
   private final OrderRepository orderRepository;
-  private final PermissionResolver permissionResolver;
   private final OrderMapper orderMapper;
 
   @Transactional(readOnly = true)
-  public OrderHistoryResponse viewOrderHistory(Long customerId, Integer limit, String cursor) {
-    Long userId = ensureCustomerExists(customerId);
-    ensureMayReadOrders(userId);
+  public OrderHistoryResponse viewOrderHistory(
+      Long customerId, ActorRole role, Integer limit, String cursor) {
+    ensureCustomerRole(role);
+    ensureCustomerExists(customerId);
 
     // One extra row tells us whether another page exists, without a count query.
     PageRequest pageRequest = PageRequest.of(0, limit + 1);
@@ -54,15 +53,19 @@ public class ViewOrderHistoryHandler {
         customerId, position.createdAt(), position.orderId(), pageRequest);
   }
 
-  private Long ensureCustomerExists(Long customerId) {
-    return customerRepository
-        .findUserIdById(customerId)
-        .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+  /**
+   * Role before existence, so a caller with the wrong role learns nothing about which ids exist.
+   */
+  private void ensureCustomerRole(ActorRole role) {
+    if (role != ActorRole.CUSTOMER) {
+      throw new TransitionNotAllowedForRoleException(
+          "Role " + role + " may not read order history");
+    }
   }
 
-  private void ensureMayReadOrders(Long userId) {
-    if (!permissionResolver.permissionsOf(userId).contains(Permissions.ORDERS_READ_ORDER)) {
-      throw new PermissionDeniedException("Missing permission: " + Permissions.ORDERS_READ_ORDER);
+  private void ensureCustomerExists(Long customerId) {
+    if (!customerRepository.existsById(customerId)) {
+      throw new CustomerNotFoundException("Customer not found");
     }
   }
 

@@ -3,7 +3,6 @@ package com.mentorship.restaurant.exception;
 import com.mentorship.restaurant.cart.exception.CartException;
 import com.mentorship.restaurant.customer.exception.CustomerException;
 import com.mentorship.restaurant.order.exception.OrderException;
-import com.mentorship.restaurant.permission.PermissionDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -51,12 +50,6 @@ public class GlobalExceptionHandler {
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
     return HttpStatus.valueOf(annotation.value().value());
-  }
-
-  @ExceptionHandler(PermissionDeniedException.class)
-  public ResponseEntity<ApiErrorResponse> handlePermissionDenied(
-      PermissionDeniedException exception, HttpServletRequest request) {
-    return buildResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request.getRequestURI());
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
