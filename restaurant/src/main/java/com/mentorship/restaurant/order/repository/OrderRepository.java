@@ -6,6 +6,7 @@ import com.mentorship.restaurant.order.model.entity.RejectionReason;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -49,4 +50,34 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         and o.createdAt < :deadline
       """)
   List<Long> findStalePlacedOrderIds(@Param("deadline") OffsetDateTime deadline);
+
+  String SELECT_SUMMARY =
+      """
+      select
+        o.id as orderId,
+        cast(o.status as string) as status,
+        o.restaurant.restaurantName as restaurantName,
+        (select count(oi) from OrderItem oi where oi.order = o) as itemCount,
+        o.total as total,
+        o.createdAt as createdAt
+      from Order o
+      where o.customer.id = :customerId
+      """;
+
+  String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
+
+  @Query(SELECT_SUMMARY + NEWEST_FIRST)
+  List<OrderSummaryProjection> findFirstPage(
+      @Param("customerId") Long customerId, Pageable pageable);
+
+  @Query(
+      SELECT_SUMMARY
+          + " and (o.createdAt < :cursorCreatedAt"
+          + " or (o.createdAt = :cursorCreatedAt and o.id < :cursorId))"
+          + NEWEST_FIRST)
+  List<OrderSummaryProjection> findPageAfter(
+      @Param("customerId") Long customerId,
+      @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
+      @Param("cursorId") Long cursorId,
+      Pageable pageable);
 }
