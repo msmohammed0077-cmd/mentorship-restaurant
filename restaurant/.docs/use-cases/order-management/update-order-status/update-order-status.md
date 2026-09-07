@@ -197,7 +197,13 @@ becomes a join.
 | `order_status_history_actor_role` | varchar(32), not null | Including `SYSTEM` for the auto-reject |
 | `order_status_history_at` | timestamptz, not null | |
 
-Index: `idx_order_status_history_order_id ON order_status_history (order_id)`.
+Indexes:
+
+- `idx_orders_customer_created ON orders (customer_id, order_created_at DESC, order_id DESC)` —
+  created here because the table is, but it exists for #37's keyset history query, which is its
+  exact access path.
+- `idx_order_items_order_id ON order_items (order_id)`
+- `idx_order_status_history_order_id ON order_status_history (order_id)`
 
 `V7` seeds nothing, so the identity-resync problem `V6` had to fix does not arise.
 

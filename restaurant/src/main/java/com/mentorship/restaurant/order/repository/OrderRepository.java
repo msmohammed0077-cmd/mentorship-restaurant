@@ -18,7 +18,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
    * <p>Reading the status and then writing it would be a race: two tabs both read ACCEPTED, both
    * transition, and the second write silently wins.
    */
-  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  // flushAutomatically only. clearAutomatically would detach the whole
+  // persistence context, which buys nothing here and is a trap for the tickets
+  // that compensate in the same transaction as the transition.
+  @Modifying(flushAutomatically = true)
   @Query(
       """
       update Order o set o.status = :to

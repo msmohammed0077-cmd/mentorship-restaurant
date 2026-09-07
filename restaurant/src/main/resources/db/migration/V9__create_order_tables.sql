@@ -60,5 +60,10 @@ CREATE TABLE order_status_history (
         ON DELETE CASCADE
 );
 
+-- The keyset access path for order history (GH-37): filter on customer, sort
+-- on the composite cursor. Without it both history queries seq-scan.
+CREATE INDEX idx_orders_customer_created
+    ON orders (customer_id, order_created_at DESC, order_id DESC);
+
 CREATE INDEX idx_order_items_order_id ON order_items (order_id);
 CREATE INDEX idx_order_status_history_order_id ON order_status_history (order_id);
