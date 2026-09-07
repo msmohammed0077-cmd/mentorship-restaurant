@@ -345,6 +345,27 @@ history is what every later ticket reads to explain what happened.
 Cleanup deletes only the orders each test created; `order_status_history` and `order_items` follow by
 cascade. `V2`, `V3` and `V6` fixtures are left intact — Flyway will not restore them.
 
+### The test configuration this ticket had to fix first
+
+`src/test/resources/application.properties` **shadowed** `src/main/resources/application.properties`
+rather than merging — same filename, test classpath wins — so
+`spring.jackson.property-naming-strategy=SNAKE_CASE` was never loaded under test. Every endpoint
+test asserted camelCase while the running application served snake_case, and no test could have
+caught it:
+
+```
+GET /api/v1/cart/1 -> {"id":1,"customer_id":1,"items":[{"item_name":...
+```
+
+`AddCartItemEndpointTest.rejectsAnUnknownCustomer` is the proof it mattered: it asserted 404 on a
+body the real API rejects as 400, and only failed once the configuration was real.
+
+The file is deleted; the `local` profile supplies the same datasource it already did. This lands
+here rather than in a later ticket because **every ticket stacked on this one writes endpoint
+tests**, and each would otherwise inherit assertions that prove nothing.
+
+**Do not re-add that file.** If a test needs a property, put it in the main configuration.
+
 # Notes
 
 1. **The vocabulary is frozen by #34.** `out_for_delivery` and `expired` were considered and
