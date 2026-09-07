@@ -2,6 +2,7 @@ package com.mentorship.restaurant.exception;
 
 import com.mentorship.restaurant.cart.exception.CartException;
 import com.mentorship.restaurant.customer.exception.CustomerException;
+import com.mentorship.restaurant.order.exception.OrderException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -31,6 +32,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(CustomerException.class)
   public ResponseEntity<ApiErrorResponse> handleCustomerException(
       CustomerException exception, HttpServletRequest request) {
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
+
+  @ExceptionHandler(OrderException.class)
+  public ResponseEntity<ApiErrorResponse> handleOrderException(
+      OrderException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
