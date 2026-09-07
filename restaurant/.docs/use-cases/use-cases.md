@@ -11,4 +11,7 @@ _Owner: TODO · Last reviewed: TODO_
 ### Cart Management
 - [Add Cart Item](./cart-management/add-cart-item/add-cart-item.md)
 
+### Order Management
+- [Update Order Status](./order-management/update-order-status/update-order-status.md)
+
 
