@@ -22,7 +22,7 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.id")
         .isEqualTo(cartId)
-        .jsonPath("$.customerId")
+        .jsonPath("$.customer_id")
         .isEqualTo(CUSTOMER_WITHOUT_CART)
         .jsonPath("$.items.length()")
         .isEqualTo(0)

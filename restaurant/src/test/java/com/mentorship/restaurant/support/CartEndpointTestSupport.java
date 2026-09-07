@@ -40,7 +40,7 @@ public abstract class CartEndpointTestSupport {
 
   protected String addItemBody(long menuItemId, int quantity) {
     return """
-        {"customerId": %d, "menuItemId": %d, "quantity": %d}
+        {"customer_id": %d, "menu_item_id": %d, "quantity": %d}
         """
         .formatted(CUSTOMER_WITHOUT_CART, menuItemId, quantity);
   }
