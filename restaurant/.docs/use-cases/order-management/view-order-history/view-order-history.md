@@ -51,8 +51,15 @@ GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
 
 A role other than `CUSTOMER` is refused with 403.
 
-> `customerId` and `role` are **scoping, not authorisation**. Any caller may pass any value. A known,
-> accepted gap, recorded rather than implied.
+`customerId` and `role` are **untrusted, caller-supplied inputs**, because `SecurityConfig` is
+`permitAll` and there is no principal to derive them from. `role` is still checked, and a customer
+sees only the orders belonging to the `customerId` given — `showsNoOtherCustomersOrders` holds that
+line.
+
+What is missing is **authentication**, not authorisation: nothing stops a caller supplying someone
+else's `customerId` and reading their history. That is the textbook IDOR shape, it is #34's accepted
+trade, and it must be closed before this reaches a real environment — tracked against #23, not
+deferred silently.
 
 ### The `PermissionResolver` that was here, and why it went
 
@@ -298,7 +305,8 @@ Cleanup deletes only the orders each test created; `order_items` follows by casc
 # Notes
 
 1. **No filters, by decision.** See *Scope*.
-2. **`customerId` and `role` are scoping, not authorisation.** See *Authorisation*.
+2. **`customerId` and `role` are untrusted inputs, and reading another customer's history is an
+   IDOR that authentication has to close.** See *Authorisation*.
 3. **The `PermissionResolver` seam was removed after review.** See *Authorisation* — it belongs in
    its own ticket, with a default that does not lock real customers out.
 4. **No total count.** Keyset paging cannot cheaply produce one, so there is no `total_elements` or
