@@ -1,6 +1,5 @@
 package com.mentorship.restaurant.customer.service.handler;
 
-import com.mentorship.restaurant.customer.exception.AddressAccessDeniedException;
 import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.model.mapper.AddressMapper;
@@ -21,10 +20,8 @@ public class SetDefaultAddressHandler {
   public AddressResponse setDefaultAddress(Long customerId, Long addressId) {
     Address address =
         addressRepository
-            .findById(addressId)
+            .findByIdAndCustomer_Id(addressId, customerId)
             .orElseThrow(() -> new AddressNotFoundException("Address not found"));
-
-    ensureAddressBelongsToCustomer(address, customerId);
 
     if (!address.isDefault()) {
       addressRepository.clearDefaultForCustomer(customerId);
@@ -32,11 +29,5 @@ public class SetDefaultAddressHandler {
     }
 
     return addressMapper.toResponse(address);
-  }
-
-  private void ensureAddressBelongsToCustomer(Address address, Long customerId) {
-    if (!address.getCustomer().getId().equals(customerId)) {
-      throw new AddressAccessDeniedException("Address belongs to another customer");
-    }
   }
 }

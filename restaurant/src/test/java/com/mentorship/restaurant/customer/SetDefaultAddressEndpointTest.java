@@ -81,9 +81,9 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
             OTHER_CUSTOMER)
         .exchange()
         .expectStatus()
-        .isForbidden()
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Address belongs to another customer");
+        .isEqualTo("Address not found");
   }
 }
