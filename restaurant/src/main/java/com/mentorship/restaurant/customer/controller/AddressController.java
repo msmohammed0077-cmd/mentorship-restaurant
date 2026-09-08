@@ -5,9 +5,11 @@ import com.mentorship.restaurant.customer.model.response.AddressResponse;
 import com.mentorship.restaurant.customer.service.AddressService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -29,6 +31,11 @@ public class AddressController {
       @RequestParam Long customerId, @Valid @RequestBody AddAddressRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(addressService.addAddress(customerId, request));
+  }
+
+  @GetMapping
+  public ResponseEntity<List<AddressResponse>> viewAddresses(@RequestParam Long customerId) {
+    return ResponseEntity.ok(addressService.viewAddresses(customerId));
   }
 
   @PutMapping("/{addressId}/default")
