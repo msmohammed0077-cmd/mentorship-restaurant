@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.support;
 
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 public abstract class AddressEndpointTestSupport {
 
   protected static final long CUSTOMER_WITHOUT_ADDRESSES = 3L;
+  protected static final long OTHER_CUSTOMER = 1L;
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
@@ -60,5 +62,50 @@ public abstract class AddressEndpointTestSupport {
       throw new IllegalStateException("Address not found for label " + label);
     }
     return addressId;
+  }
+
+  protected long insertAddress(String label, boolean isDefault, String createdAt) {
+    Long addressId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO addresses (
+              customer_id,
+              address_label,
+              address_line,
+              address_city,
+              address_area,
+              address_note,
+              address_is_default,
+              address_created_at
+            )
+            VALUES (?, ?, '12 Tahrir Street', 'Cairo', 'Dokki', 'Blue gate', ?, CAST(? AS TIMESTAMP WITH TIME ZONE))
+            RETURNING address_id
+            """,
+            Long.class,
+            CUSTOMER_WITHOUT_ADDRESSES,
+            label,
+            isDefault,
+            createdAt);
+    if (addressId == null) {
+      throw new IllegalStateException("Address not created for label " + label);
+    }
+    return addressId;
+  }
+
+  protected boolean addressExists(long addressId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM addresses WHERE address_id = ?", Integer.class, addressId);
+    return count != null && count > 0;
+  }
+
+  protected Optional<Boolean> defaultFlagForAddress(long addressId) {
+    return jdbcTemplate
+        .queryForList(
+            "SELECT address_is_default FROM addresses WHERE address_id = ?",
+            Boolean.class,
+            addressId)
+        .stream()
+        .findFirst();
   }
 }
