@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
-
   @Query(
       """
       select orderItem.menuItem.id as menuItemId, orderItem.quantity as quantity

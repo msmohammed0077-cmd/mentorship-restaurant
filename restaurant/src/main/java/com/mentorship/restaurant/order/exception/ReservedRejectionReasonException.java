@@ -5,7 +5,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public class ReservedRejectionReasonException extends OrderException {
-
   public ReservedRejectionReasonException(String message) {
     super(message);
   }

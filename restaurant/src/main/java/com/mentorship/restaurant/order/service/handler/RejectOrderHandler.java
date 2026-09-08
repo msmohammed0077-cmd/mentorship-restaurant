@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RejectOrderHandler {
-
   private final UpdateOrderStatusHandler updateOrderStatusHandler;
   private final CompensateOrderHandler compensateOrderHandler;
   private final OrderRepository orderRepository;
@@ -28,8 +27,6 @@ public class RejectOrderHandler {
 
     orderRepository.updateRejectionReason(orderId, reason, note);
 
-    // Only after the transition succeeded. Restocking an order that was not
-    // actually moved would hand back stock twice.
     compensateOrderHandler.compensate(orderId);
 
     return response;

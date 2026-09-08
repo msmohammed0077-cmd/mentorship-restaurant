@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
   private final UpdateOrderStatusHandler updateOrderStatusHandler;
   private final AcceptOrderHandler acceptOrderHandler;
   private final RejectOrderHandler rejectOrderHandler;

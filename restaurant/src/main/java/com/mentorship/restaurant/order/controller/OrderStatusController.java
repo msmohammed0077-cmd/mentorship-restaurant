@@ -24,11 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderStatusController {
   private final OrderService orderService;
 
-  /**
-   * SYSTEM is the scheduler's identity, not a caller's. It skips the ownership check by design, so
-   * accepting it over HTTP would let anyone reject any restaurant's order. Refused at the boundary
-   * rather than deeper down, so no handler has to know the difference.
-   */
   private void refuseSystemRole(ActorRole role) {
     if (role == ActorRole.SYSTEM) {
       throw new TransitionNotAllowedForRoleException("Role SYSTEM may not be supplied by a caller");
@@ -40,7 +35,6 @@ public class OrderStatusController {
       @PathVariable Long orderId,
       @RequestParam Long restaurantId,
       @RequestParam ActorRole role,
-      // Optional: accepting without a prep time is the common case.
       @Valid @RequestBody(required = false) AcceptOrderRequest request) {
     refuseSystemRole(role);
     Integer prepTimeMinutes = request == null ? null : request.getPrepTimeMinutes();

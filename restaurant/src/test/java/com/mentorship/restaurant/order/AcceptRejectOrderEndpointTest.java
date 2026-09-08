@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
-
   @Autowired private com.mentorship.restaurant.order.service.OrderService orderService;
 
   private static final String ACCEPT =
@@ -126,7 +125,6 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
         .expectStatus()
         .isEqualTo(409);
 
-    // A double restock is silent, permanent, and invisible until inventory drifts.
     assertThat(afterFirst).isEqualTo(stockBefore + 3);
     assertThat(stockFor(KOFTA)).isEqualTo(afterFirst);
   }
@@ -261,9 +259,6 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesACallerSupplyingTheSystemRole() {
     long orderId = seedOrder("PLACED", NILE_KITCHEN);
 
-    // SYSTEM skips the ownership check by design. Accepting it over HTTP let
-    // anyone reject any restaurant's order, defeating both the 403 ownership
-    // check and the 400 reserved-reason guard at once.
     client
         .post()
         .uri("/api/v1/orders/{id}/reject?restaurantId={r}&role=SYSTEM", orderId, 999L)

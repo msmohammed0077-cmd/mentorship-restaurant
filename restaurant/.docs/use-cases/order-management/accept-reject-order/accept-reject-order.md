@@ -58,6 +58,10 @@ adds them here instead of discovering the gap in production. This use-case does 
 with empty no-op classes; an empty class that looks implemented is worse than an absence that is
 documented.
 
+`CompensateOrderHandler` is `@Transactional(propagation = MANDATORY)` — it must never run in a
+transaction of its own. If the caller's transaction rolls back, the restock has to roll back with
+it, or a failed rejection hands stock back anyway.
+
 **Restock is one statement per line, not a read-modify-write:**
 
 ```sql
@@ -66,7 +70,14 @@ SET menu_item_stock = menu_item_stock + :quantity
 WHERE menu_item_id = :menuItemId
 ```
 
-Reading the stock and writing it back would lose a concurrent sale.
+Reading the stock and writing it back would lose a concurrent sale. It is `flushAutomatically` and
+**not** `clearAutomatically`: nothing holds a `MenuItem` across the loop, so detaching the whole
+persistence context on every line would cost work and buy nothing.
+
+**Multiple application instances are safe without locking.** Each instance sweeps, but the
+conditional update means exactly one wins; the losers match zero rows, get a 409, and never reach
+compensation — so no order is restocked twice. The cost is N times the queries and N-1 warning lines
+per order, not corruption. Leader election is the fix when that cost matters, not a correctness fix.
 
 ## Rejection reasons
 

@@ -18,11 +18,7 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
   int decrementStockIfAvailable(
       @Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
 
-  /**
-   * Returns stock a rejected or cancelled order consumed. One statement, never read-modify-write —
-   * reading the stock and writing it back would lose a concurrent sale.
-   */
-  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Modifying(flushAutomatically = true)
   @Query(
       """
       update MenuItem menuItem

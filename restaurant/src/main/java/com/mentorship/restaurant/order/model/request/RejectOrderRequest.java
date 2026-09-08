@@ -11,10 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RejectOrderRequest {
-
   @NotNull private RejectionReason reason;
 
-  /** Optional free text, for whatever the fixed set does not cover. */
   @Size(max = 255)
   private String note;
 }

@@ -84,10 +84,6 @@ public class GlobalExceptionHandler {
         request.getRequestURI());
   }
 
-  /**
-   * A body Jackson cannot read — malformed JSON, or a value outside an enum's set. The message is
-   * fixed rather than the exception's own: Jackson names the failing type, package and all.
-   */
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ApiErrorResponse> handleUnreadableBody(
       HttpMessageNotReadableException exception, HttpServletRequest request) {
