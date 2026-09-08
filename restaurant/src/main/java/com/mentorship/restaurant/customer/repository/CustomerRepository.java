@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.cart.repository;
+package com.mentorship.restaurant.customer.repository;
 
-import com.mentorship.restaurant.cart.model.entity.Customer;
+import com.mentorship.restaurant.customer.model.entity.Customer;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CustomerRepository extends JpaRepository<Customer, Long> {}

@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.exception;
 
 import com.mentorship.restaurant.cart.exception.CartException;
+import com.mentorship.restaurant.customer.exception.CustomerException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -27,7 +28,13 @@ public class GlobalExceptionHandler {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
-  private HttpStatus statusOf(CartException exception) {
+  @ExceptionHandler(CustomerException.class)
+  public ResponseEntity<ApiErrorResponse> handleCustomerException(
+      CustomerException exception, HttpServletRequest request) {
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
+
+  private HttpStatus statusOf(RuntimeException exception) {
     ResponseStatus annotation =
         AnnotatedElementUtils.findMergedAnnotation(exception.getClass(), ResponseStatus.class);
     if (annotation == null) {
