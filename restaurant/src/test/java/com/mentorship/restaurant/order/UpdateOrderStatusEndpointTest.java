@@ -7,7 +7,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
-
   @Test
   void movesAnAcceptedOrderToPreparing() {
     long orderId = seedOrder("ACCEPTED");
@@ -130,8 +129,6 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
         .expectStatus()
         .isEqualTo(409);
 
-    // A 409 that still records a transition is worse than a 409: history is
-    // what every later ticket reads to explain what happened.
     assertThat(historyCountFor(orderId)).isZero();
   }
 

@@ -12,19 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * A verb per transition, not one generic PATCH /status: accept carries a prep time, reject carries
- * a reason, and each authorizes differently.
- *
- * <p>restaurantId and role are scoping, not authorisation — any caller may pass any value. Accept
- * and reject are GH-48's; cancel is GH-41's.
- */
 @RestController
 @RequestMapping("/api/v1/orders")
 @Tag(name = "Order status")
 @RequiredArgsConstructor
 public class OrderStatusController {
-
   private final OrderService orderService;
 
   @PostMapping("/{orderId}/preparing")

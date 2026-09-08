@@ -12,6 +12,7 @@ import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,18 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateOrderStatusHandler {
-
   private final OrderRepository orderRepository;
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final OrderStatusMapper orderStatusMapper;
 
   @Transactional
   public OrderStatusResponse transition(
-      Long orderId, OrderTransition transition, Long restaurantId, ActorRole role) {
-    // Role before existence, so a caller with the wrong role learns nothing
-    // about which order ids exist.
+      Long orderId, OrderTransition transition, Long actorId, ActorRole role) {
     ensureRoleOwnsTransition(transition, role);
-    ensureRestaurantOwnsOrder(orderId, restaurantId);
+    ensureActorOwnsOrder(orderId, actorId, role);
     applyTransition(orderId, transition);
     recordHistory(orderId, transition, role);
     return orderStatusMapper.toResponse(orderId, transition.to());
@@ -43,13 +41,36 @@ public class UpdateOrderStatusHandler {
     }
   }
 
-  private void ensureRestaurantOwnsOrder(Long orderId, Long restaurantId) {
-    Long owner =
-        orderRepository
-            .findRestaurantIdById(orderId)
-            .orElseThrow(() -> new OrderNotFoundException("Order not found"));
-    if (!owner.equals(restaurantId)) {
-      throw new OrderNotOwnedException("Order belongs to another restaurant");
+  private void ensureActorOwnsOrder(Long orderId, Long actorId, ActorRole role) {
+    switch (role) {
+      case SYSTEM -> ensureOrderExists(orderId);
+      case RESTAURANT ->
+          ensureOwnerMatches(
+              orderRepository.findRestaurantIdById(orderId),
+              actorId,
+              "Order belongs to another restaurant");
+      case CUSTOMER ->
+          ensureOwnerMatches(
+              orderRepository.findCustomerIdById(orderId),
+              actorId,
+              "Order belongs to another customer");
+      case COURIER -> {
+        ensureOrderExists(orderId);
+        throw new OrderNotOwnedException("No courier is assigned to orders yet");
+      }
+    }
+  }
+
+  private void ensureOrderExists(Long orderId) {
+    if (orderRepository.findRestaurantIdById(orderId).isEmpty()) {
+      throw new OrderNotFoundException("Order not found");
+    }
+  }
+
+  private void ensureOwnerMatches(Optional<Long> owner, Long actorId, String message) {
+    Long ownerId = owner.orElseThrow(() -> new OrderNotFoundException("Order not found"));
+    if (!ownerId.equals(actorId)) {
+      throw new OrderNotOwnedException(message);
     }
   }
 
@@ -63,8 +84,7 @@ public class UpdateOrderStatusHandler {
 
   private void recordHistory(Long orderId, OrderTransition transition, ActorRole role) {
     OrderStatusHistory history = new OrderStatusHistory();
-    // The bulk update cleared the persistence context, so take a reference
-    // rather than an entity loaded before it.
+
     history.setOrder(orderRepository.getReferenceById(orderId));
     history.setFromStatus(transition.from());
     history.setToStatus(transition.to());

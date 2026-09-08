@@ -16,14 +16,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** One row per transition. This is what every later ticket reads to explain what happened. */
 @Entity
 @Table(name = "order_status_history")
 @Getter
 @Setter
 @NoArgsConstructor
 public class OrderStatusHistory {
-
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "order_status_history_id")

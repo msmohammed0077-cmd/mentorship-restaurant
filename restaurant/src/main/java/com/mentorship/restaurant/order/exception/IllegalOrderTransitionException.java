@@ -5,7 +5,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.CONFLICT)
 public class IllegalOrderTransitionException extends OrderException {
-
   public IllegalOrderTransitionException(String message) {
     super(message);
   }

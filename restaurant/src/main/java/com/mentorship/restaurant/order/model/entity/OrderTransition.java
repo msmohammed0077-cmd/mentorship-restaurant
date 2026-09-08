@@ -12,15 +12,6 @@ import static com.mentorship.restaurant.order.model.entity.OrderStatus.PREPARING
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.READY_FOR_PICKUP;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.REJECTED;
 
-/**
- * The legal transitions. A Java enum rather than a database table: simplest, and an illegal
- * transition fails at compile time wherever the target is a constant. A {@code transitions} table
- * is what you reach for when the rules must change without a deploy — noted, not built.
- *
- * <p>{@link #PICK_UP} and {@link #DELIVER} are defined but reachable by no endpoint: courier
- * assignment is not ticketed anywhere, so the rules are complete and the HTTP surface deliberately
- * is not.
- */
 public enum OrderTransition {
   ACCEPT(PLACED, ACCEPTED, RESTAURANT),
   REJECT(PLACED, REJECTED, RESTAURANT),
@@ -52,10 +43,6 @@ public enum OrderTransition {
     return owner;
   }
 
-  /**
-   * SYSTEM may perform a rejection on the restaurant's behalf — the 15-minute auto-reject in GH-48.
-   * It owns no transition of its own.
-   */
   public boolean isPerformableBy(ActorRole role) {
     return role == owner || (role == ActorRole.SYSTEM && this == REJECT);
   }

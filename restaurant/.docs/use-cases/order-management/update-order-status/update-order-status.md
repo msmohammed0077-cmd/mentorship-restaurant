@@ -130,7 +130,13 @@ WHERE order_id = :id AND order_status = :from
 Zero rows updated means the order was not in `:from` — either someone else moved it first, or the
 caller asked for a transition that is not legal from where it actually is. Both are **409**.
 
-This needs no `version` column and no second read. Checking the status and then writing it in two
+This needs no `version` column and no second read.
+
+The update is `@Modifying(flushAutomatically = true)` and **not** `clearAutomatically`. Flushing
+first means the statement does not run against stale in-memory state. Clearing afterwards would
+detach the entire persistence context — it buys nothing here, because the history row takes a
+reference rather than a loaded entity, and it is a trap for the tickets that compensate in the same
+transaction as the transition. Checking the status and then writing it in two
 statements is a race: two restaurants' tabs both read `PLACED`, both accept, and the second write
 silently wins.
 
@@ -216,6 +222,26 @@ The trade-off accepted: the vocabulary is enforced **only in Java**. A manual `U
 status the application does not know and `ddl-auto=validate` will not notice. A `CHECK` would move
 that into the database for one line per vocabulary change — and since the vocabulary is frozen, that
 line would likely never change again. Worth revisiting if a bad row ever appears.
+
+## Ownership is per actor
+
+Each role owns a different column, so "does this caller own this order?" is a different question for
+each of them:
+
+| Role | Compared against |
+| --- | --- |
+| `RESTAURANT` | `orders.restaurant_id` |
+| `CUSTOMER` | `orders.customer_id` |
+| `COURIER` | **Nothing yet** — no courier is assignable, so the check fails explicitly |
+| `SYSTEM` | Existence only; it acts on the restaurant's behalf and belongs to none |
+
+A single restaurant-shaped check would have been a trap for #41: cancel is customer-owned, so a
+customer would have had to supply a `restaurantId`, and the comparison would have been against a
+column that has nothing to do with them.
+
+`COURIER` fails with a distinct message rather than silently comparing the wrong column. Courier
+assignment is not ticketed anywhere, so `PICK_UP` and `DELIVER` remain unreachable — and this is the
+seam they will land on.
 
 ## Main Success Scenario
 

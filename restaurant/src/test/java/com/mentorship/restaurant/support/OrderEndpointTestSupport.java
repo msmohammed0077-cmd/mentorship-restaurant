@@ -12,7 +12,6 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
 public abstract class OrderEndpointTestSupport {
-
   protected static final long CUSTOMER = 1L;
   protected static final long NILE_KITCHEN = 1L;
   protected static final long BURGER_YARD = 2L;
@@ -24,13 +23,9 @@ public abstract class OrderEndpointTestSupport {
   @BeforeEach
   @AfterEach
   protected void deleteSeededOrders() {
-    // Nothing creates orders until GH-35, and no migration seeds one, so
-    // deleting every order is still scoped to rows these tests created.
-    // order_items and order_status_history follow by cascade.
     jdbcTemplate.update("DELETE FROM orders");
   }
 
-  /** Seeds one order directly. Nothing creates orders until GH-35 lands. */
   protected long seedOrder(String status) {
     return seedOrder(status, NILE_KITCHEN);
   }

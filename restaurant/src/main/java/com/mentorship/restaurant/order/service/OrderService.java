@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
   private final UpdateOrderStatusHandler updateOrderStatusHandler;
 
   public OrderStatusResponse startPreparing(Long orderId, Long restaurantId, ActorRole role) {

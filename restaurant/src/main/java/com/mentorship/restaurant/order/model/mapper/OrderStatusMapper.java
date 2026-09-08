@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class OrderStatusMapper {
-
   public OrderStatusResponse toResponse(Long orderId, OrderStatus status) {
     return new OrderStatusResponse(orderId, status.name());
   }
