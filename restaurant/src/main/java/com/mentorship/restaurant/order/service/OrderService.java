@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.order.service;
 
+import com.mentorship.restaurant.order.model.OrderCursor;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
@@ -42,7 +43,7 @@ public class OrderService {
   }
 
   public OrderHistoryResponse viewOrderHistory(
-      Long customerId, ActorRole role, Integer limit, String cursor) {
+      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
     return viewOrderHistoryHandler.viewOrderHistory(customerId, role, limit, cursor);
   }
 

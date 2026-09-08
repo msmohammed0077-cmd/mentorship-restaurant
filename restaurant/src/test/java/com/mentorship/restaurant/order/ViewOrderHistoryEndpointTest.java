@@ -9,7 +9,6 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
-
   private static final long OTHER_CUSTOMER = 2L;
 
   private static final OffsetDateTime EARLY =
@@ -84,14 +83,18 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
         .jsonPath("$.next_cursor")
         .exists();
 
-    String cursor = readCursor(2);
+    String[] c = readCursor(2);
+    String cursorTs = c[0];
+    String cursorId = c[1];
 
     client
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&limit=2&role=CUSTOMER&cursor={cursor}",
+            "/api/v1/orders?customerId={id}&limit=2&role=CUSTOMER"
+                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             CUSTOMER,
-            cursor)
+            cursorTs,
+            cursorId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -119,14 +122,18 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
         .jsonPath("$.orders[0].order_id")
         .isEqualTo(higher);
 
-    String cursor = readCursor(1);
+    String[] c = readCursor(1);
+    String cursorTs = c[0];
+    String cursorId = c[1];
 
     client
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&limit=1&role=CUSTOMER&cursor={cursor}",
+            "/api/v1/orders?customerId={id}&limit=1&role=CUSTOMER"
+                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             CUSTOMER,
-            cursor)
+            cursorTs,
+            cursorId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -139,10 +146,6 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void doesNotSkipOrdersSharingAMillisecond() {
-    // order_created_at is microsecond-precision. A millisecond cursor rounds the
-    // boundary row DOWN, and the "<" comparison then skips every order inside the
-    // same millisecond — they appear on no page at all. Whole-second fixtures make
-    // the truncation a no-op, which is why the equal-timestamp test cannot catch it.
     OffsetDateTime base = OffsetDateTime.of(2026, 9, 5, 9, 0, 0, 123_456_000, ZoneOffset.UTC);
     long newer = seedOrderFor(CUSTOMER, base.withNano(123_500_000));
     long older = seedOrderFor(CUSTOMER, base);
@@ -157,14 +160,18 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
         .jsonPath("$.orders[0].order_id")
         .isEqualTo(newer);
 
-    String cursor = readCursor(1);
+    String[] c = readCursor(1);
+    String cursorTs = c[0];
+    String cursorId = c[1];
 
     client
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&role=CUSTOMER&limit=1&cursor={cursor}",
+            "/api/v1/orders?customerId={id}&role=CUSTOMER&limit=1"
+                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             CUSTOMER,
-            cursor)
+            cursorTs,
+            cursorId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -212,8 +219,6 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsAnEmptyLimitRatherThanFailing() {
-    // "?limit=" binds null over the field default and passes @Min/@Max, so this
-    // used to reach limit + 1 and 500.
     client
         .get()
         .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&limit=", CUSTOMER)
@@ -224,36 +229,28 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsACursorWhoseTimestampIsOutOfRange() {
-    // Reached the SQL bind and surfaced as 500 "timestamp out of range".
-    String hostile =
-        java.util.Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString("9223372036854775807|0|1".getBytes(StandardCharsets.UTF_8));
-
     client
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&cursor={cursor}", CUSTOMER, hostile)
+        .uri(
+            "/api/v1/orders?customerId={id}&role=CUSTOMER"
+                + "&cursor.createdAt=999999999-01-01T00:00:00Z&cursor.orderId=1",
+            CUSTOMER)
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+  }
+
+  @Test
+  void rejectsAHalfSuppliedCursor() {
+    client
+        .get()
+        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&cursor.orderId=1", CUSTOMER)
         .exchange()
         .expectStatus()
         .isBadRequest()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Invalid cursor");
-  }
-
-  @Test
-  void rejectsACursorWhoseSecondsOverflow() {
-    String hostile =
-        java.util.Base64.getUrlEncoder()
-            .withoutPadding()
-            .encodeToString("-9223372036854775808|0|1".getBytes(StandardCharsets.UTF_8));
-
-    client
-        .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&cursor={cursor}", CUSTOMER, hostile)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
+        .isEqualTo("Cursor needs both createdAt and orderId");
   }
 
   @Test
@@ -295,24 +292,19 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void rejectsAMalformedCursor() {
+  void rejectsAnUnparseableCursorTimestamp() {
     client
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&cursor=not-a-cursor", CUSTOMER)
+        .uri(
+            "/api/v1/orders?customerId={id}&role=CUSTOMER"
+                + "&cursor.createdAt=not-a-date&cursor.orderId=1",
+            CUSTOMER)
         .exchange()
         .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Invalid cursor");
+        .isBadRequest();
   }
 
-  /**
-   * Reads next_cursor out of a first page. Issues the request a second time on purpose:
-   * RestTestClient's fluent assertions consume the response, and a duplicate GET reads more clearly
-   * than threading the body through the assertion chain. The endpoint is a read.
-   */
-  private String readCursor(int limit) {
+  private String[] readCursor(int limit) {
     byte[] body =
         client
             .get()
@@ -324,10 +316,16 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
             .returnResult()
             .getResponseBody();
     String json = new String(body, StandardCharsets.UTF_8);
-    Matcher matcher = Pattern.compile("\"next_cursor\":\"([^\"]+)\"").matcher(json);
-    if (!matcher.find()) {
+    Matcher cursor = Pattern.compile("\"next_cursor\":\\{([^}]*)\\}").matcher(json);
+    if (!cursor.find()) {
       throw new IllegalStateException("No next_cursor in " + json);
     }
-    return matcher.group(1);
+    String fields = cursor.group(1);
+    Matcher ts = Pattern.compile("\"created_at\":\"([^\"]+)\"").matcher(fields);
+    Matcher id = Pattern.compile("\"order_id\":(\\d+)").matcher(fields);
+    if (!ts.find() || !id.find()) {
+      throw new IllegalStateException("Incomplete next_cursor in " + json);
+    }
+    return new String[] {ts.group(1), id.group(1)};
   }
 }

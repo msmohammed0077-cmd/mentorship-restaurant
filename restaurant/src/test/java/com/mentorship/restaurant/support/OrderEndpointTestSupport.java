@@ -88,7 +88,6 @@ public abstract class OrderEndpointTestSupport {
     return orderId;
   }
 
-  /** Seeds for an explicit customer and creation time — the history tests need both. */
   protected long seedOrderFor(long customerId, OffsetDateTime createdAt) {
     Long orderId =
         jdbcTemplate.queryForObject(
@@ -105,6 +104,7 @@ public abstract class OrderEndpointTestSupport {
     if (orderId == null) {
       throw new IllegalStateException("Order insert returned no id");
     }
+    seededOrderIds.add(orderId);
     return orderId;
   }
 

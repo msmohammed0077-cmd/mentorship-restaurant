@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderSummaryResponse {
-
   private Long orderId;
   private String status;
   private String restaurantName;

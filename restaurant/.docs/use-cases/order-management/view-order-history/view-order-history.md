@@ -75,14 +75,16 @@ that does not lock real customers out.
 ## API
 
 ```http
-GET /api/v1/orders?customerId=2&limit=20&cursor=<opaque>
+GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
+    &cursor.createdAt=2026-09-05T09:00:00.123456Z&cursor.orderId=42
 ```
 
 | Parameter | Rule |
 | --- | --- |
 | `customerId` | required |
 | `limit` | 1..50, defaults to 20 |
-| `cursor` | optional; opaque, taken verbatim from a previous `next_cursor` |
+| `cursor.createdAt` | optional ISO-8601 timestamp; supply with `cursor.orderId` or neither |
+| `cursor.orderId` | optional; supply with `cursor.createdAt` or neither |
 
 ```json
 {
@@ -96,12 +98,17 @@ GET /api/v1/orders?customerId=2&limit=20&cursor=<opaque>
       "created_at": "2026-09-07T10:12:33Z"
     }
   ],
-  "next_cursor": "MTc1NzIzNDc1MzAwMHw0Mg=="
+  "next_cursor": { "created_at": "2026-09-05T09:00:00.123456Z", "order_id": 42 }
 }
 ```
 
 The API is **snake_case**. Java fields stay camelCase and Jackson renames them. `next_cursor` is
 **absent** on the last page rather than null.
+
+**The queries return the response DTO directly.** Spring Data rewrites the constructor expression,
+so there is no projection interface and no mapper — the repository names a response class, which is
+the cost of removing that layer. The `limit + 1` read, the trim and the "is there another page"
+answer live in a reusable `KeysetPage<T>`, since every future keyset endpoint repeats them.
 
 Rows are **summaries**. Line items are not included — a history list is a list, and the detail view
 is [#36](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/36). `item_count` comes
@@ -139,20 +146,21 @@ LIMIT :limit
 
 The row-value comparison is written out as an `OR` because HQL has no tuple comparison.
 
-The cursor is composite because `order_created_at` is not unique — two orders can share a timestamp,
-and `order_id` is what keeps the page boundary stable when they do. It is base64 of `<epochSecond>|<nano>|<orderId>`,
-opaque so clients cannot construct one and depend on its shape. It is not a secret and not signed,
-so decoding treats every part as hostile.
+The cursor is composite because `order_created_at` is not unique — two orders can share a
+timestamp, and `order_id` is what keeps the page boundary stable when they do.
 
-**Seconds and nanoseconds, not milliseconds.** `order_created_at` is microsecond-precision. A
-millisecond cursor rounds the boundary row's timestamp *down*, and the `<` comparison then skips
-every order inside that millisecond — they appear on **no page at all**, a silent and permanent gap
-in a customer's history. Review caught this; the regression test seeds two orders inside one
-millisecond and was confirmed to fail under the old encoding.
+**It is a plain object, not an encoded string.** An earlier version base64-encoded
+`<epochMillis>|<orderId>`, on the argument that opacity stops clients coupling to the sort key. It
+was not worth it: the encoding caused two of this use-case's blocking bugs — a millisecond rounding
+that silently skipped every order sharing a millisecond with the boundary row, and hostile values
+that reached the SQL bind as 500s. An ISO-8601 timestamp cannot lose precision, and Spring does the
+parsing.
 
-Decoding rejects a cursor whose timestamp falls outside year 1–9999. Two hostile values previously
-reached the SQL bind and surfaced as 500s (`timestamp out of range`, `long overflow`) rather than the
-400 this section promised.
+The trade accepted: **the sort key is now public API.** Changing it later is a breaking change for
+clients, where an opaque cursor could have been changed freely.
+
+Validation stays, because the values are still caller-supplied: half a cursor is a 400, and a
+timestamp outside year 1–9999 is a 400 rather than a 500 from Postgres.
 
 `limit + 1` rows are read, so the last page is detected without a second count query.
 
@@ -256,7 +264,7 @@ sequenceDiagram
 OrderHistoryController -> OrderService (delegates only)
                        -> ViewOrderHistoryHandler  (@Service, @Transactional(readOnly = true))
                        -> OrderRepository          (the two keyset queries)
-                       -> OrderMapper              (@Component)
+                       -> KeysetPage<T>            (limit + 1, trim, hasMore)
 ```
 
 A separate controller from `OrderStatusController`: that one owns transitions, this one owns a read.
@@ -277,6 +285,8 @@ A separate controller from `OrderStatusController`: that one owns transitions, t
 | Missing `role` | 400 |
 | **Two orders inside one millisecond** | neither is skipped across the page boundary |
 | A cursor whose timestamp is out of range | 400, not 500 |
+| Half a cursor (id without timestamp) | 400 |
+| An unparseable cursor timestamp | 400 |
 | `?limit=` (empty) | 400, not 500 |
 | Unknown `customerId` | 404 |
 | `limit=0`, `limit=51`, malformed `cursor` | 400 |

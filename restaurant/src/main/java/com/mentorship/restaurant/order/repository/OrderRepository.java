@@ -3,6 +3,7 @@ package com.mentorship.restaurant.order.repository;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
+import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +14,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+  String SELECT_SUMMARY =
+      """
+      select new com.mentorship.restaurant.order.model.response.OrderSummaryResponse(
+        o.id,
+        cast(o.status as string),
+        o.restaurant.restaurantName,
+        (select count(oi) from OrderItem oi where oi.order = o),
+        o.total,
+        o.createdAt)
+      from Order o
+      where o.customer.id = :customerId
+      """;
+
+  String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
+
   @Modifying(flushAutomatically = true)
   @Query(
       """
@@ -51,31 +67,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
       """)
   List<Long> findStalePlacedOrderIds(@Param("deadline") OffsetDateTime deadline);
 
-  String SELECT_SUMMARY =
-      """
-      select
-        o.id as orderId,
-        cast(o.status as string) as status,
-        o.restaurant.restaurantName as restaurantName,
-        (select count(oi) from OrderItem oi where oi.order = o) as itemCount,
-        o.total as total,
-        o.createdAt as createdAt
-      from Order o
-      where o.customer.id = :customerId
-      """;
-
-  String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
-
   @Query(SELECT_SUMMARY + NEWEST_FIRST)
-  List<OrderSummaryProjection> findFirstPage(
-      @Param("customerId") Long customerId, Pageable pageable);
+  List<OrderSummaryResponse> findFirstPage(@Param("customerId") Long customerId, Pageable pageable);
 
   @Query(
       SELECT_SUMMARY
           + " and (o.createdAt < :cursorCreatedAt"
           + " or (o.createdAt = :cursorCreatedAt and o.id < :cursorId))"
           + NEWEST_FIRST)
-  List<OrderSummaryProjection> findPageAfter(
+  List<OrderSummaryResponse> findPageAfter(
       @Param("customerId") Long customerId,
       @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
       @Param("cursorId") Long cursorId,

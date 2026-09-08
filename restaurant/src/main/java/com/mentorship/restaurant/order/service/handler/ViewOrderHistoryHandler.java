@@ -2,15 +2,14 @@ package com.mentorship.restaurant.order.service.handler;
 
 import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.repository.CustomerRepository;
+import com.mentorship.restaurant.order.exception.InvalidCursorException;
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
+import com.mentorship.restaurant.order.model.OrderCursor;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
-import com.mentorship.restaurant.order.model.mapper.OrderMapper;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import com.mentorship.restaurant.order.repository.OrderRepository;
-import com.mentorship.restaurant.order.repository.OrderSummaryProjection;
-import com.mentorship.restaurant.order.service.OrderCursor;
-import java.util.ArrayList;
+import com.mentorship.restaurant.paging.KeysetPage;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -20,42 +19,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ViewOrderHistoryHandler {
+  private static final int MIN_YEAR = 1;
+  private static final int MAX_YEAR = 9999;
 
   private final CustomerRepository customerRepository;
   private final OrderRepository orderRepository;
-  private final OrderMapper orderMapper;
 
   @Transactional(readOnly = true)
   public OrderHistoryResponse viewOrderHistory(
-      Long customerId, ActorRole role, Integer limit, String cursor) {
+      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
     ensureCustomerRole(role);
     ensureCustomerExists(customerId);
+    ensureCursorIsUsable(cursor);
 
-    // One extra row tells us whether another page exists, without a count query.
     PageRequest pageRequest = PageRequest.of(0, limit + 1);
-    List<OrderSummaryProjection> page =
-        cursor == null
+    List<OrderSummaryResponse> rows =
+        cursor == null || cursor.isAbsent()
             ? orderRepository.findFirstPage(customerId, pageRequest)
-            : pageAfter(customerId, OrderCursor.decode(cursor), pageRequest);
+            : orderRepository.findPageAfter(
+                customerId, cursor.getCreatedAt(), cursor.getOrderId(), pageRequest);
 
-    boolean hasMore = page.size() > limit;
-    List<OrderSummaryProjection> visible = hasMore ? page.subList(0, limit) : page;
-
-    List<OrderSummaryResponse> orders = new ArrayList<>(visible.size());
-    visible.forEach(projection -> orders.add(orderMapper.toSummary(projection)));
-
-    return new OrderHistoryResponse(orders, nextCursor(visible, hasMore));
+    KeysetPage<OrderSummaryResponse> page = KeysetPage.of(rows, limit);
+    return new OrderHistoryResponse(page.items(), nextCursor(page));
   }
 
-  private List<OrderSummaryProjection> pageAfter(
-      Long customerId, OrderCursor position, PageRequest pageRequest) {
-    return orderRepository.findPageAfter(
-        customerId, position.createdAt(), position.orderId(), pageRequest);
-  }
-
-  /**
-   * Role before existence, so a caller with the wrong role learns nothing about which ids exist.
-   */
   private void ensureCustomerRole(ActorRole role) {
     if (role != ActorRole.CUSTOMER) {
       throw new TransitionNotAllowedForRoleException(
@@ -69,11 +56,24 @@ public class ViewOrderHistoryHandler {
     }
   }
 
-  private String nextCursor(List<OrderSummaryProjection> visible, boolean hasMore) {
-    if (!hasMore || visible.isEmpty()) {
+  private void ensureCursorIsUsable(OrderCursor cursor) {
+    if (cursor == null || cursor.isAbsent()) {
+      return;
+    }
+    if (cursor.isPartial()) {
+      throw new InvalidCursorException("Cursor needs both createdAt and orderId");
+    }
+    int year = cursor.getCreatedAt().getYear();
+    if (year < MIN_YEAR || year > MAX_YEAR) {
+      throw new InvalidCursorException("Cursor timestamp is out of range");
+    }
+  }
+
+  private OrderCursor nextCursor(KeysetPage<OrderSummaryResponse> page) {
+    if (!page.hasMore() || page.isEmpty()) {
       return null;
     }
-    OrderSummaryProjection last = visible.get(visible.size() - 1);
-    return OrderCursor.encode(last.getCreatedAt(), last.getOrderId());
+    OrderSummaryResponse last = page.last();
+    return new OrderCursor(last.getCreatedAt(), last.getOrderId());
   }
 }
