@@ -1,6 +1,9 @@
 package com.mentorship.restaurant.support;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +25,18 @@ public abstract class OrderEndpointTestSupport {
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
 
+  private final List<Long> seededOrderIds = new ArrayList<>();
+
   @BeforeEach
   @AfterEach
   protected void deleteSeededOrders() {
-    jdbcTemplate.update("DELETE FROM orders");
+    if (seededOrderIds.isEmpty()) {
+      return;
+    }
+    String placeholders = seededOrderIds.stream().map(id -> "?").collect(Collectors.joining(","));
+    jdbcTemplate.update(
+        "DELETE FROM orders WHERE order_id IN (" + placeholders + ")", seededOrderIds.toArray());
+    seededOrderIds.clear();
   }
 
   protected long seedOrder(String status) {
@@ -49,6 +60,7 @@ public abstract class OrderEndpointTestSupport {
     if (orderId == null) {
       throw new IllegalStateException("Order insert returned no id");
     }
+    seededOrderIds.add(orderId);
     return orderId;
   }
 

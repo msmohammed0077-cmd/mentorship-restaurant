@@ -374,8 +374,13 @@ them until #35.
 The last one earns its place: a 409 that still records a transition is worse than a 409, because the
 history is what every later ticket reads to explain what happened.
 
-Cleanup deletes only the orders each test created; `order_status_history` and `order_items` follow by
-cascade. `V2`, `V3` and `V6` fixtures are left intact — Flyway will not restore them.
+Cleanup deletes only the orders each test created — the support class records every id it seeds —
+with `order_status_history` and `order_items` following by cascade. `V2`, `V3` and `V6` fixtures are
+left intact; Flyway will not restore them.
+
+Deleting every order would pass today, because no migration seeds one. It stops being true the
+moment #35 creates orders at checkout, and a suite that wipes another test's fixtures fails in a way
+that looks like a product bug.
 
 ### The test configuration this ticket had to fix first
 
