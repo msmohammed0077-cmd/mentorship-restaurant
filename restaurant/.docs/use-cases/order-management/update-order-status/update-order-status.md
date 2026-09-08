@@ -396,7 +396,12 @@ The file is deleted; the `local` profile supplies the same datasource it already
 here rather than in a later ticket because **every ticket stacked on this one writes endpoint
 tests**, and each would otherwise inherit assertions that prove nothing.
 
-**Do not re-add that file.** If a test needs a property, put it in the main configuration.
+**Do not re-add that file.** A test-only override goes in `application-test.properties` with
+`@ActiveProfiles({"local", "test"})`: a profile-suffixed name **merges** with the main configuration
+instead of replacing it. That is how `show-sql` and `baseline-on-migrate` are held at their test
+values — deleting the shadowing file had silently flipped `show-sql` on and, worse, enabled
+`baseline-on-migrate` under test, which softens the very `validate` safety net the deletion was
+meant to protect. The `local` profile stays active because it supplies the datasource.
 
 # Notes
 
