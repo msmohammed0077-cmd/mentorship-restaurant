@@ -71,10 +71,10 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
         .body(updatedAddressBody("Parents"))
         .exchange()
         .expectStatus()
-        .isForbidden()
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Address belongs to another customer");
+        .isEqualTo("Address not found");
   }
 
   @Test
