@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.customer.controller;
 
 import com.mentorship.restaurant.customer.model.request.AddAddressRequest;
+import com.mentorship.restaurant.customer.model.request.UpdateAddressRequest;
 import com.mentorship.restaurant.customer.model.response.AddressResponse;
 import com.mentorship.restaurant.customer.service.AddressService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +37,14 @@ public class AddressController {
   @GetMapping
   public ResponseEntity<List<AddressResponse>> viewAddresses(@RequestParam Long customerId) {
     return ResponseEntity.ok(addressService.viewAddresses(customerId));
+  }
+
+  @PutMapping("/{addressId}")
+  public ResponseEntity<AddressResponse> updateAddress(
+      @RequestParam Long customerId,
+      @PathVariable Long addressId,
+      @Valid @RequestBody UpdateAddressRequest request) {
+    return ResponseEntity.ok(addressService.updateAddress(customerId, addressId, request));
   }
 
   @PutMapping("/{addressId}/default")
