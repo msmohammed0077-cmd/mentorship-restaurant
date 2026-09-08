@@ -134,12 +134,24 @@ Both return the new status:
 { "order_id": 42, "status": "ACCEPTED" }
 ```
 
-The body is optional on accept and required on reject. `restaurantId` and `role` are **scoping, not
-authorisation** — any caller may pass any value, as everywhere else in this project.
+The body is optional on accept and required on reject.
+
+`restaurantId` and `role` are **untrusted, caller-supplied inputs**, because `SecurityConfig` is
+`permitAll` and there is no principal to derive them from. They are still *checked*, and a request
+that fails a check is refused:
+
+- `role` must be `RESTAURANT`; anything else is 403.
+- `role=SYSTEM` is **refused outright** — it is the scheduler's identity and skips the ownership
+  check, so a caller may never supply it.
+- The order must belong to the `restaurantId` given, or 403.
+
+What is missing is **authentication**, not authorisation: nothing stops a caller supplying someone
+else's `restaurantId` and passing every check above. That is #34's accepted trade, and it must be
+closed before this reaches a real environment — tracked against #23, not deferred silently.
 
 ## Data Model
 
-Added by this use-case (`V8`):
+Added by this use-case (`V10`):
 
 | Table | Column | Purpose |
 | --- | --- | --- |
