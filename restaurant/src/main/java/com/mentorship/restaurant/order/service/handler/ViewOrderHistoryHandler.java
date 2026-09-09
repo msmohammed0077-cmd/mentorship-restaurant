@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.order.service.handler;
 
-import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.cart.repository.CustomerRepository;
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
+import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.order.exception.InvalidCursorException;
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.OrderCursor;
