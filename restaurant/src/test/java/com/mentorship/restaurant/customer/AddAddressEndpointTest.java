@@ -17,7 +17,7 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
         .expectStatus()
         .isCreated()
         .expectBody()
-        .jsonPath("$.customerId")
+        .jsonPath("$.customer_id")
         .isEqualTo(CUSTOMER_WITHOUT_ADDRESSES)
         .jsonPath("$.label")
         .isEqualTo("Home")
@@ -29,7 +29,7 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
         .isEqualTo("Dokki")
         .jsonPath("$.note")
         .isEqualTo("Blue gate")
-        .jsonPath("$.isDefault")
+        .jsonPath("$.is_default")
         .isEqualTo(true);
   }
 
@@ -48,7 +48,7 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
         .expectBody()
         .jsonPath("$.label")
         .isEqualTo("Work")
-        .jsonPath("$.isDefault")
+        .jsonPath("$.is_default")
         .isEqualTo(false);
   }
 

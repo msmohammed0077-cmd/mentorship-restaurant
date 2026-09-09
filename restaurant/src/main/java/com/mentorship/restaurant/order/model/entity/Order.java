@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.order.model.entity;
 
-import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.cart.model.entity.Restaurant;
+import com.mentorship.restaurant.customer.model.entity.Customer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
