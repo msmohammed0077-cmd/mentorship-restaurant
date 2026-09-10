@@ -22,7 +22,7 @@ class ViewAddressesEndpointTest extends AddressEndpointTestSupport {
         .isEqualTo(3)
         .jsonPath("$[0].label")
         .isEqualTo("Home")
-        .jsonPath("$[0].isDefault")
+        .jsonPath("$[0].is_default")
         .isEqualTo(true)
         .jsonPath("$[1].label")
         .isEqualTo("Gym")

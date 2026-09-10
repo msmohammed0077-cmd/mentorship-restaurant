@@ -7,10 +7,12 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTe
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
+@ActiveProfiles({"local", "test"})
 public abstract class CartEndpointTestSupport {
 
   protected static final long CUSTOMER_WITHOUT_CART = 3L;
@@ -40,7 +42,7 @@ public abstract class CartEndpointTestSupport {
 
   protected String addItemBody(long menuItemId, int quantity) {
     return """
-        {"customerId": %d, "menuItemId": %d, "quantity": %d}
+        {"customer_id": %d, "menu_item_id": %d, "quantity": %d}
         """
         .formatted(CUSTOMER_WITHOUT_CART, menuItemId, quantity);
   }

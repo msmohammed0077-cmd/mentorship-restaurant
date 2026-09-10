@@ -24,7 +24,7 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
         .expectBody()
         .jsonPath("$.id")
         .isEqualTo(workAddressId)
-        .jsonPath("$.isDefault")
+        .jsonPath("$.is_default")
         .isEqualTo(true);
 
     assertThat(defaultFlagForAddress(homeAddressId)).contains(false);
@@ -47,7 +47,7 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
         .expectBody()
         .jsonPath("$.id")
         .isEqualTo(addressId)
-        .jsonPath("$.isDefault")
+        .jsonPath("$.is_default")
         .isEqualTo(true);
 
     assertThat(defaultFlagForAddress(addressId)).contains(true);

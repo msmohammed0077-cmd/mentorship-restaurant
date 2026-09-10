@@ -2,6 +2,7 @@ package com.mentorship.restaurant.exception;
 
 import com.mentorship.restaurant.cart.exception.CartException;
 import com.mentorship.restaurant.customer.exception.CustomerException;
+import com.mentorship.restaurant.order.exception.OrderException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,6 +33,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(CustomerException.class)
   public ResponseEntity<ApiErrorResponse> handleCustomerException(
       CustomerException exception, HttpServletRequest request) {
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
+
+  @ExceptionHandler(OrderException.class)
+  public ResponseEntity<ApiErrorResponse> handleOrderException(
+      OrderException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 
@@ -74,6 +82,17 @@ public class GlobalExceptionHandler {
         HttpStatus.BAD_REQUEST,
         exception.getParameterName() + " is required",
         request.getRequestURI());
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiErrorResponse> handleUnreadableBody(
+      HttpMessageNotReadableException exception, HttpServletRequest request) {
+    log.warn(
+        "Unreadable request body on {}: {}",
+        request.getRequestURI(),
+        exception.getClass().getSimpleName());
+    return buildResponse(
+        HttpStatus.BAD_REQUEST, "Request body is malformed", request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)

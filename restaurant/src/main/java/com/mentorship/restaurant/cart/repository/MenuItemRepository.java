@@ -17,4 +17,13 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
       """)
   int decrementStockIfAvailable(
       @Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      """
+      update MenuItem menuItem
+      set menuItem.stock = menuItem.stock + :quantity
+      where menuItem.id = :menuItemId
+      """)
+  int incrementStock(@Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
 }

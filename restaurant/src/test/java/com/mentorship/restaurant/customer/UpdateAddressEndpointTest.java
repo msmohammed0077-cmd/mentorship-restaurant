@@ -36,7 +36,7 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
         .isEqualTo("Mohandessin")
         .jsonPath("$.note")
         .isEqualTo("Ring twice")
-        .jsonPath("$.isDefault")
+        .jsonPath("$.is_default")
         .isEqualTo(true);
 
     assertThat(defaultFlagForAddress(addressId)).contains(true);
