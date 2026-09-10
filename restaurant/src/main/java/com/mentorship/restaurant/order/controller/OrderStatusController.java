@@ -52,6 +52,13 @@ public class OrderStatusController {
         orderService.reject(orderId, restaurantId, role, request.getReason(), request.getNote()));
   }
 
+  @PostMapping("/{orderId}/cancel")
+  public ResponseEntity<OrderStatusResponse> cancel(
+      @PathVariable Long orderId, @RequestParam Long customerId, @RequestParam ActorRole role) {
+    refuseSystemRole(role);
+    return ResponseEntity.ok(orderService.cancel(orderId, customerId, role));
+  }
+
   @PostMapping("/{orderId}/preparing")
   public ResponseEntity<OrderStatusResponse> startPreparing(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {

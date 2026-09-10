@@ -8,6 +8,7 @@ import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.service.handler.AcceptOrderHandler;
 import com.mentorship.restaurant.order.service.handler.AutoRejectStaleOrdersHandler;
+import com.mentorship.restaurant.order.service.handler.CancelOrderHandler;
 import com.mentorship.restaurant.order.service.handler.RejectOrderHandler;
 import com.mentorship.restaurant.order.service.handler.UpdateOrderStatusHandler;
 import com.mentorship.restaurant.order.service.handler.ViewOrderHistoryHandler;
@@ -20,6 +21,7 @@ public class OrderService {
   private final UpdateOrderStatusHandler updateOrderStatusHandler;
   private final AcceptOrderHandler acceptOrderHandler;
   private final RejectOrderHandler rejectOrderHandler;
+  private final CancelOrderHandler cancelOrderHandler;
   private final AutoRejectStaleOrdersHandler autoRejectStaleOrdersHandler;
   private final ViewOrderHistoryHandler viewOrderHistoryHandler;
 
@@ -40,6 +42,10 @@ public class OrderService {
   public OrderStatusResponse reject(
       Long orderId, Long restaurantId, ActorRole role, RejectionReason reason, String note) {
     return rejectOrderHandler.reject(orderId, restaurantId, role, reason, note);
+  }
+
+  public OrderStatusResponse cancel(Long orderId, Long customerId, ActorRole role) {
+    return cancelOrderHandler.cancel(orderId, customerId, role);
   }
 
   public OrderHistoryResponse viewOrderHistory(
