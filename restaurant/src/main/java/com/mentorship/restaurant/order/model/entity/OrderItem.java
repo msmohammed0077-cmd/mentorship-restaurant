@@ -42,5 +42,4 @@ public class OrderItem {
 
   @Column(name = "order_item_price", nullable = false, precision = 12, scale = 2)
   private BigDecimal itemPrice;
-
 }

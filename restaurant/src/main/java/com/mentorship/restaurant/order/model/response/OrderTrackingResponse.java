@@ -1,8 +1,7 @@
 package com.mentorship.restaurant.order.model.response;
 
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Getter
 @Setter
@@ -11,9 +10,9 @@ import java.time.LocalDateTime;
 @Builder
 public class OrderTrackingResponse {
 
-    private Long id;
-    private Long orderId;
-    private String orderStatus;
-    private LocalDateTime trackingDate;
-    private Long restaurantId;
+  private Long id;
+  private Long orderId;
+  private String orderStatus;
+  private LocalDateTime trackingDate;
+  private Long restaurantId;
 }

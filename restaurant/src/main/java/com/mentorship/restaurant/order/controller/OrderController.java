@@ -24,9 +24,8 @@ public class OrderController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
-  @GetMapping("/{cartId}")
-  public ResponseEntity<OrderResponse> viewOrderDetails(@PathVariable Long cartId) {
-    return ResponseEntity.ok(orderService.viewOrderDetails(cartId));
+  @GetMapping("/{orderId}")
+  public ResponseEntity<OrderResponse> viewOrderDetails(@PathVariable Long orderId) {
+    return ResponseEntity.ok(orderService.viewOrderDetails(orderId));
   }
-
 }

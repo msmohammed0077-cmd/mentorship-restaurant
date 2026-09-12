@@ -36,6 +36,9 @@ public abstract class OrderEndpointTestSupport {
     if (!seededOrderIds.isEmpty()) {
       String placeholders = seededOrderIds.stream().map(id -> "?").collect(Collectors.joining(","));
       jdbcTemplate.update(
+          "DELETE FROM order_ratings WHERE order_id IN (" + placeholders + ")",
+          seededOrderIds.toArray());
+      jdbcTemplate.update(
           "DELETE FROM orders WHERE order_id IN (" + placeholders + ")", seededOrderIds.toArray());
       seededOrderIds.clear();
     }
@@ -47,17 +50,19 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrder(String status, long restaurantId) {
+    long addressId = addressIdForCustomer(CUSTOMER);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO orders
-              (customer_id, restaurant_id, order_status, order_total, order_created_at)
-            VALUES (?, ?, ?, 370.00, ?)
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, ?, 370.00, ?)
             RETURNING order_id
             """,
             Long.class,
             CUSTOMER,
             restaurantId,
+            addressId,
             status,
             OffsetDateTime.now());
     if (orderId == null) {
@@ -68,17 +73,19 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrderPlacedAt(String status, OffsetDateTime createdAt) {
+    long addressId = addressIdForCustomer(CUSTOMER);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO orders
-              (customer_id, restaurant_id, order_status, order_total, order_created_at)
-            VALUES (?, ?, ?, 370.00, ?)
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, ?, 370.00, ?)
             RETURNING order_id
             """,
             Long.class,
             CUSTOMER,
             NILE_KITCHEN,
+            addressId,
             status,
             createdAt);
     if (orderId == null) {
@@ -89,17 +96,19 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrderFor(long customerId, OffsetDateTime createdAt) {
+    long addressId = addressIdForCustomer(customerId);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
             INSERT INTO orders
-              (customer_id, restaurant_id, order_status, order_total, order_created_at)
-            VALUES (?, ?, 'PLACED', 370.00, ?)
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, 'PLACED', 370.00, ?)
             RETURNING order_id
             """,
             Long.class,
             customerId,
             NILE_KITCHEN,
+            addressId,
             createdAt);
     if (orderId == null) {
       throw new IllegalStateException("Order insert returned no id");
@@ -152,5 +161,56 @@ public abstract class OrderEndpointTestSupport {
         jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM order_status_history WHERE order_id = ?", Integer.class, orderId);
     return count == null ? 0 : count;
+  }
+
+  protected long seedRating(long orderId, int score) {
+    Long ratingId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO order_ratings
+              (order_id, order_rating_score, order_rating_comment, order_rating_created_at)
+            VALUES (?, ?, 'Already good', ?)
+            RETURNING order_rating_id
+            """,
+            Long.class,
+            orderId,
+            score,
+            OffsetDateTime.now());
+    if (ratingId == null) {
+      throw new IllegalStateException("Rating insert returned no id");
+    }
+    return ratingId;
+  }
+
+  protected int ratingCountFor(long orderId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM order_ratings WHERE order_id = ?", Integer.class, orderId);
+    return count == null ? 0 : count;
+  }
+
+  private long addressIdForCustomer(long customerId) {
+    List<Long> existing =
+        jdbcTemplate.queryForList(
+            "SELECT address_id FROM addresses WHERE customer_id = ? ORDER BY address_is_default DESC, address_created_at DESC LIMIT 1",
+            Long.class,
+            customerId);
+    if (!existing.isEmpty()) {
+      return existing.get(0);
+    }
+    Long addressId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO addresses
+              (customer_id, address_label, address_line, address_city, address_area, address_is_default)
+            VALUES (?, 'Test address', '12 Tahrir Street', 'Cairo', 'Dokki', true)
+            RETURNING address_id
+            """,
+            Long.class,
+            customerId);
+    if (addressId == null) {
+      throw new IllegalStateException("Address insert returned no id");
+    }
+    return addressId;
   }
 }

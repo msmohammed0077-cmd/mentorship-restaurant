@@ -1,8 +1,7 @@
 package com.mentorship.restaurant.order.model.response;
 
-import lombok.*;
-
 import java.math.BigDecimal;
+import lombok.*;
 
 @Getter
 @Setter
@@ -11,15 +10,15 @@ import java.math.BigDecimal;
 @Builder
 public class OrderItemResponse {
 
-    private Long id;
+  private Long id;
 
-    private Long menuItemId;
+  private Long menuItemId;
 
-    private String itemName;
+  private String itemName;
 
-    private Integer quantity;
+  private Integer quantity;
 
-    private BigDecimal itemPrice;
+  private BigDecimal itemPrice;
 
-    private BigDecimal totalPrice;
+  private BigDecimal totalPrice;
 }

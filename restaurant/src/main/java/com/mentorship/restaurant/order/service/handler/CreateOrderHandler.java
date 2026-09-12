@@ -22,32 +22,36 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CreateOrderHandler {
 
-    private final OrderMapper orderMapper;
-    private final OrderRepository orderRepository;
-    private final CartRepository cartRepository;
-    private final AddressRepository addressRepository;
-    private final PaymentProcesser paymentProcesser;
+  private final OrderMapper orderMapper;
+  private final OrderRepository orderRepository;
+  private final CartRepository cartRepository;
+  private final AddressRepository addressRepository;
+  private final PaymentProcesser paymentProcesser;
 
-    @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request) {
+  @Transactional
+  public OrderResponse createOrder(CreateOrderRequest request) {
 
-        Cart cart = cartRepository.findById(request.getCartId())
-                .orElseThrow(() -> new CartNotFoundException("Cart Not Found"));
-        Address address = addressRepository.findById(request.getAddressId())
-                .orElseThrow(() -> new AddressNotFoundException("Address Not Found"));
+    Cart cart =
+        cartRepository
+            .findById(request.getCartId())
+            .orElseThrow(() -> new CartNotFoundException("Cart Not Found"));
+    Address address =
+        addressRepository
+            .findByIdAndCustomer_Id(request.getAddressId(), cart.getCustomer().getId())
+            .orElseThrow(() -> new AddressNotFoundException("Address Not Found"));
 
-        Transaction transaction = null;
-        if (PaymentMethod.CARD.equals(request.getPaymentMethod())) {
-            transaction = paymentProcesser.process(request.getCardId());
-        }
-
-        Order order = orderMapper.createNewOrderEntity(request, cart, address, transaction);
-
-        Order savedOrder = orderRepository.save(order);
-
-        //Todo: notify restaurant
-        //Todo: find and notify driver
-
-        return orderMapper.toResponse(savedOrder);
+    Transaction transaction = null;
+    if (PaymentMethod.CARD.equals(request.getPaymentMethod())) {
+      transaction = paymentProcesser.process(request.getCardId());
     }
+
+    Order order = orderMapper.createNewOrderEntity(request, cart, address, transaction);
+
+    Order savedOrder = orderRepository.save(order);
+
+    // Todo: notify restaurant
+    // Todo: find and notify driver
+
+    return orderMapper.toResponse(savedOrder);
+  }
 }

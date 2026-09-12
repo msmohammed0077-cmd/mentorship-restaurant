@@ -17,7 +17,7 @@ public class ViewOrderHandler {
   private final OrderMapper orderMapper;
 
   @Transactional(readOnly = true)
-  public OrderResponse viewCart(Long orderId) {
+  public OrderResponse viewOrder(Long orderId) {
     Order order =
         orderRepository
             .findById(orderId)

@@ -2,12 +2,10 @@ package com.mentorship.restaurant.order.model.response;
 
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
-import lombok.*;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import lombok.*;
 
 @Getter
 @Setter
@@ -16,29 +14,29 @@ import java.util.List;
 @Builder
 public class OrderResponse {
 
-    private Long id;
+  private Long id;
 
-    private Long customerId;
+  private Long customerId;
 
-    private Long restaurantId;
+  private Long restaurantId;
 
-    private Long addressId;
+  private Long addressId;
 
-    private OrderStatus status;
+  private OrderStatus status;
 
-    private BigDecimal total;
+  private BigDecimal total;
 
-    private OffsetDateTime createdAt;
+  private OffsetDateTime createdAt;
 
-    private Integer prepTimeMinutes;
+  private Integer prepTimeMinutes;
 
-    private RejectionReason rejectionReason;
+  private RejectionReason rejectionReason;
 
-    private String rejectionNote;
+  private String rejectionNote;
 
-    private String customerNote;
+  private String customerNote;
 
-    private List<OrderItemResponse> orderItems;
+  private List<OrderItemResponse> orderItems;
 
-    private TransactionResponse transactions;
+  private TransactionResponse transactions;
 }
