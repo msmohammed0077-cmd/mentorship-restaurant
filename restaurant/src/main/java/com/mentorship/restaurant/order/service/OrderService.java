@@ -9,12 +9,24 @@ import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.model.response.OrderResponse;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.service.handler.*;
+import com.mentorship.restaurant.order.service.handler.AcceptOrderHandler;
+import com.mentorship.restaurant.order.service.handler.AutoRejectStaleOrdersHandler;
+import com.mentorship.restaurant.order.service.handler.CancelOrderHandler;
+import com.mentorship.restaurant.order.service.handler.RejectOrderHandler;
+import com.mentorship.restaurant.order.service.handler.UpdateOrderStatusHandler;
+import com.mentorship.restaurant.order.service.handler.ViewOrderHistoryHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+  private final UpdateOrderStatusHandler updateOrderStatusHandler;
+  private final AcceptOrderHandler acceptOrderHandler;
+  private final RejectOrderHandler rejectOrderHandler;
+  private final CancelOrderHandler cancelOrderHandler;
+  private final AutoRejectStaleOrdersHandler autoRejectStaleOrdersHandler;
+  private final ViewOrderHistoryHandler viewOrderHistoryHandler;
     private final UpdateOrderStatusHandler updateOrderStatusHandler;
     private final AcceptOrderHandler acceptOrderHandler;
     private final RejectOrderHandler rejectOrderHandler;
@@ -47,6 +59,14 @@ public class OrderService {
             Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
         return viewOrderHistoryHandler.viewOrderHistory(customerId, role, limit, cursor);
     }
+  public OrderStatusResponse cancel(Long orderId, Long customerId, ActorRole role) {
+    return cancelOrderHandler.cancel(orderId, customerId, role);
+  }
+
+  public OrderHistoryResponse viewOrderHistory(
+      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
+    return viewOrderHistoryHandler.viewOrderHistory(customerId, role, limit, cursor);
+  }
 
     public void autoRejectStaleOrders() {
         autoRejectStaleOrdersHandler.autoRejectStaleOrders();
