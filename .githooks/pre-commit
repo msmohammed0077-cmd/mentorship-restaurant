@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+echo "Running Spotless format..."
+cd "$repo_root/restaurant"
+
+if ! ./mvnw -q spotless:apply; then
+  echo
+  echo "Spotless format failed."
+  exit 1
+fi
+
+cd "$repo_root"
+
+if [ -n "$staged_files" ]; then
+  echo "$staged_files" | while IFS= read -r file; do
+    if [ -e "$file" ]; then
+      git add "$file"
+    fi
+  done
+fi
