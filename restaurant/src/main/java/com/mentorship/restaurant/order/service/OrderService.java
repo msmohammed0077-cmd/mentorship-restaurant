@@ -5,10 +5,12 @@ import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
+import com.mentorship.restaurant.order.model.response.OrderRatingResponse;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.service.handler.AcceptOrderHandler;
 import com.mentorship.restaurant.order.service.handler.AutoRejectStaleOrdersHandler;
 import com.mentorship.restaurant.order.service.handler.CancelOrderHandler;
+import com.mentorship.restaurant.order.service.handler.RateOrderHandler;
 import com.mentorship.restaurant.order.service.handler.RejectOrderHandler;
 import com.mentorship.restaurant.order.service.handler.UpdateOrderStatusHandler;
 import com.mentorship.restaurant.order.service.handler.ViewOrderHistoryHandler;
@@ -24,6 +26,7 @@ public class OrderService {
   private final CancelOrderHandler cancelOrderHandler;
   private final AutoRejectStaleOrdersHandler autoRejectStaleOrdersHandler;
   private final ViewOrderHistoryHandler viewOrderHistoryHandler;
+  private final RateOrderHandler rateOrderHandler;
 
   public OrderStatusResponse startPreparing(Long orderId, Long restaurantId, ActorRole role) {
     return updateOrderStatusHandler.transition(
@@ -51,6 +54,10 @@ public class OrderService {
   public OrderHistoryResponse viewOrderHistory(
       Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
     return viewOrderHistoryHandler.viewOrderHistory(customerId, role, limit, cursor);
+  }
+
+  public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
+    return rateOrderHandler.rate(orderId, customerId, score, comment);
   }
 
   public void autoRejectStaleOrders() {

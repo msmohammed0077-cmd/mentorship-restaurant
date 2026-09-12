@@ -36,6 +36,9 @@ public abstract class OrderEndpointTestSupport {
     if (!seededOrderIds.isEmpty()) {
       String placeholders = seededOrderIds.stream().map(id -> "?").collect(Collectors.joining(","));
       jdbcTemplate.update(
+          "DELETE FROM order_ratings WHERE order_id IN (" + placeholders + ")",
+          seededOrderIds.toArray());
+      jdbcTemplate.update(
           "DELETE FROM orders WHERE order_id IN (" + placeholders + ")", seededOrderIds.toArray());
       seededOrderIds.clear();
     }
@@ -151,6 +154,32 @@ public abstract class OrderEndpointTestSupport {
     Integer count =
         jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM order_status_history WHERE order_id = ?", Integer.class, orderId);
+    return count == null ? 0 : count;
+  }
+
+  protected long seedRating(long orderId, int score) {
+    Long ratingId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO order_ratings
+              (order_id, order_rating_score, order_rating_comment, order_rating_created_at)
+            VALUES (?, ?, 'Already good', ?)
+            RETURNING order_rating_id
+            """,
+            Long.class,
+            orderId,
+            score,
+            OffsetDateTime.now());
+    if (ratingId == null) {
+      throw new IllegalStateException("Rating insert returned no id");
+    }
+    return ratingId;
+  }
+
+  protected int ratingCountFor(long orderId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM order_ratings WHERE order_id = ?", Integer.class, orderId);
     return count == null ? 0 : count;
   }
 }
