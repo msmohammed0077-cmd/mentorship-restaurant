@@ -4,15 +4,19 @@ import com.mentorship.restaurant.order.model.OrderCursor;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
+import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.model.response.OrderRatingResponse;
+import com.mentorship.restaurant.order.model.response.OrderResponse;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.service.handler.AcceptOrderHandler;
 import com.mentorship.restaurant.order.service.handler.AutoRejectStaleOrdersHandler;
 import com.mentorship.restaurant.order.service.handler.CancelOrderHandler;
+import com.mentorship.restaurant.order.service.handler.CreateOrderHandler;
 import com.mentorship.restaurant.order.service.handler.RateOrderHandler;
 import com.mentorship.restaurant.order.service.handler.RejectOrderHandler;
 import com.mentorship.restaurant.order.service.handler.UpdateOrderStatusHandler;
+import com.mentorship.restaurant.order.service.handler.ViewOrderHandler;
 import com.mentorship.restaurant.order.service.handler.ViewOrderHistoryHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,8 @@ public class OrderService {
   private final AutoRejectStaleOrdersHandler autoRejectStaleOrdersHandler;
   private final ViewOrderHistoryHandler viewOrderHistoryHandler;
   private final RateOrderHandler rateOrderHandler;
+  private final ViewOrderHandler viewOrderHandler;
+  private final CreateOrderHandler createOrderHandler;
 
   public OrderStatusResponse startPreparing(Long orderId, Long restaurantId, ActorRole role) {
     return updateOrderStatusHandler.transition(
@@ -58,6 +64,14 @@ public class OrderService {
 
   public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
     return rateOrderHandler.rate(orderId, customerId, score, comment);
+  }
+
+  public OrderResponse createOrder(CreateOrderRequest request) {
+    return createOrderHandler.createOrder(request);
+  }
+
+  public OrderResponse viewOrderDetails(Long orderId) {
+    return viewOrderHandler.viewOrder(orderId);
   }
 
   public void autoRejectStaleOrders() {
