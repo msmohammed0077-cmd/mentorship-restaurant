@@ -67,7 +67,7 @@ Content-Type: application/json
 | --- | --- |
 | `name` | required, not blank, max 150 |
 | `email` | required, valid email, max 255 |
-| `password` | required, 8..72 characters |
+| `password` | required, at least 8 characters and at most 72 bytes (UTF-8) |
 | `phone` | optional, `^\+?[0-9]{7,15}$` |
 | `date_of_birth` | optional, in the past |
 | `gender` | optional, `MALE` or `FEMALE` |
@@ -87,9 +87,10 @@ Response, **201**:
 
 The API is snake_case (global Jackson setting). `password` is never in a response.
 
-**Why 72:** BCrypt ignores everything past 72 bytes, so a longer password would be silently
-truncated. The limit is checked in characters. A password of 72 multi-byte characters is more
-than 72 bytes, which the encoder may refuse; that edge is not handled here.
+**Why 72 bytes:** BCrypt's input limit is 72 bytes, and Spring Security refuses longer passwords
+at `encode` time. `@Size` counts characters, and a multi-byte character (`é`, an emoji) counts as
+several bytes, so the upper bound is a custom `@MaxUtf8Bytes(72)` constraint. An over-long password
+is a 400 from validation, never a failure inside the encoder.
 
 **Whitespace around the email** is rejected with 400 by `@Email` before the handler runs, so over
 HTTP the trim in rule 1 never finds anything to remove. It stays in the handler so the stored
@@ -138,7 +139,7 @@ the column is shared.
 
 ## Exception Flows
 
-- **2a. Body invalid** (a required field missing, bad email, password outside 8..72, bad phone, a
+- **2a. Body invalid** (a required field missing, bad email, password under 8 characters or over 72 bytes, bad phone, a
   date of birth not in the past, an unknown gender): 400.
 - **3a. Email used by an active user:** 409, "Email is already in use".
 
