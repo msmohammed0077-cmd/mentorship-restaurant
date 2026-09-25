@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,6 +49,12 @@ public class CustomerController {
   public ResponseEntity<Void> changePassword(
       @PathVariable Long customerId, @Valid @RequestBody ChangePasswordRequest request) {
     customerService.changePassword(customerId, request);
+    return ResponseEntity.noContent().build();
+  }
+
+  @DeleteMapping("/{customerId}")
+  public ResponseEntity<Void> deleteCustomer(@PathVariable Long customerId) {
+    customerService.deleteCustomer(customerId);
     return ResponseEntity.noContent().build();
   }
 }

@@ -22,7 +22,8 @@ Customer
 
 ## Preconditions
 
-1. Customer exists.
+1. Customer exists and is not soft-deleted (see
+   [Delete Customer](../../use-cases/customer-management/delete-customer/delete-customer.md)).
 2. The request supplies `customerId` as a request parameter. The project has no authentication;
    ownership checks use this parameter instead of a logged-in principal.
 
@@ -42,6 +43,9 @@ Customer
 10. Deleting the default address does not promote another address.
 11. List responses are scoped to the supplied `customerId`.
 12. Address-specific operations reject an `addressId` that belongs to another customer.
+13. A soft-deleted customer does not exist: adding and viewing addresses return 404. Their address
+    rows are kept for history. Update, set-default and delete look up the address, not the
+    customer, and do not yet check the customer is active (follow-up from #72).
 
 ## Endpoints
 
@@ -59,7 +63,8 @@ Customer
 
 1. Customer submits a new address.
 2. System validates the request body.
-3. System loads the customer by `customerId`.
+3. System loads the active customer by `customerId` (`findActiveById`, which excludes
+   soft-deleted customers).
 4. System builds an `Address` for that customer.
 5. System checks whether the customer already has any addresses.
 6. If the customer has no saved address, System marks the new address as default; otherwise it
@@ -70,7 +75,8 @@ Customer
 ### View Addresses
 
 1. Customer requests their saved addresses.
-2. System verifies the customer exists.
+2. System verifies the customer exists and is not soft-deleted (`findByIdWithAddresses` filters
+   `user.userDeletedAt is null`).
 3. System loads all addresses for the customer.
 4. System orders default address first, then remaining addresses by newest first.
 5. System returns the list. Customers with no addresses receive an empty list.
@@ -109,7 +115,7 @@ Customer
 | Missing `customerId` request parameter | `400 Bad Request` with `customerId is required` |
 | Invalid `customerId` or `addressId` type | `400 Bad Request` with `{parameter} is not a valid value` |
 | Blank `label`, `line`, `city`, or `area` | `400 Bad Request` with validation details |
-| Unknown customer when adding or viewing | `404 Not Found` with `Customer not found` |
+| Unknown or soft-deleted customer when adding or viewing | `404 Not Found` with `Customer not found` |
 | Unknown address when updating, setting default, or deleting | `404 Not Found` with `Address not found` |
 | Address belongs to another customer | `403 Forbidden` with `Address belongs to another customer` |
 

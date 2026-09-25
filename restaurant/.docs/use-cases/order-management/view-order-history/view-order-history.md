@@ -11,7 +11,7 @@ Customer
 
 ## Preconditions
 
-1. The customer exists.
+1. The customer exists and is not soft-deleted.
 2. The caller's role is `CUSTOMER`.
 
 ## Scope
@@ -190,7 +190,7 @@ found the spec had claimed it while no migration created it, so both queries wer
 ## Main Success Scenario
 
 1. Customer requests their history, optionally with a page size and a cursor.
-2. System verifies the role is `CUSTOMER`, then that the customer exists.
+2. System verifies the role is `CUSTOMER`, then that the customer exists and is not soft-deleted.
 4. System reads one page, newest first, starting after the cursor if given.
 5. System returns the page and a cursor for the next one, or nothing if this was the last.
 
@@ -200,7 +200,7 @@ found the spec had claimed it while no migration created it, so both queries wer
   and range are rejected by validation before the handler runs. `limit` is also `@NotNull`: an empty
   `?limit=` binds null *over* the field default and null passes `@Min`/`@Max`, which used to reach
   `limit + 1` and 500.
-- **2a. Customer does not exist:** 404 — "Customer not found".
+- **2a. Customer does not exist or is soft-deleted:** 404 — "Customer not found".
 - **2b. The role is not `CUSTOMER`:** 403. Checked before existence, so a caller with the wrong role
   learns nothing about which customer ids exist.
 - **4a. Customer has no orders:** not an exception. 200, an empty list, no cursor.
@@ -248,7 +248,7 @@ sequenceDiagram
         H-->>C: TransitionNotAllowedForRoleException (403)
     end
 
-    H->>CR: existsById(customerId)
+    H->>CR: existsActiveById(customerId)
     CR-->>H: boolean
     alt absent
         H-->>C: CustomerNotFoundException (404)

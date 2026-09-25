@@ -35,7 +35,7 @@ public class AddToCartHandler {
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
     Customer customer =
         customerRepository
-            .findById(customerId)
+            .findActiveById(customerId)
             .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
     MenuItem menuItem =
         menuItemRepository

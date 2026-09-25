@@ -24,7 +24,7 @@ public class AddAddressHandler {
   public AddressResponse addAddress(Long customerId, AddAddressRequest request) {
     Customer customer =
         customerRepository
-            .findById(customerId)
+            .findActiveById(customerId)
             .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
 
     Address address = new Address();
