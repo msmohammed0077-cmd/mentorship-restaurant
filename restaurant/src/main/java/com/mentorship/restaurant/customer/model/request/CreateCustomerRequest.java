@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.customer.model.request;
 
 import com.mentorship.restaurant.customer.model.entity.Gender;
+import com.mentorship.restaurant.customer.model.validation.MaxUtf8Bytes;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,9 +27,11 @@ public class CreateCustomerRequest {
   @Size(max = 255)
   private String email;
 
-  // BCrypt ignores everything past 72 bytes, so a longer password would be silently truncated.
+  // BCrypt refuses passwords over 72 bytes, and a multi-byte character counts as several, so
+  // the character count alone cannot guarantee the encoder will accept it.
   @NotNull
-  @Size(min = 8, max = 72)
+  @Size(min = 8)
+  @MaxUtf8Bytes(72)
   private String password;
 
   @Pattern(regexp = "^\\+?[0-9]{7,15}$")

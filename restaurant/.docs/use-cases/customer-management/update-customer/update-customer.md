@@ -117,13 +117,14 @@ Content-Type: application/json
 
 | Field | Rule |
 | --- | --- |
-| `current_password` | required, not blank |
-| `new_password` | required, 8..72 characters (BCrypt ignores bytes past 72) |
+| `current_password` | required, not blank, at most 72 bytes (UTF-8) |
+| `new_password` | required, at least 8 characters and at most 72 bytes (UTF-8) — BCrypt refuses longer input, see the create-customer spec |
 
 Response, **204**, no body.
 
-`PUT` because the password is a sub-resource replaced whole. `current_password` has no length rule:
-it only has to match what is stored.
+`PUT` because the password is a sub-resource replaced whole. `current_password` has no minimum: it
+only has to match what is stored. Its 72-byte cap exists because no stored password can be longer
+and BCrypt refuses longer input, so it is a 400 rather than a failure inside the encoder.
 
 ## Data Access
 
@@ -168,7 +169,7 @@ concurrent updates to the same email can both pass the check, and the loser surf
   birth not in the past, an unknown gender): 400.
 - **Update, 3a / Change password, 3a. No active customer with that id:** 404, "Customer not found".
 - **Update, 4a. Email used by another active user:** 409, "Email is already in use".
-- **Change password, 2a. A field missing, or `new_password` outside 8..72:** 400.
+- **Change password, 2a. A field missing, or `new_password` under 8 characters or over 72 bytes, or `current_password` over 72 bytes:** 400.
 - **Change password, 4a. Current password does not match:** 403, "Current password is incorrect".
 
 ## Postconditions
