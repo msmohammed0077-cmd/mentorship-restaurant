@@ -110,6 +110,32 @@ class CreateCustomerEndpointTest {
   }
 
   @Test
+  void rejectsAPasswordOver72BytesEvenWhenUnder72Characters() {
+    // 40 characters, 80 bytes: passes a character count, would be refused by BCrypt.
+    String password = "é".repeat(40);
+
+    client
+        .post()
+        .uri("/api/v1/customers")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(
+            """
+            {
+              "name": "Sara Youssef",
+              "email": "%s",
+              "password": "%s"
+            }
+            """
+                .formatted(NEW_EMAIL, password))
+        .exchange()
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .value(String.class, message -> assertThat(message).contains("password"));
+  }
+
+  @Test
   void allowsReusingTheEmailOfASoftDeletedUser() {
     createCustomer(NEW_EMAIL).expectStatus().isCreated();
     jdbcTemplate.update("UPDATE users SET user_deleted_at = now() WHERE user_email = ?", NEW_EMAIL);
