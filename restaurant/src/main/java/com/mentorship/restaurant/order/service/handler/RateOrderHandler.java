@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.order.service.handler;
 
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
+import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.order.exception.OrderAlreadyRatedException;
 import com.mentorship.restaurant.order.exception.OrderNotDeliveredException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
@@ -20,12 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RateOrderHandler {
+  private final CustomerRepository customerRepository;
   private final OrderRepository orderRepository;
   private final OrderRatingRepository orderRatingRepository;
   private final OrderRatingMapper orderRatingMapper;
 
   @Transactional
   public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
+    ensureCustomerExists(customerId);
+
     Order order =
         orderRepository
             .findById(orderId)
@@ -45,6 +50,13 @@ public class RateOrderHandler {
       return orderRatingMapper.toResponse(orderRatingRepository.saveAndFlush(rating));
     } catch (DataIntegrityViolationException exception) {
       throw new OrderAlreadyRatedException("Order is already rated");
+    }
+  }
+
+  /** A soft-deleted customer does not exist to the API, even though their orders stay. */
+  private void ensureCustomerExists(Long customerId) {
+    if (!customerRepository.existsActiveById(customerId)) {
+      throw new CustomerNotFoundException("Customer not found");
     }
   }
 

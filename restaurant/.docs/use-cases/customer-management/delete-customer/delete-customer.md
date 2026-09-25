@@ -40,8 +40,8 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
      `ON DELETE CASCADE`.
 4. **Past orders, ratings and addresses are kept** for history. Nothing else is deleted.
 5. Afterwards the customer **does not exist** to the API: `GET`, `PATCH`, the password endpoint,
-   address listing, add-address, add-to-cart and order history all return 404, "Customer not
-   found". Their email is **reusable** by a new sign-up, because the partial unique index
+   every address operation, add-to-cart, order history, cancel and rate all return 404, "Customer
+   not found". Their email is **reusable** by a new sign-up, because the partial unique index
    `uq_users_active_email` only covers active users.
 
 ## Authorisation
@@ -92,9 +92,11 @@ predate that and looked customers up with plain `findById` / `existsById`. They 
 | `AddToCartHandler` | `findById` | `findActiveById` |
 | `ViewOrderHistoryHandler` | `existsById` | `existsActiveById` (new) |
 
-**Not covered** (no customer lookup to change; see *Notes*): update / set-default / delete address,
-which look the address up by id and customer id; cancel and rate order, which check ownership on the
-order. A deleted customer has no cart, so the cart-by-id endpoints have nothing to reach.
+Update / set-default / delete address and cancel / rate order look up the address or order, not the
+customer, so there was no customer lookup to filter. [#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)
+added an `existsActiveById` check before those lookups (for cancel, in the `CUSTOMER` ownership
+branch of `UpdateOrderStatusHandler`). A deleted customer has no cart, so the cart-by-id endpoints
+have nothing to reach.
 
 ## Main Success Scenario
 
@@ -182,10 +184,8 @@ cascade.
 
 # Notes
 
-1. **Address update / set-default / delete, and order cancel / rate, still reach a deleted
-   customer's rows.** They look up the address or order, not the customer, so there was no customer
-   lookup to filter. Left for a follow-up: add an active-customer check (or filter on
-   `customer.user.userDeletedAt`) to those lookups.
+1. **Address update / set-default / delete, and order cancel / rate** used to reach a deleted
+   customer's rows; closed by #78 (see *Soft-deleted customers elsewhere*).
 2. **No restore.** Undeleting is not exposed; it would also have to handle the email having been
    reused meanwhile.
 3. **A check-then-act race.** An order placed between the active-order check and the commit is not
