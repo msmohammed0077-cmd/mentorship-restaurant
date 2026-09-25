@@ -11,6 +11,9 @@ _Owner: TODO · Last reviewed: TODO_
 ### Cart Management
 - [Add Cart Item](./cart-management/add-cart-item/add-cart-item.md)
 
+### Customer Management
+- [Create Customer](./customer-management/create-customer/create-customer.md)
+
 ### Order Management
 - [Update Order Status](./order-management/update-order-status/update-order-status.md)
 - [Restaurant Accept / Reject Order](./order-management/accept-reject-order/accept-reject-order.md)
