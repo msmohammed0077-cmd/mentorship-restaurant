@@ -13,6 +13,7 @@ _Owner: TODO · Last reviewed: TODO_
 
 ### Customer Management
 - [Create Customer](./customer-management/create-customer/create-customer.md)
+- [Get Customer](./customer-management/get-customer/get-customer.md)
 
 ### Order Management
 - [Update Order Status](./order-management/update-order-status/update-order-status.md)
