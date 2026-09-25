@@ -17,4 +17,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
       where lower(user.userEmail) = lower(:email) and user.userDeletedAt is null
       """)
   boolean existsActiveByEmail(@Param("email") String email);
+
+  /**
+   * Same check as {@link #existsActiveByEmail}, ignoring the given user, so re-sending your own
+   * email on update is not a conflict.
+   */
+  @Query(
+      """
+      select count(user) > 0 from User user
+      where lower(user.userEmail) = lower(:email)
+        and user.userDeletedAt is null
+        and user.id <> :userId
+      """)
+  boolean existsActiveByEmailAndIdNot(@Param("email") String email, @Param("userId") Long userId);
 }
