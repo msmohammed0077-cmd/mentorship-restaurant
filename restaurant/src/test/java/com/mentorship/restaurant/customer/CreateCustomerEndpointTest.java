@@ -2,37 +2,20 @@ package com.mentorship.restaurant.customer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureRestTestClient
-class CreateCustomerEndpointTest {
+class CreateCustomerEndpointTest extends CustomerEndpointTestSupport {
 
-  // Every user this class creates has an email under this prefix, so cleanup can never reach a
-  // seeded user.
-  private static final String TEST_EMAIL_PREFIX = "create.customer.test.";
-  private static final String NEW_EMAIL = TEST_EMAIL_PREFIX + "sara@example.com";
-  private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
-
-  @Autowired private RestTestClient client;
-  @Autowired private JdbcTemplate jdbcTemplate;
-  @Autowired private PasswordEncoder passwordEncoder;
-
-  @BeforeEach
-  @AfterEach
-  void deleteCreatedUsers() {
-    // customers rows follow by ON DELETE CASCADE.
-    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", TEST_EMAIL_PREFIX + "%");
+  @Override
+  protected String emailPrefix() {
+    return "create.customer.test.";
   }
+
+  private static final String NEW_EMAIL = "create.customer.test.sara@example.com";
+  private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
 
   @Test
   void createsACustomerAndNeverReturnsThePassword() {
@@ -137,8 +120,7 @@ class CreateCustomerEndpointTest {
 
   @Test
   void allowsReusingTheEmailOfASoftDeletedUser() {
-    createCustomer(NEW_EMAIL).expectStatus().isCreated();
-    jdbcTemplate.update("UPDATE users SET user_deleted_at = now() WHERE user_email = ?", NEW_EMAIL);
+    softDeleteCustomer(insertCustomer(NEW_EMAIL));
 
     createCustomer(NEW_EMAIL).expectStatus().isCreated();
   }
