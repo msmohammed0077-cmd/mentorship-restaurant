@@ -40,7 +40,7 @@ public class OrderMapper {
         .rejectionNote(order.getRejectionNote())
         .orderItems(items)
         .customerNote(order.getCustomerNote())
-        .transactions(toTransactionResponse(order.getTransaction()))
+        .transactionResponse(toTransactionResponse(order.getTransaction()))
         .build();
   }
 

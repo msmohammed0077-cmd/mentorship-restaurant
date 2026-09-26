@@ -14,6 +14,10 @@ public class CreateOrderRequest {
 
   @NotNull private Long addressId;
 
+  @NotNull private Long customerId;
+
+  @NotNull private Long restaurantId;
+
   private String customerNote;
 
   private String promoCode;
