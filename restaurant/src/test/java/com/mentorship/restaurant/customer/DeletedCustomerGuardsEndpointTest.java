@@ -1,29 +1,16 @@
 package com.mentorship.restaurant.customer;
 
-import java.time.OffsetDateTime;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
  * Operations that look up an address or order rather than the customer must still treat a
  * soft-deleted customer as not found (#78).
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureRestTestClient
-class DeletedCustomerGuardsEndpointTest {
+class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
 
-  // Every user this class creates has an email under this prefix, so cleanup can never reach a
-  // seeded user.
-  private static final String TEST_EMAIL_PREFIX = "deleted.guards.test.";
-  private static final String CUSTOMER_EMAIL = TEST_EMAIL_PREFIX + "sara@example.com";
-  private static final long NILE_KITCHEN = 1L;
   private static final String ADDRESS_BODY =
       """
       {
@@ -35,21 +22,16 @@ class DeletedCustomerGuardsEndpointTest {
       }
       """;
 
-  @Autowired private RestTestClient client;
-  @Autowired private JdbcTemplate jdbcTemplate;
-
-  @BeforeEach
-  @AfterEach
-  void deleteCreatedUsers() {
-    // customers, addresses, orders and their ratings follow by ON DELETE CASCADE.
-    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", TEST_EMAIL_PREFIX + "%");
+  @Override
+  protected String emailPrefix() {
+    return "deleted.guards.test.";
   }
 
   @Test
   void refusesToUpdateADeletedCustomersAddress() {
-    long customerId = createCustomer();
-    long addressId = addAddress(customerId);
-    deleteCustomer(customerId);
+    long customerId = insertCustomer(email("sara"));
+    long addressId = insertAddress(customerId);
+    softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
         client
@@ -62,9 +44,9 @@ class DeletedCustomerGuardsEndpointTest {
 
   @Test
   void refusesToSetADeletedCustomersDefaultAddress() {
-    long customerId = createCustomer();
-    long addressId = addAddress(customerId);
-    deleteCustomer(customerId);
+    long customerId = insertCustomer(email("sara"));
+    long addressId = insertAddress(customerId);
+    softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
         client
@@ -78,9 +60,9 @@ class DeletedCustomerGuardsEndpointTest {
 
   @Test
   void refusesToDeleteADeletedCustomersAddress() {
-    long customerId = createCustomer();
-    long addressId = addAddress(customerId);
-    deleteCustomer(customerId);
+    long customerId = insertCustomer(email("sara"));
+    long addressId = insertAddress(customerId);
+    softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
         client
@@ -91,17 +73,9 @@ class DeletedCustomerGuardsEndpointTest {
 
   @Test
   void refusesToCancelADeletedCustomersOrder() {
-    long customerId = createCustomer();
-    long orderId = seedOrder(customerId, "PLACED");
-    // DELETE /customers refuses a customer with a PLACED order (409), so the API cannot produce
-    // this state today. It can still arise — an order placed concurrently with the delete, or a
-    // future rule change — so the marker is set directly to prove the guard holds regardless.
-    jdbcTemplate.update(
-        """
-        UPDATE users SET user_deleted_at = now()
-        WHERE user_id = (SELECT user_id FROM customers WHERE customer_id = ?)
-        """,
-        customerId);
+    long customerId = insertCustomer(email("sara"));
+    long orderId = insertOrder(customerId, "PLACED");
+    softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
         client
@@ -115,9 +89,9 @@ class DeletedCustomerGuardsEndpointTest {
 
   @Test
   void refusesToRateADeletedCustomersOrder() {
-    long customerId = createCustomer();
-    long orderId = seedOrder(customerId, "DELIVERED");
-    deleteCustomer(customerId);
+    long customerId = insertCustomer(email("sara"));
+    long orderId = insertOrder(customerId, "DELIVERED");
+    softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
         client
@@ -137,66 +111,22 @@ class DeletedCustomerGuardsEndpointTest {
         .isEqualTo("Customer not found");
   }
 
-  private long createCustomer() {
-    client
-        .post()
-        .uri("/api/v1/customers")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
+  private long insertAddress(long customerId) {
+    Long addressId =
+        jdbcTemplate.queryForObject(
             """
-            {
-              "name": "Sara Youssef",
-              "email": "%s",
-              "password": "s3cret-pass"
-            }
-            """
-                .formatted(CUSTOMER_EMAIL))
-        .exchange()
-        .expectStatus()
-        .isCreated();
-    return jdbcTemplate.queryForObject(
-        """
-        SELECT c.customer_id FROM customers c JOIN users u ON u.user_id = c.user_id
-        WHERE u.user_email = ?
-        """,
-        Long.class,
-        CUSTOMER_EMAIL);
-  }
-
-  private long addAddress(long customerId) {
-    client
-        .post()
-        .uri("/api/v1/addresses?customerId={customerId}", customerId)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(ADDRESS_BODY)
-        .exchange()
-        .expectStatus()
-        .isCreated();
-    return jdbcTemplate.queryForObject(
-        "SELECT address_id FROM addresses WHERE customer_id = ?", Long.class, customerId);
-  }
-
-  private long seedOrder(long customerId, String status) {
-    return jdbcTemplate.queryForObject(
-        """
-        INSERT INTO orders
-          (customer_id, restaurant_id, order_status, order_total, order_created_at)
-        VALUES (?, ?, ?, 370.00, ?)
-        RETURNING order_id
-        """,
-        Long.class,
-        customerId,
-        NILE_KITCHEN,
-        status,
-        OffsetDateTime.now());
-  }
-
-  private void deleteCustomer(long customerId) {
-    client
-        .delete()
-        .uri("/api/v1/customers/{customerId}", customerId)
-        .exchange()
-        .expectStatus()
-        .isNoContent();
+            INSERT INTO addresses (
+              customer_id, address_label, address_line, address_city, address_area,
+              address_note, address_is_default
+            )
+            VALUES (?, 'Home', '12 Tahrir Street', 'Cairo', 'Dokki', 'Blue gate', TRUE)
+            RETURNING address_id
+            """,
+            Long.class,
+            customerId);
+    if (addressId == null) {
+      throw new IllegalStateException("Address not created for customer " + customerId);
+    }
+    return addressId;
   }
 }
