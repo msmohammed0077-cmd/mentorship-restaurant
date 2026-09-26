@@ -58,6 +58,22 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
         .isEqualTo("Payment method not found");
   }
 
+  @Test
+  void rejectsADeletedCustomersOwnPaymentMethod() {
+    long customerId = insertCustomer(email("sara"));
+    long paymentMethodId = insertPaymentMethod(customerId, "1111", false);
+    softDeleteCustomer(customerId);
+
+    setDefault(customerId, paymentMethodId)
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Customer not found");
+
+    assertThat(isDefault(paymentMethodId)).isFalse();
+  }
+
   private RestTestClient.ResponseSpec setDefault(long customerId, long paymentMethodId) {
     return client
         .put()

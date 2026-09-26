@@ -43,6 +43,20 @@ class ViewPaymentMethodsEndpointTest extends PaymentMethodEndpointTestSupport {
     listPaymentMethods(customerId).expectStatus().isOk().expectBody().json("[]");
   }
 
+  @Test
+  void rejectsADeletedCustomer() {
+    long customerId = insertCustomer(email("sara"));
+    insertPaymentMethod(customerId, "1111", true);
+    softDeleteCustomer(customerId);
+
+    listPaymentMethods(customerId)
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Customer not found");
+  }
+
   private RestTestClient.ResponseSpec listPaymentMethods(long customerId) {
     return client
         .get()
