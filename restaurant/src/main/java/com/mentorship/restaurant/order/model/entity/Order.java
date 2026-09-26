@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.order.model.entity;
 
 import com.mentorship.restaurant.cart.model.entity.Restaurant;
+import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -14,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -22,6 +24,7 @@ import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "orders")
@@ -42,6 +45,10 @@ public class Order {
   @JoinColumn(name = "restaurant_id", nullable = false)
   private Restaurant restaurant;
 
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "address_id", nullable = false)
+  private Address address;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "order_status", nullable = false, length = 32)
   private OrderStatus status;
@@ -50,6 +57,7 @@ public class Order {
   private BigDecimal total;
 
   @Column(name = "order_created_at", nullable = false)
+  @CreationTimestamp
   private OffsetDateTime createdAt;
 
   @Column(name = "order_prep_time_minutes")
@@ -64,4 +72,10 @@ public class Order {
 
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<OrderItem> items = new ArrayList<>();
+
+  @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+  private Transaction transaction;
+
+  @Column(name = "customer_note")
+  private String customerNote;
 }
