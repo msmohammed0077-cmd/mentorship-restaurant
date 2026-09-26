@@ -170,6 +170,6 @@ erDiagram
 ## Original design
 
 The first version of the model, drawn in DrawIO before any migration existed:
-[`../erd/Food Delivery.pdf`](<../erd/Food Delivery.pdf>). It is kept for history and is **out of
+[`images/food-delivery-erd.pdf`](./images/food-delivery-erd.pdf). It is kept for history and is **out of
 date** — use the Mermaid diagram above. (This page used to embed `./images/erd.drawio.png`, which
 was never committed.)

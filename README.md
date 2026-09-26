@@ -2,6 +2,19 @@
 
 Spring Boot backend for a restaurant ordering system, with PostgreSQL as the runtime and test database.
 
+## Documentation
+
+All project documentation lives under [`restaurant/.docs`](./restaurant/.docs). Start at the
+[**wiki**](./restaurant/.docs/wiki.md) — it is the entry point and links everything else.
+
+- [Glossary](./restaurant/.docs/glossary.md) · [Actors](./restaurant/.docs/actors/actors.md) · [User Journeys](./restaurant/.docs/user-journeys/user-journeys.md)
+- [Use Cases](./restaurant/.docs/use-cases/use-cases.md) — one folder per use case; [`add-cart-item`](./restaurant/.docs/use-cases/cart-management/add-cart-item/add-cart-item.md) is the reference shape
+- [Architecture](./restaurant/.docs/architecture/architecture.md) · [ERD](./restaurant/.docs/domain/erd.md) · [Tech Stack](./restaurant/.docs/tech-stack.md)
+- [Architecture Decision Records](./restaurant/.docs/decisions/)
+
+New spec or issue? Copy the matching skeleton from the
+[templates table](./restaurant/.docs/wiki.md#templates) rather than starting from scratch.
+
 ## Stack
 
 - Java 17

@@ -4,7 +4,7 @@ Let a customer keep saved cards to pay with: add one, list them, pick a default,
 
 Issue [#70](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/70), under the
 Customer Management umbrella [#68](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/68).
-The rules deliberately mirror [address management](../../../customer/address-management/use-case.md),
+The rules deliberately mirror [address management](../address-management/address-management.md),
 so the two features behave alike.
 
 ## Actor
