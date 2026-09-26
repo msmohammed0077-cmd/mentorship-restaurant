@@ -1,6 +1,6 @@
 # Address Management Pseudocode
 
-Related documents: [Use case](./use-case.md) and [Sequence diagrams](./sequence-diagrams.md).
+Related documents: [Use case](./address-management.md) and [Sequence diagrams](./sequence-diagrams.md).
 
 ## Add Address
 

@@ -2,6 +2,7 @@ package com.mentorship.restaurant.customer.service.handler;
 
 import com.mentorship.restaurant.customer.exception.AddressAccessDeniedException;
 import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.repository.AddressRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +19,11 @@ public class DeleteAddressHandler {
   public void deleteAddress(Long customerId, Long addressId) {
     Address address =
         addressRepository
-            .findById(addressId)
+            .findByIdWithOwner(addressId)
             .orElseThrow(() -> new AddressNotFoundException("Address not found"));
 
     ensureAddressBelongsToCustomer(address, customerId);
+    ensureOwnerNotDeleted(address);
 
     addressRepository.delete(address);
   }
@@ -29,6 +31,13 @@ public class DeleteAddressHandler {
   private void ensureAddressBelongsToCustomer(Address address, Long customerId) {
     if (!address.getCustomer().getId().equals(customerId)) {
       throw new AddressAccessDeniedException("Address belongs to another customer");
+    }
+  }
+
+  /** Runs after the ownership check, so the owner is the caller: a soft-deleted caller is a 404. */
+  private void ensureOwnerNotDeleted(Address address) {
+    if (address.getCustomer().getUser().getUserDeletedAt() != null) {
+      throw new CustomerNotFoundException("Customer not found");
     }
   }
 }

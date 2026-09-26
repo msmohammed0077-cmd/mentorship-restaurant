@@ -231,13 +231,32 @@ each of them:
 | Role | Compared against |
 | --- | --- |
 | `RESTAURANT` | `orders.restaurant_id` |
-| `CUSTOMER` | `orders.customer_id` |
+| `CUSTOMER` | `orders.customer_id`, then that the customer is not soft-deleted |
 | `COURIER` | **Nothing yet** — no courier is assignable, so the check fails explicitly |
 | `SYSTEM` | Existence only; it acts on the restaurant's behalf and belongs to none |
 
 A single restaurant-shaped check would have been a trap for #41: cancel is customer-owned, so a
 customer would have had to supply a `restaurantId`, and the comparison would have been against a
 column that has nothing to do with them.
+
+A soft-deleted customer does not exist to the API (#68), but their orders are kept for history, so
+comparing `orders.customer_id` alone would still let them act on those orders. The `CUSTOMER` branch
+therefore reads the owner with **one** projection query, `OrderRepository.findOwnerById`, which joins
+the order's customer and user and returns the customer id and `userDeletedAt`
+([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The handler checks,
+in Java: order found (else 404 "Order not found"), owned by the caller (else 403 "Order belongs to
+another customer"), owner not soft-deleted (else 404 "Customer not found"). Because ownership is
+checked first, the owner is the caller, so the last check is about the caller. It all runs after the
+role check, so the role-before-existence rule below still holds. For an active customer the answers
+are unchanged. Cancel is the only customer-owned transition, so this is where cancel gets the guard.
+The restaurant, system and courier branches keep their own `findRestaurantIdById` lookup, with no
+extra join.
+
+The customer-level answer is only given for an order the caller owns. A soft-deleted or unknown
+`customerId` asking about a missing order gets 404 "Order not found", and about another customer's
+order gets 403 — the same answers an active caller gets. An earlier version ran a separate
+`existsActiveById` check first and answered "Customer not found" in those cases; folding it into
+the one lookup moved them.
 
 `COURIER` fails with a distinct message rather than silently comparing the wrong column. Courier
 assignment is not ticketed anywhere, so `PICK_UP` and `DELIVER` remain unreachable — and this is the
@@ -259,7 +278,9 @@ Each branch is labelled by the Main Flow step it extends.
 - **1a. Missing or unparseable role, or an unknown order id format:** reject with 400.
 - **2a. The role does not own this transition:** reject with 403 — "Role RESTAURANT may not perform
   this transition" for the mismatched case.
-- **3a. The order exists but belongs to another restaurant:** reject with 403.
+- **3a. The order exists but belongs to another restaurant (or customer):** reject with 403.
+- **3b. Role `CUSTOMER`, the caller owns the order, and is soft-deleted:** reject with 404 —
+  "Customer not found". Checked after ownership, from the same query.
 - **4a. The order does not exist:** reject with 404 — "Order not found".
 - **4b. The conditional update matches no row:** reject with 409 — "Order is not in status
   ACCEPTED". Covers an illegal transition, a repeat of the current status, a terminal order, and a

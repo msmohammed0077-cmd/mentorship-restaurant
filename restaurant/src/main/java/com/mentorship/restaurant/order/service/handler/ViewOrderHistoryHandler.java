@@ -51,7 +51,7 @@ public class ViewOrderHistoryHandler {
   }
 
   private void ensureCustomerExists(Long customerId) {
-    if (!customerRepository.existsById(customerId)) {
+    if (!customerRepository.existsActiveById(customerId)) {
       throw new CustomerNotFoundException("Customer not found");
     }
   }

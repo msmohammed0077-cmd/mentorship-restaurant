@@ -5,6 +5,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
 import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
   String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
 
+  boolean existsByCustomer_IdAndStatusIn(Long customerId, Collection<OrderStatus> statuses);
+
   @Modifying(flushAutomatically = true)
   @Query(
       """
@@ -41,8 +44,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   @Query("select o.restaurant.id from Order o where o.id = :orderId")
   Optional<Long> findRestaurantIdById(@Param("orderId") Long orderId);
 
-  @Query("select o.customer.id from Order o where o.id = :orderId")
-  Optional<Long> findCustomerIdById(@Param("orderId") Long orderId);
+  /**
+   * The order's customer id and that customer's soft-delete timestamp, in one query. A projection
+   * rather than an entity, because the status transition that follows is a bulk update and would
+   * leave a loaded order stale. Soft-deleted owners are not filtered.
+   */
+  @Query(
+      """
+      select customer.id as customerId, user.userDeletedAt as customerDeletedAt
+      from Order o join o.customer customer join customer.user user
+      where o.id = :orderId
+      """)
+  Optional<OrderOwnerProjection> findOwnerById(@Param("orderId") Long orderId);
+
+  /**
+   * Loads the order with its customer and the customer's user in one query, so a handler can check
+   * ownership and the owner's soft delete without a second round trip. Soft-deleted owners are not
+   * filtered.
+   */
+  @Query(
+      """
+      select o from Order o
+      join fetch o.customer customer
+      join fetch customer.user
+      where o.id = :orderId
+      """)
+  Optional<Order> findByIdWithOwner(@Param("orderId") Long orderId);
 
   @Modifying(flushAutomatically = true)
   @Query("update Order o set o.prepTimeMinutes = :minutes where o.id = :orderId")

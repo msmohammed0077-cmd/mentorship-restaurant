@@ -143,7 +143,7 @@ sequenceDiagram
 
 ### Pseudocode
 
-1. [Pseudocode](images/pseduocode.txt)
+1. [Pseudocode](images/pseudocode.txt)
 
 # Notes
 

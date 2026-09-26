@@ -22,7 +22,8 @@ Customer
 
 ## Preconditions
 
-1. Customer exists.
+1. Customer exists and is not soft-deleted (see
+   [Delete Customer](../../use-cases/customer-management/delete-customer/delete-customer.md)).
 2. The request supplies `customerId` as a request parameter. The project has no authentication;
    ownership checks use this parameter instead of a logged-in principal.
 
@@ -42,6 +43,14 @@ Customer
 10. Deleting the default address does not promote another address.
 11. List responses are scoped to the supplied `customerId`.
 12. Address-specific operations reject an `addressId` that belongs to another customer.
+13. A soft-deleted customer does not exist: every address operation on their addresses returns
+    404 `Customer not found`. Their address rows are kept for history. Update, set-default and
+    delete look up the address, not the customer, so that lookup join-fetches the address's owner
+    and the owner's user in **one query**, and the handler checks `userDeletedAt` in Java
+    ([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The address
+    checks run first and the soft-delete check last, so for an active customer the answers are
+    exactly as before. A consequence is that the customer-level answer is only given for an
+    address the caller owns; see *Check order for unknown and soft-deleted customers* below.
 
 ## Endpoints
 
@@ -59,7 +68,8 @@ Customer
 
 1. Customer submits a new address.
 2. System validates the request body.
-3. System loads the customer by `customerId`.
+3. System loads the active customer by `customerId` (`findActiveById`, which excludes
+   soft-deleted customers).
 4. System builds an `Address` for that customer.
 5. System checks whether the customer already has any addresses.
 6. If the customer has no saved address, System marks the new address as default; otherwise it
@@ -70,7 +80,8 @@ Customer
 ### View Addresses
 
 1. Customer requests their saved addresses.
-2. System verifies the customer exists.
+2. System verifies the customer exists and is not soft-deleted (`findByIdWithAddresses` filters
+   `user.userDeletedAt is null`).
 3. System loads all addresses for the customer.
 4. System orders default address first, then remaining addresses by newest first.
 5. System returns the list. Customers with no addresses receive an empty list.
@@ -79,16 +90,18 @@ Customer
 
 1. Customer submits the replacement address fields for an existing address.
 2. System validates the request body.
-3. System loads the address by `addressId`.
-4. System verifies the address belongs to `customerId`.
+3. System loads the address by `addressId` and `customerId`, with its owner and the owner's user,
+   in one query (`findByIdAndCustomerIdWithOwner`); an address of another customer is not found.
+4. System verifies the owner, who is the caller, is not soft-deleted.
 5. System replaces label, line, city, area, and note.
 6. System returns the updated address.
 
 ### Set Default Address
 
 1. Customer selects one address as default.
-2. System loads the address by `addressId`.
-3. System verifies the address belongs to `customerId`.
+2. System loads the address by `addressId` and `customerId`, with its owner and the owner's user,
+   in one query (`findByIdAndCustomerIdWithOwner`); an address of another customer is not found.
+3. System verifies the owner, who is the caller, is not soft-deleted.
 4. If the address is already default, System returns it unchanged.
 5. Otherwise, System clears the current default address for that customer.
 6. System marks the selected address as default.
@@ -97,10 +110,12 @@ Customer
 ### Delete Address
 
 1. Customer requests deletion of an address.
-2. System loads the address by `addressId`.
+2. System loads the address by `addressId`, with its owner and the owner's user, in one query
+   (`findByIdWithOwner`).
 3. System verifies the address belongs to `customerId`.
-4. System deletes the address.
-5. System returns no content.
+4. System verifies the owner, who is the caller, is not soft-deleted.
+5. System deletes the address.
+6. System returns no content.
 
 ## Exception Flows
 
@@ -109,9 +124,28 @@ Customer
 | Missing `customerId` request parameter | `400 Bad Request` with `customerId is required` |
 | Invalid `customerId` or `addressId` type | `400 Bad Request` with `{parameter} is not a valid value` |
 | Blank `label`, `line`, `city`, or `area` | `400 Bad Request` with validation details |
-| Unknown customer when adding or viewing | `404 Not Found` with `Customer not found` |
+| Unknown or soft-deleted customer when adding or viewing | `404 Not Found` with `Customer not found` |
+| Soft-deleted customer updating, setting default, or deleting their own address | `404 Not Found` with `Customer not found` |
 | Unknown address when updating, setting default, or deleting | `404 Not Found` with `Address not found` |
-| Address belongs to another customer | `403 Forbidden` with `Address belongs to another customer` |
+| Address belongs to another customer when updating or setting default | `404 Not Found` with `Address not found` (the lookup is scoped to `customerId`) |
+| Address belongs to another customer when deleting | `403 Forbidden` with `Address belongs to another customer` |
+
+### Check order for unknown and soft-deleted customers
+
+Update, set-default and delete read one row — the address with its owner — and decide in Java, in
+this order: address found, address owned by the caller, owner not soft-deleted. The address-level
+answers therefore win whenever the address is not the caller's:
+
+| Caller | Address | Update / set default | Delete |
+| --- | --- | --- | --- |
+| Soft-deleted | Their own | 404 `Customer not found` | 404 `Customer not found` |
+| Soft-deleted or unknown | Does not exist | 404 `Address not found` | 404 `Address not found` |
+| Soft-deleted or unknown | Another customer's | 404 `Address not found` | 403 `Address belongs to another customer` |
+
+Before the single-query lookup, a separate `existsActiveById` check ran first and answered
+`Customer not found` in the last two rows too. The shift reveals nothing new: the address answers
+depend only on the address and on `customerId` matching its owner, never on whether `customerId` is
+a live account.
 
 ## Postconditions
 

@@ -13,7 +13,6 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +21,7 @@ import lombok.Setter;
 @Table(name = "customers")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class Customer {
 
   @Id
@@ -37,4 +36,8 @@ public class Customer {
   @OneToMany(mappedBy = "customer")
   @OrderBy("isDefault DESC, createdAt DESC")
   private List<Address> addresses = new ArrayList<>();
+
+  @OneToMany(mappedBy = "customer")
+  @OrderBy("isDefault DESC, createdAt DESC, id DESC")
+  private List<PaymentMethod> paymentMethods = new ArrayList<>();
 }
