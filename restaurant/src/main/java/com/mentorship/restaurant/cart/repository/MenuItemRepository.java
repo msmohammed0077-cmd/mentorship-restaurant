@@ -8,12 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
 
-  /**
-   * Decrements stock only when the current quantity is sufficient.
-   *
-   * @return the number of rows updated, which is 1 when the decrement succeeds
-   */
-  @Modifying
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
   @Query(
       """
       update MenuItem menuItem
@@ -22,4 +17,13 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
       """)
   int decrementStockIfAvailable(
       @Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      """
+      update MenuItem menuItem
+      set menuItem.stock = menuItem.stock + :quantity
+      where menuItem.id = :menuItemId
+      """)
+  int incrementStock(@Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
 }

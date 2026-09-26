@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.cart.service;
 
-import com.mentorship.restaurant.cart.controller.response.CartResponse;
-import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
+import com.mentorship.restaurant.cart.model.response.CartResponse;
+import com.mentorship.restaurant.cart.model.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.service.handler.AddToCartHandler;
 import com.mentorship.restaurant.cart.service.handler.CheckoutCartHandler;
 import com.mentorship.restaurant.cart.service.handler.ClearCartHandler;
@@ -9,9 +9,11 @@ import com.mentorship.restaurant.cart.service.handler.ModifyCartItemHandler;
 import com.mentorship.restaurant.cart.service.handler.RemoveCartItemHandler;
 import com.mentorship.restaurant.cart.service.handler.ViewCartHandler;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class CartService {
 
   private final ModifyCartItemHandler modifyCartItemHandler;
@@ -20,21 +22,6 @@ public class CartService {
   private final AddToCartHandler addToCartHandler;
   private final RemoveCartItemHandler removeCartItemHandler;
   private final CheckoutCartHandler checkoutCartHandler;
-
-  public CartService(
-      ModifyCartItemHandler modifyCartItemHandler,
-      ViewCartHandler viewCartHandler,
-      ClearCartHandler clearCartHandler,
-      AddToCartHandler addToCartHandler,
-      RemoveCartItemHandler removeCartItemHandler,
-      CheckoutCartHandler checkoutCartHandler) {
-    this.modifyCartItemHandler = modifyCartItemHandler;
-    this.viewCartHandler = viewCartHandler;
-    this.clearCartHandler = clearCartHandler;
-    this.addToCartHandler = addToCartHandler;
-    this.removeCartItemHandler = removeCartItemHandler;
-    this.checkoutCartHandler = checkoutCartHandler;
-  }
 
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
     return addToCartHandler.addItem(customerId, menuItemId, quantity, note);

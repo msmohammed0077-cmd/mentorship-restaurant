@@ -32,6 +32,27 @@ use-cases/
 | View Cart | [view-cart](./cart-management/view-cart/view-cart.md) |
 | Clear Cart | [clear-cart](./cart-management/clear-cart/clear-cart.md) |
 
+### Customer Management
+
+Tracked under [#68](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/68).
+
+| Use case | Spec |
+| --- | --- |
+| Create Customer | [create-customer](./customer-management/create-customer/create-customer.md) |
+| Get Customer | [get-customer](./customer-management/get-customer/get-customer.md) |
+| Update Customer (profile + password) | [update-customer](./customer-management/update-customer/update-customer.md) |
+| Delete Customer | [delete-customer](./customer-management/delete-customer/delete-customer.md) |
+| Address Management | [address-management](./customer-management/address-management/address-management.md) |
+| Payment Methods | [payment-methods](./customer-management/payment-methods/payment-methods.md) |
+
 ### Order Management
 
-Tracked under [#34](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/34). No specs written yet — checkout, view order detail, view order history, update order status, restaurant accept/reject, cancel and rate.
+Tracked under [#34](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/34).
+
+| Use case | Spec |
+| --- | --- |
+| Update Order Status | [update-order-status](./order-management/update-order-status/update-order-status.md) |
+| Restaurant Accept / Reject Order | [accept-reject-order](./order-management/accept-reject-order/accept-reject-order.md) |
+| View Order History | [view-order-history](./order-management/view-order-history/view-order-history.md) |
+
+Cancel and rate orders are implemented but have no spec yet; checkout and view order detail are still open.

@@ -1,26 +1,28 @@
 package com.mentorship.restaurant.cart.service.handler;
 
-import com.mentorship.restaurant.cart.controller.response.CartResponse;
 import com.mentorship.restaurant.cart.exception.CartItemAlreadyExistsException;
-import com.mentorship.restaurant.cart.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.cart.exception.DifferentRestaurantException;
 import com.mentorship.restaurant.cart.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.cart.exception.OutOfStockException;
 import com.mentorship.restaurant.cart.exception.RestaurantClosedException;
 import com.mentorship.restaurant.cart.model.entity.Cart;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
-import com.mentorship.restaurant.cart.model.entity.Customer;
 import com.mentorship.restaurant.cart.model.entity.MenuItem;
 import com.mentorship.restaurant.cart.model.entity.Restaurant;
 import com.mentorship.restaurant.cart.model.mapper.CartMapper;
+import com.mentorship.restaurant.cart.model.response.CartResponse;
 import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
-import com.mentorship.restaurant.cart.repository.CustomerRepository;
 import com.mentorship.restaurant.cart.repository.MenuItemRepository;
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
+import com.mentorship.restaurant.customer.model.entity.Customer;
+import com.mentorship.restaurant.customer.repository.CustomerRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AddToCartHandler {
 
   private final CartRepository cartRepository;
@@ -29,24 +31,11 @@ public class AddToCartHandler {
   private final MenuItemRepository menuItemRepository;
   private final CartMapper cartMapper;
 
-  public AddToCartHandler(
-      CartRepository cartRepository,
-      CartItemRepository cartItemRepository,
-      CustomerRepository customerRepository,
-      MenuItemRepository menuItemRepository,
-      CartMapper cartMapper) {
-    this.cartRepository = cartRepository;
-    this.cartItemRepository = cartItemRepository;
-    this.customerRepository = customerRepository;
-    this.menuItemRepository = menuItemRepository;
-    this.cartMapper = cartMapper;
-  }
-
   @Transactional
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
     Customer customer =
         customerRepository
-            .findById(customerId)
+            .findActiveById(customerId)
             .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
     MenuItem menuItem =
         menuItemRepository

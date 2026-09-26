@@ -7,10 +7,12 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTe
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
+@ActiveProfiles({"local", "test"})
 public abstract class CartEndpointTestSupport {
 
   protected static final long CUSTOMER_WITHOUT_CART = 3L;
@@ -40,7 +42,7 @@ public abstract class CartEndpointTestSupport {
 
   protected String addItemBody(long menuItemId, int quantity) {
     return """
-        {"customerId": %d, "menuItemId": %d, "quantity": %d}
+        {"customer_id": %d, "menu_item_id": %d, "quantity": %d}
         """
         .formatted(CUSTOMER_WITHOUT_CART, menuItemId, quantity);
   }
@@ -93,6 +95,31 @@ public abstract class CartEndpointTestSupport {
       throw new IllegalStateException("Stock not found for menu item " + menuItemId);
     }
     return stock;
+  }
+
+  protected long cartItemIdFor(long cartId, long menuItemId) {
+    Long cartItemId =
+        jdbcTemplate.queryForObject(
+            "SELECT cart_item_id FROM cart_items WHERE cart_id = ? AND menu_item_id = ?",
+            Long.class,
+            cartId,
+            menuItemId);
+    if (cartItemId == null) {
+      throw new IllegalStateException("Cart item not found for menu item " + menuItemId);
+    }
+    return cartItemId;
+  }
+
+  protected boolean cartExists(long cartId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM carts WHERE cart_id = ?", Integer.class, cartId);
+    return count != null && count > 0;
+  }
+
+  protected void setStock(long menuItemId, int stock) {
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_stock = ? WHERE menu_item_id = ?", stock, menuItemId);
   }
 
   protected int cartItemCountFor(long cartId) {

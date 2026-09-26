@@ -1,13 +1,14 @@
 package com.mentorship.restaurant.cart.controller;
 
-import com.mentorship.restaurant.cart.controller.response.CartResponse;
-import com.mentorship.restaurant.cart.controller.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.model.request.AddCartItemRequest;
 import com.mentorship.restaurant.cart.model.request.UpdateCartItemRequest;
+import com.mentorship.restaurant.cart.model.response.CartResponse;
+import com.mentorship.restaurant.cart.model.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.service.CartService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,13 +24,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/cart")
 @Tag(name = "Cart")
+@RequiredArgsConstructor
 public class CartController {
 
   private final CartService cartService;
-
-  public CartController(CartService cartService) {
-    this.cartService = cartService;
-  }
 
   @PostMapping("/items")
   public ResponseEntity<CartResponse> addItem(@Valid @RequestBody AddCartItemRequest request) {

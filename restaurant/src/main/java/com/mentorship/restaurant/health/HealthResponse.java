@@ -1,3 +1,14 @@
 package com.mentorship.restaurant.health;
 
-public record HealthResponse(String status, String application) {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class HealthResponse {
+
+  private String status;
+  private String application;
+}
