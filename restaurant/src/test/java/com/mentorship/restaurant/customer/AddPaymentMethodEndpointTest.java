@@ -1,7 +1,10 @@
 package com.mentorship.restaurant.customer;
 
 import com.mentorship.restaurant.support.PaymentMethodEndpointTestSupport;
+import java.time.YearMonth;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.client.RestTestClient;
 
 class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
@@ -12,7 +15,7 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void firstPaymentMethodBecomesTheDefault() {
-    long customerId = createCustomer("Sara");
+    long customerId = insertCustomer(email("sara"));
 
     postPaymentMethod(customerId, paymentMethodBody("4242", VALID_EXPIRY))
         .expectStatus()
@@ -36,8 +39,8 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void secondPaymentMethodIsNotTheDefault() {
-    long customerId = createCustomer("Sara");
-    addPaymentMethod(customerId, "4242");
+    long customerId = insertCustomer(email("sara"));
+    insertPaymentMethod(customerId, "4242", true);
 
     postPaymentMethod(customerId, paymentMethodBody("1111", VALID_EXPIRY))
         .expectStatus()
@@ -49,7 +52,7 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void rejectsAnExpiredCard() {
-    long customerId = createCustomer("Sara");
+    long customerId = insertCustomer(email("sara"));
 
     postPaymentMethod(customerId, paymentMethodBody("4242", EXPIRED))
         .expectStatus()
@@ -61,7 +64,7 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void rejectsAnInvalidBody() {
-    long customerId = createCustomer("Sara");
+    long customerId = insertCustomer(email("sara"));
 
     postPaymentMethod(customerId, paymentMethodBody("12a4", VALID_EXPIRY))
         .expectStatus()
@@ -76,5 +79,27 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Customer not found");
+  }
+
+  private String paymentMethodBody(String last4, YearMonth expiry) {
+    return """
+        {
+          "brand": "VISA",
+          "last4": "%s",
+          "expiry_month": %d,
+          "expiry_year": %d,
+          "holder_name": "Sara Youssef"
+        }
+        """
+        .formatted(last4, expiry.getMonthValue(), expiry.getYear());
+  }
+
+  private RestTestClient.ResponseSpec postPaymentMethod(long customerId, String body) {
+    return client
+        .post()
+        .uri("/api/v1/payment-methods?customerId={customerId}", customerId)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body)
+        .exchange();
   }
 }
