@@ -41,7 +41,8 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
 4. **Past orders, ratings and addresses are kept** for history. Nothing else is deleted.
 5. Afterwards the customer **does not exist** to the API: `GET`, `PATCH`, the password endpoint,
    every address operation, add-to-cart, order history, cancel and rate all return 404, "Customer
-   not found". Their email is **reusable** by a new sign-up, because the partial unique index
+   not found" (for address and order operations, on their own address or order — see *Soft-deleted
+   customers elsewhere*). Their email is **reusable** by a new sign-up, because the partial unique index
    `uq_users_active_email` only covers active users.
 
 ## Authorisation
@@ -94,8 +95,11 @@ predate that and looked customers up with plain `findById` / `existsById`. They 
 
 Update / set-default / delete address and cancel / rate order look up the address or order, not the
 customer, so there was no customer lookup to filter. [#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)
-added an `existsActiveById` check before those lookups (for cancel, in the `CUSTOMER` ownership
-branch of `UpdateOrderStatusHandler`). A deleted customer has no cart, so the cart-by-id endpoints
+makes that lookup fetch the owner's user in the same query (a join fetch, or for cancel a projection
+in the `CUSTOMER` ownership branch of `UpdateOrderStatusHandler`) and checks `userDeletedAt` in
+Java, after the not-found and ownership checks. A soft-deleted customer acting on their own address
+or order gets 404 "Customer not found"; on a missing or another customer's row they get the same
+address- or order-level answer as anyone else. A deleted customer has no cart, so the cart-by-id endpoints
 have nothing to reach.
 
 ## Main Success Scenario

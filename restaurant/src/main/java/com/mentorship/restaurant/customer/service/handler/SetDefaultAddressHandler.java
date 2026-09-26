@@ -6,7 +6,6 @@ import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.model.mapper.AddressMapper;
 import com.mentorship.restaurant.customer.model.response.AddressResponse;
 import com.mentorship.restaurant.customer.repository.AddressRepository;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,18 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SetDefaultAddressHandler {
 
-  private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
   private final AddressMapper addressMapper;
 
   @Transactional
   public AddressResponse setDefaultAddress(Long customerId, Long addressId) {
-    ensureCustomerExists(customerId);
-
     Address address =
         addressRepository
-            .findByIdAndCustomer_Id(addressId, customerId)
+            .findByIdAndCustomerIdWithOwner(addressId, customerId)
             .orElseThrow(() -> new AddressNotFoundException("Address not found"));
+
+    ensureOwnerNotDeleted(address);
 
     if (!address.isDefault()) {
       addressRepository.clearDefaultForCustomer(customerId);
@@ -36,8 +34,11 @@ public class SetDefaultAddressHandler {
     return addressMapper.toResponse(address);
   }
 
-  private void ensureCustomerExists(Long customerId) {
-    if (!customerRepository.existsActiveById(customerId)) {
+  /**
+   * The lookup is scoped to the caller, so the owner is the caller: a soft-deleted one is a 404.
+   */
+  private void ensureOwnerNotDeleted(Address address) {
+    if (address.getCustomer().getUser().getUserDeletedAt() != null) {
       throw new CustomerNotFoundException("Customer not found");
     }
   }

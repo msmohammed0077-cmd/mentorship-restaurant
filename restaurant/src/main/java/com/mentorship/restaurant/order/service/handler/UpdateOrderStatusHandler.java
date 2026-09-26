@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.order.service.handler;
 
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.order.exception.IllegalOrderTransitionException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
@@ -11,6 +10,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatusHistory;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.mapper.OrderStatusMapper;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
+import com.mentorship.restaurant.order.repository.OrderOwnerProjection;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
 import java.time.OffsetDateTime;
@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateOrderStatusHandler {
-  private final CustomerRepository customerRepository;
   private final OrderRepository orderRepository;
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final OrderStatusMapper orderStatusMapper;
@@ -53,11 +52,12 @@ public class UpdateOrderStatusHandler {
               actorId,
               "Order belongs to another restaurant");
       case CUSTOMER -> {
-        ensureCustomerExists(actorId);
+        Optional<OrderOwnerProjection> owner = orderRepository.findOwnerById(orderId);
         ensureOwnerMatches(
-            orderRepository.findCustomerIdById(orderId),
+            owner.map(OrderOwnerProjection::getCustomerId),
             actorId,
             "Order belongs to another customer");
+        owner.ifPresent(this::ensureCustomerNotDeleted);
       }
       case COURIER -> {
         ensureOrderExists(orderId);
@@ -67,11 +67,11 @@ public class UpdateOrderStatusHandler {
   }
 
   /**
-   * A soft-deleted customer does not exist to the API, even though their orders stay for history.
-   * Checked before ownership so a deleted customer gets 404 rather than acting on their order.
+   * Runs after the ownership check, so the owner is the caller. A soft-deleted customer does not
+   * exist to the API, even though their orders stay for history: 404 rather than acting on them.
    */
-  private void ensureCustomerExists(Long customerId) {
-    if (!customerRepository.existsActiveById(customerId)) {
+  private void ensureCustomerNotDeleted(OrderOwnerProjection owner) {
+    if (owner.getCustomerDeletedAt() != null) {
       throw new CustomerNotFoundException("Customer not found");
     }
   }

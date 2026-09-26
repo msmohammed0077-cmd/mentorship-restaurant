@@ -5,7 +5,6 @@ import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.repository.AddressRepository;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,19 +13,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DeleteAddressHandler {
 
-  private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
 
   @Transactional
   public void deleteAddress(Long customerId, Long addressId) {
-    ensureCustomerExists(customerId);
-
     Address address =
         addressRepository
-            .findById(addressId)
+            .findByIdWithOwner(addressId)
             .orElseThrow(() -> new AddressNotFoundException("Address not found"));
 
     ensureAddressBelongsToCustomer(address, customerId);
+    ensureOwnerNotDeleted(address);
 
     addressRepository.delete(address);
   }
@@ -37,8 +34,9 @@ public class DeleteAddressHandler {
     }
   }
 
-  private void ensureCustomerExists(Long customerId) {
-    if (!customerRepository.existsActiveById(customerId)) {
+  /** Runs after the ownership check, so the owner is the caller: a soft-deleted caller is a 404. */
+  private void ensureOwnerNotDeleted(Address address) {
+    if (address.getCustomer().getUser().getUserDeletedAt() != null) {
       throw new CustomerNotFoundException("Customer not found");
     }
   }
