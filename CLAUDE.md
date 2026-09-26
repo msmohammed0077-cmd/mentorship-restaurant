@@ -116,6 +116,8 @@ Two things that follow from testing over real HTTP:
 - **`@Transactional` rolls back nothing the server did** — requests run on server threads in their own transactions. Clean up explicitly, scoped to the rows the test created.
 - **Every rejection needs a fixture that can reach it.** Seed one if none exists, as `V6` does with the closed restaurant, or pick request values that trigger it — asking for 999 of an item stocked at 50 exercises the out-of-stock path with no fixture at all.
 
+**Seed through the database, not the API.** The only HTTP call a test makes is to the endpoint it tests. Arrange state — customers, addresses, carts, orders, cards — with direct SQL through the `support/*EndpointTestSupport` helpers (`insertCustomer`, `softDeleteCustomer`, `insertOrder`, …), and check side effects the same way. Setting up through another endpoint ties a test to code it is not about, so one broken endpoint fails a dozen unrelated tests. Need a new fixture? Add a helper to the matching support class — `CustomerEndpointTestSupport` is the base for anything that owns its customers — rather than a private copy in one test. Some older tests (addresses, cart) still arrange state over HTTP; convert them when you touch them.
+
 ## Documentation
 
 Use-cases live in `restaurant/.docs/use-cases/<area>/<use-case>/`, each with a spec and its diagrams as inline Mermaid. **The spec is the source of truth — when code and spec disagree, fix the spec in the same PR.**
