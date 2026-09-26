@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.customer;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mentorship.restaurant.support.PaymentMethodEndpointTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -13,9 +15,9 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
 
   @Test
   void switchesTheDefault() {
-    long customerId = createCustomer("Sara");
-    long oldDefault = addPaymentMethod(customerId, "1111");
-    long newDefault = addPaymentMethod(customerId, "2222");
+    long customerId = insertCustomer(email("sara"));
+    long oldDefault = insertPaymentMethod(customerId, "1111", true);
+    long newDefault = insertPaymentMethod(customerId, "2222", false);
 
     setDefault(customerId, newDefault)
         .expectStatus()
@@ -26,25 +28,15 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
         .jsonPath("$.is_default")
         .isEqualTo(true);
 
-    listPaymentMethods(customerId)
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$[0].payment_method_id")
-        .isEqualTo(newDefault)
-        .jsonPath("$[0].is_default")
-        .isEqualTo(true)
-        .jsonPath("$[1].payment_method_id")
-        .isEqualTo(oldDefault)
-        .jsonPath("$[1].is_default")
-        .isEqualTo(false);
+    assertThat(isDefault(newDefault)).isTrue();
+    assertThat(isDefault(oldDefault)).isFalse();
   }
 
   @Test
   void rejectsAnotherCustomersPaymentMethod() {
-    long owner = createCustomer("Sara");
-    long other = createCustomer("Omar");
-    long paymentMethodId = addPaymentMethod(owner, "1111");
+    long owner = insertCustomer(email("sara"));
+    long other = insertCustomer(email("omar"));
+    long paymentMethodId = insertPaymentMethod(owner, "1111", true);
 
     setDefault(other, paymentMethodId)
         .expectStatus()
@@ -56,7 +48,7 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
 
   @Test
   void rejectsAnUnknownPaymentMethod() {
-    long customerId = createCustomer("Sara");
+    long customerId = insertCustomer(email("sara"));
 
     setDefault(customerId, 999999L)
         .expectStatus()

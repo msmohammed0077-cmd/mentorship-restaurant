@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.customer;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mentorship.restaurant.support.PaymentMethodEndpointTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -13,19 +15,19 @@ class DeletePaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void deletesThePaymentMethod() {
-    long customerId = createCustomer("Sara");
-    long paymentMethodId = addPaymentMethod(customerId, "1111");
+    long customerId = insertCustomer(email("sara"));
+    long paymentMethodId = insertPaymentMethod(customerId, "1111", true);
 
     deletePaymentMethod(customerId, paymentMethodId).expectStatus().isNoContent();
 
-    listPaymentMethods(customerId).expectStatus().isOk().expectBody().json("[]");
+    assertThat(paymentMethodCountFor(customerId)).isZero();
   }
 
   @Test
   void rejectsAnotherCustomersPaymentMethod() {
-    long owner = createCustomer("Sara");
-    long other = createCustomer("Omar");
-    long paymentMethodId = addPaymentMethod(owner, "1111");
+    long owner = insertCustomer(email("sara"));
+    long other = insertCustomer(email("omar"));
+    long paymentMethodId = insertPaymentMethod(owner, "1111", true);
 
     deletePaymentMethod(other, paymentMethodId)
         .expectStatus()
@@ -34,12 +36,7 @@ class DeletePaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
         .jsonPath("$.message")
         .isEqualTo("Payment method belongs to another customer");
 
-    listPaymentMethods(owner)
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.length()")
-        .isEqualTo(1);
+    assertThat(paymentMethodCountFor(owner)).isEqualTo(1);
   }
 
   private RestTestClient.ResponseSpec deletePaymentMethod(long customerId, long paymentMethodId) {

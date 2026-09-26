@@ -1,7 +1,9 @@
 package com.mentorship.restaurant.customer;
 
 import com.mentorship.restaurant.support.PaymentMethodEndpointTestSupport;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.client.RestTestClient;
 
 class ViewPaymentMethodsEndpointTest extends PaymentMethodEndpointTestSupport {
 
@@ -12,10 +14,11 @@ class ViewPaymentMethodsEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void listsTheDefaultFirstThenNewest() {
-    long customerId = createCustomer("Sara");
-    long first = addPaymentMethod(customerId, "1111");
-    long second = addPaymentMethod(customerId, "2222");
-    long third = addPaymentMethod(customerId, "3333");
+    long customerId = insertCustomer(email("sara"));
+    OffsetDateTime now = OffsetDateTime.now();
+    long first = insertPaymentMethod(customerId, "1111", true, now.minusMinutes(3));
+    long second = insertPaymentMethod(customerId, "2222", false, now.minusMinutes(2));
+    long third = insertPaymentMethod(customerId, "3333", false, now.minusMinutes(1));
 
     listPaymentMethods(customerId)
         .expectStatus()
@@ -35,8 +38,15 @@ class ViewPaymentMethodsEndpointTest extends PaymentMethodEndpointTestSupport {
 
   @Test
   void returnsAnEmptyListForACustomerWithNone() {
-    long customerId = createCustomer("Sara");
+    long customerId = insertCustomer(email("sara"));
 
     listPaymentMethods(customerId).expectStatus().isOk().expectBody().json("[]");
+  }
+
+  private RestTestClient.ResponseSpec listPaymentMethods(long customerId) {
+    return client
+        .get()
+        .uri("/api/v1/payment-methods?customerId={customerId}", customerId)
+        .exchange();
   }
 }
