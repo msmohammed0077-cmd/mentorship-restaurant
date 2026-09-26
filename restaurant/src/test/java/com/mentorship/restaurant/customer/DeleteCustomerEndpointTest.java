@@ -2,51 +2,26 @@ package com.mentorship.restaurant.customer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.OffsetDateTime;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureRestTestClient
-class DeleteCustomerEndpointTest {
+class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
 
-  // Every user this class creates has an email under this prefix, so cleanup can never reach a
-  // seeded user.
-  private static final String TEST_EMAIL_PREFIX = "delete.customer.test.";
-  private static final String CUSTOMER_EMAIL = TEST_EMAIL_PREFIX + "sara@example.com";
-  private static final long NILE_KITCHEN = 1L;
   private static final long KOFTA = 1L;
 
-  @Autowired private RestTestClient client;
-  @Autowired private JdbcTemplate jdbcTemplate;
-
-  @BeforeEach
-  @AfterEach
-  void deleteCreatedUsers() {
-    // customers rows follow by ON DELETE CASCADE, and so do the carts, cart items and orders
-    // this class seeds for them.
-    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", TEST_EMAIL_PREFIX + "%");
+  @Override
+  protected String emailPrefix() {
+    return "delete.customer.test.";
   }
 
   @Test
   void deletesTheCustomerSoTheyAreNoLongerFound() {
-    Long customerId = createCustomer();
+    long customerId = insertCustomer(email("sara"));
 
     deleteCustomer(customerId).expectStatus().isNoContent();
 
-    client
-        .get()
-        .uri("/api/v1/customers/{customerId}", customerId)
-        .exchange()
-        .expectStatus()
-        .isNotFound();
+    assertThat(isSoftDeleted(customerId)).isTrue();
     deleteCustomer(customerId)
         .expectStatus()
         .isNotFound()
@@ -57,19 +32,8 @@ class DeleteCustomerEndpointTest {
 
   @Test
   void deletesTheCustomersCart() {
-    Long customerId = createCustomer();
-    client
-        .post()
-        .uri("/api/v1/cart/items")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            {"customer_id": %d, "menu_item_id": %d, "quantity": 1}
-            """
-                .formatted(customerId, KOFTA))
-        .exchange()
-        .expectStatus()
-        .isCreated();
+    long customerId = insertCustomer(email("sara"));
+    insertCartWithItem(customerId, KOFTA);
 
     deleteCustomer(customerId).expectStatus().isNoContent();
 
@@ -81,16 +45,8 @@ class DeleteCustomerEndpointTest {
 
   @Test
   void rejectsACustomerWithAnActiveOrder() {
-    Long customerId = createCustomer();
-    jdbcTemplate.update(
-        """
-        INSERT INTO orders
-          (customer_id, restaurant_id, order_status, order_total, order_created_at)
-        VALUES (?, ?, 'PLACED', 370.00, ?)
-        """,
-        customerId,
-        NILE_KITCHEN,
-        OffsetDateTime.now());
+    long customerId = insertCustomer(email("sara"));
+    insertOrder(customerId, "PLACED");
 
     deleteCustomer(customerId)
         .expectStatus()
@@ -99,7 +55,7 @@ class DeleteCustomerEndpointTest {
         .jsonPath("$.message")
         .isEqualTo("Customer has active orders");
 
-    client.get().uri("/api/v1/customers/{customerId}", customerId).exchange().expectStatus().isOk();
+    assertThat(isSoftDeleted(customerId)).isFalse();
   }
 
   @Test
@@ -114,8 +70,8 @@ class DeleteCustomerEndpointTest {
 
   @Test
   void hidesADeletedCustomersAddresses() {
-    Long customerId = createCustomer();
-    deleteCustomer(customerId).expectStatus().isNoContent();
+    long customerId = insertCustomer(email("sara"));
+    softDeleteCustomer(customerId);
 
     client
         .get()
@@ -128,33 +84,33 @@ class DeleteCustomerEndpointTest {
         .isEqualTo("Customer not found");
   }
 
-  private RestTestClient.ResponseSpec deleteCustomer(Long customerId) {
+  private RestTestClient.ResponseSpec deleteCustomer(long customerId) {
     return client.delete().uri("/api/v1/customers/{customerId}", customerId).exchange();
   }
 
-  private Long createCustomer() {
-    client
-        .post()
-        .uri("/api/v1/customers")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
+  private boolean isSoftDeleted(long customerId) {
+    Boolean deleted =
+        jdbcTemplate.queryForObject(
             """
-            {
-              "name": "Sara Youssef",
-              "email": "%s",
-              "password": "s3cret-pass"
-            }
-            """
-                .formatted(CUSTOMER_EMAIL))
-        .exchange()
-        .expectStatus()
-        .isCreated();
-    return jdbcTemplate.queryForObject(
+            SELECT u.user_deleted_at IS NOT NULL
+            FROM users u JOIN customers c ON c.user_id = u.user_id
+            WHERE c.customer_id = ?
+            """,
+            Boolean.class,
+            customerId);
+    return Boolean.TRUE.equals(deleted);
+  }
+
+  private void insertCartWithItem(long customerId, long menuItemId) {
+    jdbcTemplate.update(
         """
-        SELECT c.customer_id FROM customers c JOIN users u ON u.user_id = c.user_id
-        WHERE u.user_email = ?
+        WITH new_cart AS (
+          INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id
+        )
+        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
+        SELECT cart_id, ?, 1, 185.00 FROM new_cart
         """,
-        Long.class,
-        CUSTOMER_EMAIL);
+        customerId,
+        menuItemId);
   }
 }
