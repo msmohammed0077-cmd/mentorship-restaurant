@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.customer.model.request;
 
 import com.mentorship.restaurant.customer.model.entity.CardBrand;
+import com.mentorship.restaurant.customer.model.validation.NotExpired;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -11,7 +12,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Only what a "saved cards" screen shows: never the full card number or the CVV. */
+/**
+ * Only what a "saved cards" screen shows: never the full card number or the CVV. {@link NotExpired}
+ * refuses a card whose expiry month has passed.
+ */
+@NotExpired
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
