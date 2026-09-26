@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.order.service.handler;
 
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderAlreadyRatedException;
 import com.mentorship.restaurant.order.exception.OrderNotDeliveredException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
@@ -28,10 +29,11 @@ public class RateOrderHandler {
   public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
     Order order =
         orderRepository
-            .findById(orderId)
+            .findByIdWithOwner(orderId)
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
     ensureCustomerOwnsOrder(order, customerId);
+    ensureOwnerNotDeleted(order);
     ensureOrderIsDelivered(order);
     ensureOrderIsNotRated(orderId);
 
@@ -51,6 +53,16 @@ public class RateOrderHandler {
   private void ensureCustomerOwnsOrder(Order order, Long customerId) {
     if (!order.getCustomer().getId().equals(customerId)) {
       throw new OrderNotOwnedException("Order belongs to another customer");
+    }
+  }
+
+  /**
+   * Runs after the ownership check, so the owner is the caller. A soft-deleted customer does not
+   * exist to the API, even though their orders stay.
+   */
+  private void ensureOwnerNotDeleted(Order order) {
+    if (order.getCustomer().getUser().getUserDeletedAt() != null) {
+      throw new CustomerNotFoundException("Customer not found");
     }
   }
 

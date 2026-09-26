@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.order.service.handler;
 
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.order.exception.IllegalOrderTransitionException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
@@ -9,6 +10,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatusHistory;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.mapper.OrderStatusMapper;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
+import com.mentorship.restaurant.order.repository.OrderOwnerProjection;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
 import java.time.OffsetDateTime;
@@ -49,15 +51,28 @@ public class UpdateOrderStatusHandler {
               orderRepository.findRestaurantIdById(orderId),
               actorId,
               "Order belongs to another restaurant");
-      case CUSTOMER ->
-          ensureOwnerMatches(
-              orderRepository.findCustomerIdById(orderId),
-              actorId,
-              "Order belongs to another customer");
+      case CUSTOMER -> {
+        Optional<OrderOwnerProjection> owner = orderRepository.findOwnerById(orderId);
+        ensureOwnerMatches(
+            owner.map(OrderOwnerProjection::getCustomerId),
+            actorId,
+            "Order belongs to another customer");
+        owner.ifPresent(this::ensureCustomerNotDeleted);
+      }
       case COURIER -> {
         ensureOrderExists(orderId);
         throw new OrderNotOwnedException("No courier is assigned to orders yet");
       }
+    }
+  }
+
+  /**
+   * Runs after the ownership check, so the owner is the caller. A soft-deleted customer does not
+   * exist to the API, even though their orders stay for history: 404 rather than acting on them.
+   */
+  private void ensureCustomerNotDeleted(OrderOwnerProjection owner) {
+    if (owner.getCustomerDeletedAt() != null) {
+      throw new CustomerNotFoundException("Customer not found");
     }
   }
 
