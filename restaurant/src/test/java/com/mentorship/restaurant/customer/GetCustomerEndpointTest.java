@@ -1,32 +1,13 @@
 package com.mentorship.restaurant.customer;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.web.servlet.client.RestTestClient;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureRestTestClient
-class GetCustomerEndpointTest {
+class GetCustomerEndpointTest extends CustomerEndpointTestSupport {
 
-  // Every user this class creates has an email under this prefix, so cleanup can never reach a
-  // seeded user.
-  private static final String TEST_EMAIL_PREFIX = "get.customer.test.";
-  private static final String DELETED_EMAIL = TEST_EMAIL_PREFIX + "sara@example.com";
-
-  @Autowired private RestTestClient client;
-  @Autowired private JdbcTemplate jdbcTemplate;
-
-  @BeforeEach
-  @AfterEach
-  void deleteCreatedUsers() {
-    // customers rows follow by ON DELETE CASCADE.
-    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", TEST_EMAIL_PREFIX + "%");
+  @Override
+  protected String emailPrefix() {
+    return "get.customer.test.";
   }
 
   @Test
@@ -63,32 +44,8 @@ class GetCustomerEndpointTest {
 
   @Test
   void rejectsASoftDeletedCustomer() {
-    client
-        .post()
-        .uri("/api/v1/customers")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            {
-              "name": "Sara Youssef",
-              "email": "%s",
-              "password": "s3cret-pass"
-            }
-            """
-                .formatted(DELETED_EMAIL))
-        .exchange()
-        .expectStatus()
-        .isCreated();
-    jdbcTemplate.update(
-        "UPDATE users SET user_deleted_at = now() WHERE user_email = ?", DELETED_EMAIL);
-    Long customerId =
-        jdbcTemplate.queryForObject(
-            """
-            SELECT c.customer_id FROM customers c JOIN users u ON u.user_id = c.user_id
-            WHERE u.user_email = ?
-            """,
-            Long.class,
-            DELETED_EMAIL);
+    long customerId = insertCustomer(email("sara"));
+    softDeleteCustomer(customerId);
 
     client
         .get()
