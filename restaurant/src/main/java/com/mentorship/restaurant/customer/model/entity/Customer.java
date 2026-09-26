@@ -36,4 +36,8 @@ public class Customer {
   @OneToMany(mappedBy = "customer")
   @OrderBy("isDefault DESC, createdAt DESC")
   private List<Address> addresses = new ArrayList<>();
+
+  @OneToMany(mappedBy = "customer")
+  @OrderBy("isDefault DESC, createdAt DESC, id DESC")
+  private List<PaymentMethod> paymentMethods = new ArrayList<>();
 }

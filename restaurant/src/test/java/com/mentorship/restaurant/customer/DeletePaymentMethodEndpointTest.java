@@ -39,6 +39,22 @@ class DeletePaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
     assertThat(paymentMethodCountFor(owner)).isEqualTo(1);
   }
 
+  @Test
+  void rejectsADeletedCustomersOwnPaymentMethod() {
+    long customerId = insertCustomer(email("sara"));
+    long paymentMethodId = insertPaymentMethod(customerId, "1111", true);
+    softDeleteCustomer(customerId);
+
+    deletePaymentMethod(customerId, paymentMethodId)
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Customer not found");
+
+    assertThat(paymentMethodCountFor(customerId)).isEqualTo(1);
+  }
+
   private RestTestClient.ResponseSpec deletePaymentMethod(long customerId, long paymentMethodId) {
     return client
         .delete()

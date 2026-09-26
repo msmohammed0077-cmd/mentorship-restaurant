@@ -59,7 +59,7 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
         .isBadRequest()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Payment method has expired");
+        .isEqualTo("expiryMonth must not be before the current month");
   }
 
   @Test

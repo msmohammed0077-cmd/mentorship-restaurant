@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.customer.repository;
 
 import com.mentorship.restaurant.customer.model.entity.PaymentMethod;
-import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,24 +12,18 @@ public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, Lo
   boolean existsByCustomer_Id(Long customerId);
 
   /**
-   * A payment method of a soft-deleted customer does not exist to the API, so it is filtered here
-   * rather than left for each handler to remember.
+   * Loads the card with its owner and the owner's user in one query, so a handler can check
+   * ownership and the owner's soft delete without a second round trip. It does not filter
+   * soft-deleted owners: the handler decides what that means for the caller.
    */
   @Query(
       """
       select paymentMethod from PaymentMethod paymentMethod
-      join paymentMethod.customer.user user
-      where paymentMethod.id = :paymentMethodId and user.userDeletedAt is null
+      join fetch paymentMethod.customer customer
+      join fetch customer.user
+      where paymentMethod.id = :paymentMethodId
       """)
-  Optional<PaymentMethod> findActiveById(@Param("paymentMethodId") Long paymentMethodId);
-
-  @Query(
-      """
-      select paymentMethod from PaymentMethod paymentMethod
-      where paymentMethod.customer.id = :customerId
-      order by paymentMethod.isDefault desc, paymentMethod.createdAt desc, paymentMethod.id desc
-      """)
-  List<PaymentMethod> findAllByCustomerIdOrdered(@Param("customerId") Long customerId);
+  Optional<PaymentMethod> findByIdWithOwner(@Param("paymentMethodId") Long paymentMethodId);
 
   @Modifying(flushAutomatically = true)
   @Query(
