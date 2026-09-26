@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.support;
 
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 public abstract class CustomerEndpointTestSupport {
 
   protected static final String TEST_PASSWORD = "s3cret-pass";
+  protected static final long NILE_KITCHEN = 1L;
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
@@ -71,5 +73,26 @@ public abstract class CustomerEndpointTestSupport {
         WHERE user_id = (SELECT user_id FROM customers WHERE customer_id = ?)
         """,
         customerId);
+  }
+
+  /** Inserts an order at Nile Kitchen for the customer. Returns the order id. */
+  protected long insertOrder(long customerId, String status) {
+    Long orderId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO orders
+              (customer_id, restaurant_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, 370.00, ?)
+            RETURNING order_id
+            """,
+            Long.class,
+            customerId,
+            NILE_KITCHEN,
+            status,
+            OffsetDateTime.now());
+    if (orderId == null) {
+      throw new IllegalStateException("Order not created for customer " + customerId);
+    }
+    return orderId;
   }
 }

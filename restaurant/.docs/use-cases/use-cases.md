@@ -15,6 +15,7 @@ _Owner: TODO · Last reviewed: TODO_
 - [Create Customer](./customer-management/create-customer/create-customer.md)
 - [Get Customer](./customer-management/get-customer/get-customer.md)
 - [Update Customer](./customer-management/update-customer/update-customer.md)
+- [Delete Customer](./customer-management/delete-customer/delete-customer.md)
 
 ### Order Management
 - [Update Order Status](./order-management/update-order-status/update-order-status.md)

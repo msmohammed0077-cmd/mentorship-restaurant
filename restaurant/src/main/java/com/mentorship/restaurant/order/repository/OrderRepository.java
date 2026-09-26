@@ -5,6 +5,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
 import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
       """;
 
   String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
+
+  boolean existsByCustomer_IdAndStatusIn(Long customerId, Collection<OrderStatus> statuses);
 
   @Modifying(flushAutomatically = true)
   @Query(
