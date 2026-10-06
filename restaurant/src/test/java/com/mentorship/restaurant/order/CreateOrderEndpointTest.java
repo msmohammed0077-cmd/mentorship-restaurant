@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -89,6 +91,233 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
             "SELECT order_id FROM orders WHERE customer_id = ?", Long.class, customerId);
     assertThat(transactionFor(orderId))
         .hasValueSatisfying(row -> assertThat(row.get("status")).isEqualTo("PAID"));
+  }
+
+  @Test
+  void deletesTheCartRow() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isCreated();
+
+    // #82 §2: should keep the cart row and delete only its items, currently deletes the row
+    assertThat(cartExists(cartId)).isFalse();
+  }
+
+  @Test
+  void leavesStockUntouched() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 3);
+    int stockBefore = stockFor(KOFTA);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isCreated();
+
+    // #82 §2: should decrement stock by 3, currently unchanged
+    assertThat(stockFor(KOFTA)).isEqualTo(stockBefore);
+  }
+
+  @Test
+  void takesTheRestaurantFromTheCart() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                BURGER_YARD,
+                "CASH_ON_DELIVERY"))
+        // #82 §2: should reject a restaurant_id that is not the cart's, currently ignores it
+        .expectStatus()
+        .isCreated()
+        .expectBody()
+        .jsonPath("$.restaurant_id")
+        .isEqualTo(NILE_KITCHEN);
+  }
+
+  @Test
+  void treatsAMissingPaymentMethodAsCash() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                null))
+        // #82 §2: should be 400, currently 201 with no transaction
+        .expectStatus()
+        .isCreated()
+        .expectBody()
+        .jsonPath("$.transaction_response")
+        .isEmpty();
+  }
+
+  @Test
+  void acceptsASoftDeletedCustomer() {
+    long customerId = insertCustomer(email("sara"));
+    long addressId = addressIdForCustomer(jdbcTemplate, customerId);
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+    softDeleteCustomer(customerId);
+
+    placeOrder(fieldsFor(cartId, addressId, customerId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
+        // #82 §2: should be 404 like the other deleted-customer guards, currently 201
+        .expectStatus()
+        .isCreated();
+  }
+
+  @Test
+  void refusesAQuantityAboveStock() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 999);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        // #82 §2: should be 409 (OutOfStockException), currently 403
+        .expectStatus()
+        .isForbidden();
+
+    assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @Test
+  void refusesAnEmptyCart() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        // #82 §2: should be 400, currently 409
+        .expectStatus()
+        .isEqualTo(409);
+
+    assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @Test
+  void refusesAnUnknownCart() {
+    long customerId = insertCustomer(email("sara"));
+
+    placeOrder(
+            fieldsFor(
+                999999L,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @Test
+  void refusesAnUnknownAddress() {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+
+    placeOrder(fieldsFor(cartId, 999999L, customerId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @Test
+  void refusesAnotherCustomersCart() {
+    long customerId = insertCustomer(email("sara"));
+    long otherCustomerId = insertCustomer(email("omar"));
+    long otherCartId = insertCart(otherCustomerId);
+    insertCartItem(otherCartId, KOFTA, 1);
+
+    placeOrder(
+            fieldsFor(
+                otherCartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(orderCountFor(customerId)).isZero();
+    assertThat(cartExists(otherCartId)).isTrue();
+  }
+
+  @Test
+  void refusesAnotherCustomersAddress() {
+    long customerId = insertCustomer(email("sara"));
+    long otherCustomerId = insertCustomer(email("omar"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, otherCustomerId),
+                customerId,
+                NILE_KITCHEN,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"cart_id", "address_id", "customer_id", "restaurant_id"})
+  void refusesAMissingRequiredField(String field) {
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
+    Map<String, Object> fields =
+        fieldsFor(
+            cartId,
+            addressIdForCustomer(jdbcTemplate, customerId),
+            customerId,
+            NILE_KITCHEN,
+            "CASH_ON_DELIVERY");
+    fields.remove(field);
+
+    placeOrder(fields).expectStatus().isBadRequest();
+
+    assertThat(orderCountFor(customerId)).isZero();
   }
 
   private RestTestClient.ResponseSpec placeOrder(Map<String, Object> fields) {
