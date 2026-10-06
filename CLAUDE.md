@@ -122,7 +122,9 @@ Two things that follow from testing over real HTTP:
 
 Use-cases live in `restaurant/.docs/use-cases/<area>/<use-case>/`, each with a spec and its diagrams as inline Mermaid. **The spec is the source of truth — when code and spec disagree, fix the spec in the same PR.**
 
-Implementation plans are gitignored (`.docs/use-cases/**/implementation-plan.md`). They are working notes; anything worth keeping belongs in the spec.
+Work that is not a use-case — refactors, test infrastructure, cross-cutting changes — gets a design spec in `restaurant/.docs/designs/YYYY-MM-DD-<topic>-design.md`, committed with the work. Not in a top-level `docs/` (some tooling defaults there): all project docs live under `restaurant/.docs/`. A design records scope, decisions and what is deliberately left out; once implemented, the code and its tests take over, so update the design only while the work is in flight.
+
+Implementation plans are gitignored (`.docs/use-cases/**/implementation-plan.md`, `.docs/designs/*-plan.md`). They are working notes; anything worth keeping belongs in the spec or design.
 
 ## Conventions
 
