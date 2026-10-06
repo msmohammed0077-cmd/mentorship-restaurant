@@ -5,26 +5,25 @@ import com.mentorship.restaurant.order.model.response.OrderResponse;
 
 public abstract class OrderHandler {
 
-    protected OrderHandler next;
+  protected OrderHandler next;
 
-    public static OrderHandler processOrder(OrderHandler first, OrderHandler... chain) {
-        OrderHandler head = first;
-        for (OrderHandler nextInChain : chain) {
-            head.next = nextInChain;
-            head = nextInChain;
-        }
-
-        return first;
+  public static OrderHandler processOrder(OrderHandler first, OrderHandler... chain) {
+    OrderHandler head = first;
+    for (OrderHandler nextInChain : chain) {
+      head.next = nextInChain;
+      head = nextInChain;
     }
 
-    public abstract OrderResponse handle(CreateOrderRequest request, OrderResponse response);
+    return first;
+  }
 
-    protected OrderResponse handleNext(CreateOrderRequest request, OrderResponse response) {
-        if (next == null) {
-            return response;
-        }
+  public abstract OrderResponse handle(CreateOrderRequest request, OrderResponse response);
 
-        return next.handle(request, response);
+  protected OrderResponse handleNext(CreateOrderRequest request, OrderResponse response) {
+    if (next == null) {
+      return response;
     }
 
+    return next.handle(request, response);
+  }
 }

@@ -84,6 +84,15 @@ If your default JDK is newer (25 here), run it explicitly:
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B spotless:apply
 ```
 
+That path is machine-specific (`ls /usr/lib/jvm`). With no JDK ≤ 21 installed, unpack one anywhere — no root needed — and point `JAVA_HOME` at it:
+
+```bash
+curl -sSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse" | tar xz -C /tmp
+JAVA_HOME=$(echo /tmp/jdk-21*) ./mvnw -B spotless:apply
+```
+
+`spotless:apply` formats the whole tree, including files your change never touched (the `createOrder/` chain still uses 4-space indents). Revert those with `git checkout -- <file>` so the diff stays about your change.
+
 The rest of the build is unaffected — the pom targets release 17, so compiling and testing work on any modern JDK. CI uses Temurin 17.
 
 ## Database
@@ -103,6 +112,8 @@ ERROR:  duplicate key value violates unique constraint "carts_pkey"
 
 `V6` resynced every seeded table. **Any future migration that seeds explicit ids must do the same**, with `ALTER TABLE <t> ALTER COLUMN <pk> RESTART WITH <max+1>` so the identity columns stay aligned with the seeded rows.
 
+**Migration numbers are claimed at merge time, not branch time.** Two branches each added a `V12`; once both were merged, Flyway refused to start (`Found more than one migration with version 12`) and every Spring test errored (#82). Before merging, check `main` for your version number and renumber if it is taken. After renaming a migration, build with `clean` — Maven leaves the old file in `target/classes`, where Flyway still finds it — and reset any local database that already applied it with `docker compose down -v`.
+
 **Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart and restaurant 3 closed, both reserved as add-to-cart fixtures. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
 
 ## Testing
@@ -117,6 +128,17 @@ Two things that follow from testing over real HTTP:
 - **Every rejection needs a fixture that can reach it.** Seed one if none exists, as `V6` does with the closed restaurant, or pick request values that trigger it — asking for 999 of an item stocked at 50 exercises the out-of-stock path with no fixture at all.
 
 **Seed through the database, not the API.** The only HTTP call a test makes is to the endpoint it tests. Arrange state — customers, addresses, carts, orders, cards — with direct SQL through the `support/*EndpointTestSupport` helpers (`insertCustomer`, `softDeleteCustomer`, `insertOrder`, …), and check side effects the same way. Setting up through another endpoint ties a test to code it is not about, so one broken endpoint fails a dozen unrelated tests. Need a new fixture? Add a helper to the matching support class — `CustomerEndpointTestSupport` is the base for anything that owns its customers — rather than a private copy in one test. Some older tests (addresses, cart) still arrange state over HTTP; convert them when you touch them.
+
+`CustomerEndpointTestSupport` also seeds what a customer owns — `addressIdForCustomer`, `insertCart`, `insertCartItem`, `insertOrder` — so a test that owns its customers builds their cart and address the same way.
+
+**Pin known-wrong behaviour before a refactor; do not fix it in passing.** A refactor needs tests of what the code *does*, so a structural change cannot quietly change behaviour. When today's behaviour is known to be wrong, the test still asserts it, and says so on the line above:
+
+```java
+// #82 §2: should be 409, currently 403
+.expectStatus().isForbidden();
+```
+
+The PR that fixes the behaviour flips the assertion and deletes the comment. `grep -rn "// #82" restaurant/src/test` lists what is still open. `CreateOrderEndpointTest` is the worked example.
 
 ## Documentation
 
