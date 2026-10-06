@@ -24,7 +24,7 @@ public abstract class OrderHandler {
             return response;
         }
 
-        return next.handleNext(request, response);
+        return next.handle(request, response);
     }
 
 }

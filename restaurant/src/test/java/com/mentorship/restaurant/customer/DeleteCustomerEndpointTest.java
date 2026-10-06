@@ -33,7 +33,7 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
   @Test
   void deletesTheCustomersCart() {
     long customerId = insertCustomer(email("sara"));
-    insertCartWithItem(customerId, KOFTA);
+    insertCartItem(insertCart(customerId), KOFTA, 1);
 
     deleteCustomer(customerId).expectStatus().isNoContent();
 
@@ -99,18 +99,5 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
             Boolean.class,
             customerId);
     return Boolean.TRUE.equals(deleted);
-  }
-
-  private void insertCartWithItem(long customerId, long menuItemId) {
-    jdbcTemplate.update(
-        """
-        WITH new_cart AS (
-          INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id
-        )
-        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
-        SELECT cart_id, ?, 1, 185.00 FROM new_cart
-        """,
-        customerId,
-        menuItemId);
   }
 }
