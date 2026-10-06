@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.support;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,18 +82,53 @@ public abstract class CustomerEndpointTestSupport {
         jdbcTemplate.queryForObject(
             """
             INSERT INTO orders
-              (customer_id, restaurant_id, order_status, order_total, order_created_at)
-            VALUES (?, ?, ?, 370.00, ?)
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, ?, 370.00, ?)
             RETURNING order_id
             """,
             Long.class,
             customerId,
             NILE_KITCHEN,
+            addressIdForCustomer(jdbcTemplate, customerId),
             status,
             OffsetDateTime.now());
     if (orderId == null) {
       throw new IllegalStateException("Order not created for customer " + customerId);
     }
     return orderId;
+  }
+
+  /**
+   * The customer's default address, else their newest, else a new one. Static so {@link
+   * OrderEndpointTestSupport}, which does not extend this class, can share it.
+   */
+  protected static long addressIdForCustomer(JdbcTemplate jdbcTemplate, long customerId) {
+    List<Long> existing =
+        jdbcTemplate.queryForList(
+            """
+            SELECT address_id FROM addresses WHERE customer_id = ?
+            ORDER BY address_is_default DESC, address_created_at DESC LIMIT 1
+            """,
+            Long.class,
+            customerId);
+    if (!existing.isEmpty()) {
+      return existing.get(0);
+    }
+    Long addressId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO addresses (
+              customer_id, address_label, address_line, address_city, address_area,
+              address_note, address_is_default
+            )
+            VALUES (?, 'Home', '12 Tahrir Street', 'Cairo', 'Dokki', 'Blue gate', TRUE)
+            RETURNING address_id
+            """,
+            Long.class,
+            customerId);
+    if (addressId == null) {
+      throw new IllegalStateException("Address not created for customer " + customerId);
+    }
+    return addressId;
   }
 }

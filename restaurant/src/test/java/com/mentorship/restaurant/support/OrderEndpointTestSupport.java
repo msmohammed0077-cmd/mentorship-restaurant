@@ -50,7 +50,7 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrder(String status, long restaurantId) {
-    long addressId = addressIdForCustomer(CUSTOMER);
+    long addressId = CustomerEndpointTestSupport.addressIdForCustomer(jdbcTemplate, CUSTOMER);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
@@ -73,7 +73,7 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrderPlacedAt(String status, OffsetDateTime createdAt) {
-    long addressId = addressIdForCustomer(CUSTOMER);
+    long addressId = CustomerEndpointTestSupport.addressIdForCustomer(jdbcTemplate, CUSTOMER);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
@@ -96,7 +96,7 @@ public abstract class OrderEndpointTestSupport {
   }
 
   protected long seedOrderFor(long customerId, OffsetDateTime createdAt) {
-    long addressId = addressIdForCustomer(customerId);
+    long addressId = CustomerEndpointTestSupport.addressIdForCustomer(jdbcTemplate, customerId);
     Long orderId =
         jdbcTemplate.queryForObject(
             """
@@ -187,30 +187,5 @@ public abstract class OrderEndpointTestSupport {
         jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM order_ratings WHERE order_id = ?", Integer.class, orderId);
     return count == null ? 0 : count;
-  }
-
-  private long addressIdForCustomer(long customerId) {
-    List<Long> existing =
-        jdbcTemplate.queryForList(
-            "SELECT address_id FROM addresses WHERE customer_id = ? ORDER BY address_is_default DESC, address_created_at DESC LIMIT 1",
-            Long.class,
-            customerId);
-    if (!existing.isEmpty()) {
-      return existing.get(0);
-    }
-    Long addressId =
-        jdbcTemplate.queryForObject(
-            """
-            INSERT INTO addresses
-              (customer_id, address_label, address_line, address_city, address_area, address_is_default)
-            VALUES (?, 'Test address', '12 Tahrir Street', 'Cairo', 'Dokki', true)
-            RETURNING address_id
-            """,
-            Long.class,
-            customerId);
-    if (addressId == null) {
-      throw new IllegalStateException("Address insert returned no id");
-    }
-    return addressId;
   }
 }

@@ -30,7 +30,7 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
   @Test
   void refusesToUpdateADeletedCustomersAddress() {
     long customerId = insertCustomer(email("sara"));
-    long addressId = insertAddress(customerId);
+    long addressId = addressIdForCustomer(jdbcTemplate, customerId);
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
@@ -45,7 +45,7 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
   @Test
   void refusesToSetADeletedCustomersDefaultAddress() {
     long customerId = insertCustomer(email("sara"));
-    long addressId = insertAddress(customerId);
+    long addressId = addressIdForCustomer(jdbcTemplate, customerId);
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
@@ -61,7 +61,7 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
   @Test
   void refusesToDeleteADeletedCustomersAddress() {
     long customerId = insertCustomer(email("sara"));
-    long addressId = insertAddress(customerId);
+    long addressId = addressIdForCustomer(jdbcTemplate, customerId);
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
@@ -109,24 +109,5 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Customer not found");
-  }
-
-  private long insertAddress(long customerId) {
-    Long addressId =
-        jdbcTemplate.queryForObject(
-            """
-            INSERT INTO addresses (
-              customer_id, address_label, address_line, address_city, address_area,
-              address_note, address_is_default
-            )
-            VALUES (?, 'Home', '12 Tahrir Street', 'Cairo', 'Dokki', 'Blue gate', TRUE)
-            RETURNING address_id
-            """,
-            Long.class,
-            customerId);
-    if (addressId == null) {
-      throw new IllegalStateException("Address not created for customer " + customerId);
-    }
-    return addressId;
   }
 }
