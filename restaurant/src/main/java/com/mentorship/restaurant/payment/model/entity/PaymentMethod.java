@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.payment.model.entity;
 
 import com.mentorship.restaurant.customer.model.entity.Customer;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

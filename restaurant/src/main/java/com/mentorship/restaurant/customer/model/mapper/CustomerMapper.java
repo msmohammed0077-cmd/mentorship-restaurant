@@ -1,8 +1,8 @@
 package com.mentorship.restaurant.customer.model.mapper;
 
 import com.mentorship.restaurant.customer.model.entity.Customer;
-import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
+import com.mentorship.restaurant.user.model.entity.User;
 import org.springframework.stereotype.Component;
 
 @Component

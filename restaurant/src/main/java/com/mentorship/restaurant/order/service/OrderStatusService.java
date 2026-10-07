@@ -1,6 +1,5 @@
 package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.order.exception.IllegalOrderTransitionException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
@@ -17,6 +16,7 @@ import com.mentorship.restaurant.order.repository.OrderLineProjection;
 import com.mentorship.restaurant.order.repository.OrderOwnerProjection;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
+import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

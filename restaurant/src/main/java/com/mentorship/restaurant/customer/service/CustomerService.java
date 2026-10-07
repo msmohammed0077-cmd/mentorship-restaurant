@@ -1,23 +1,22 @@
 package com.mentorship.restaurant.customer.service;
 
-import com.mentorship.restaurant.payment.service.PaymentMethodService;
-
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.customer.exception.CustomerHasActiveOrdersException;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.exception.EmailAlreadyInUseException;
 import com.mentorship.restaurant.customer.exception.IncorrectPasswordException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
-import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.customer.model.mapper.CustomerMapper;
 import com.mentorship.restaurant.customer.model.request.ChangePasswordRequest;
 import com.mentorship.restaurant.customer.model.request.CreateCustomerRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
-import com.mentorship.restaurant.user.repository.UserRepository;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.repository.OrderRepository;
+import com.mentorship.restaurant.payment.service.PaymentMethodService;
+import com.mentorship.restaurant.user.model.entity.User;
+import com.mentorship.restaurant.user.repository.UserRepository;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.EnumSet;
