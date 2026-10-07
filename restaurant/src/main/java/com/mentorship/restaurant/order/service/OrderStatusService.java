@@ -55,8 +55,7 @@ public class OrderStatusService {
   @Transactional
   public OrderStatusResponse accept(
       Long orderId, Long restaurantId, ActorRole role, Integer prepTimeMinutes) {
-    OrderStatusResponse response =
-        transition(orderId, OrderTransition.ACCEPT, restaurantId, role);
+    OrderStatusResponse response = transition(orderId, OrderTransition.ACCEPT, restaurantId, role);
 
     if (prepTimeMinutes != null) {
       orderRepository.updatePrepTime(orderId, prepTimeMinutes);
@@ -70,8 +69,7 @@ public class OrderStatusService {
       Long orderId, Long restaurantId, ActorRole role, RejectionReason reason, String note) {
     ensureReasonIsAvailableTo(role, reason);
 
-    OrderStatusResponse response =
-        transition(orderId, OrderTransition.REJECT, restaurantId, role);
+    OrderStatusResponse response = transition(orderId, OrderTransition.REJECT, restaurantId, role);
     orderRepository.updateRejectionReason(orderId, reason, note);
     restoreStock(orderId);
 
@@ -99,8 +97,7 @@ public class OrderStatusService {
     for (Long orderId : staleOrderIds) {
       try {
         transactionTemplate.executeWithoutResult(
-            status ->
-                reject(orderId, null, ActorRole.SYSTEM, RejectionReason.NO_RESPONSE, null));
+            status -> reject(orderId, null, ActorRole.SYSTEM, RejectionReason.NO_RESPONSE, null));
       } catch (RuntimeException exception) {
         log.warn("Auto-reject skipped order {}", orderId, exception);
       }
@@ -184,7 +181,7 @@ public class OrderStatusService {
     orderStatusHistoryRepository.save(history);
   }
 
-  /** Puts every line's quantity back on its menu item. Was CompensateOrderHandler. */
+  /** Puts every line's quantity back on its menu item. */
   private void restoreStock(Long orderId) {
     List<OrderLineProjection> lines = orderItemRepository.findLinesByOrderId(orderId);
     lines.forEach(

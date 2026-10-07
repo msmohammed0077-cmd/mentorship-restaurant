@@ -38,7 +38,8 @@ public class OrderStatusController {
       @Valid @RequestBody(required = false) AcceptOrderRequest request) {
     refuseSystemRole(role);
     Integer prepTimeMinutes = request == null ? null : request.getPrepTimeMinutes();
-    return ResponseEntity.ok(orderStatusService.accept(orderId, restaurantId, role, prepTimeMinutes));
+    return ResponseEntity.ok(
+        orderStatusService.accept(orderId, restaurantId, role, prepTimeMinutes));
   }
 
   @PostMapping("/{orderId}/reject")
@@ -49,7 +50,8 @@ public class OrderStatusController {
       @Valid @RequestBody RejectOrderRequest request) {
     refuseSystemRole(role);
     return ResponseEntity.ok(
-        orderStatusService.reject(orderId, restaurantId, role, request.getReason(), request.getNote()));
+        orderStatusService.reject(
+            orderId, restaurantId, role, request.getReason(), request.getNote()));
   }
 
   @PostMapping("/{orderId}/cancel")

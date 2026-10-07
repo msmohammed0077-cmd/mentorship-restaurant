@@ -7,10 +7,9 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class SendNotificationHandler extends OrderHandler {
 
-
-    @Override
-    public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
-        //imp
-        return handleNext(request, response);
-    }
+  @Override
+  public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
+    // imp
+    return handleNext(request, response);
+  }
 }

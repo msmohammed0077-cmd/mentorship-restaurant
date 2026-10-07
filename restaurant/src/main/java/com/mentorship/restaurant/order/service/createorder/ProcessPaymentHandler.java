@@ -10,17 +10,16 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class ProcessPaymentHandler extends OrderHandler {
 
-    private final PaymentProcesser paymentProcesser;
+  private final PaymentProcesser paymentProcesser;
 
-    @Override
-    public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
+  @Override
+  public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
 
-
-        if (PaymentMethod.CARD.equals(request.getPaymentMethod())) {
-            Transaction transaction = paymentProcesser.process(request.getCardId());
-            response.setTransaction(transaction);
-        }
-
-        return handleNext(request, response);
+    if (PaymentMethod.CARD.equals(request.getPaymentMethod())) {
+      Transaction transaction = paymentProcesser.process(request.getCardId());
+      response.setTransaction(transaction);
     }
+
+    return handleNext(request, response);
+  }
 }
