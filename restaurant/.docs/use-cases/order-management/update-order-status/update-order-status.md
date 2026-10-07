@@ -366,8 +366,8 @@ OrderStatusController -> OrderStatusService        (@Service, @Transactional)
 
 Two frictions, noted rather than fixed here:
 
-1. `order/` imports `Customer`, `Restaurant` and `MenuItem` from `cart.model.entity`. Those entities
-   are not cart-specific and are in the wrong package; moving them touches the whole cart package.
+1. `order/` imported `Restaurant` and `MenuItem` from `cart.model.entity`, though they are not
+   cart-specific. Resolved in #84: they now live in `restaurant/`.
 2. `GlobalExceptionHandler` catches `CartException` only, so an `OrderException` base is registered
    alongside it, sharing the same body-builder. Collapsing both into one base is its own ticket.
 

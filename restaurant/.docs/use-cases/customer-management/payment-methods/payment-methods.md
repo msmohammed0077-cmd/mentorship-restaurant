@@ -48,7 +48,7 @@ number (PAN) or a CVV — that would put the project in PCI-DSS scope. A request
    month". A card is valid through the end of its expiry month: it is expired iff
    `YearMonth.of(year, month).isBefore(YearMonth.now())`. The check is the class-level
    `@NotExpired` constraint on `AddPaymentMethodRequest` (validator in
-   `customer/model/validation/`): it depends only on request fields and today's date, so per the
+   `payment/model/validation/`): it depends only on request fields and today's date, so per the
    validation rule it belongs on the request, not in the service. It reports on the
    `expiryMonth` property because `GlobalExceptionHandler` formats field errors only, and it passes
    when either field is missing or the month is out of range, leaving those to the field

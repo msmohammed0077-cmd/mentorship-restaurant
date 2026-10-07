@@ -7,5 +7,6 @@ Use [`_template.md`](./_template.md) for new records.
 ## Index
 - [0001 — Record architecture decisions](./0001-record-architecture-decisions.md)
 - [0002 — Services over use-case handlers](./0002-services-over-use-case-handlers.md)
+- [0003 — Domain layout](./0003-domain-layout.md)
 
 <!-- Add new ADRs here as they're written. -->
