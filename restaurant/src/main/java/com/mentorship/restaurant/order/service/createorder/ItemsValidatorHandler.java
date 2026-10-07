@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.order.service.handler.createOrder;
+package com.mentorship.restaurant.order.service.createorder;
 
 import com.mentorship.restaurant.cart.exception.EmptyCartException;
 import com.mentorship.restaurant.cart.model.entity.Cart;

@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.order.service.handler;
+package com.mentorship.restaurant.order.service;
 
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
@@ -18,7 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class ViewOrderHistoryHandler {
+public class OrderHistoryService {
+
   private static final int MIN_YEAR = 1;
   private static final int MAX_YEAR = 9999;
 

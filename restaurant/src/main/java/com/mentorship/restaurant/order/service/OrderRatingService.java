@@ -1,10 +1,8 @@
-package com.mentorship.restaurant.order.service.handler;
+package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderAlreadyRatedException;
 import com.mentorship.restaurant.order.exception.OrderNotDeliveredException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
-import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderRating;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
@@ -20,10 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class RateOrderHandler {
+public class OrderRatingService {
+
   private final OrderRepository orderRepository;
   private final OrderRatingRepository orderRatingRepository;
   private final OrderRatingMapper orderRatingMapper;
+  private final OrderService orderService;
 
   @Transactional
   public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
@@ -32,8 +32,10 @@ public class RateOrderHandler {
             .findByIdWithOwner(orderId)
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
-    ensureCustomerOwnsOrder(order, customerId);
-    ensureOwnerNotDeleted(order);
+    orderService.ensureOwnedBy(
+        order.getCustomer().getId(), customerId, "Order belongs to another customer");
+    // Runs after the ownership check, so the owner is the caller.
+    orderService.ensureOwnerActive(order.getCustomer().getUser().getUserDeletedAt());
     ensureOrderIsDelivered(order);
     ensureOrderIsNotRated(orderId);
 
@@ -47,22 +49,6 @@ public class RateOrderHandler {
       return orderRatingMapper.toResponse(orderRatingRepository.saveAndFlush(rating));
     } catch (DataIntegrityViolationException exception) {
       throw new OrderAlreadyRatedException("Order is already rated");
-    }
-  }
-
-  private void ensureCustomerOwnsOrder(Order order, Long customerId) {
-    if (!order.getCustomer().getId().equals(customerId)) {
-      throw new OrderNotOwnedException("Order belongs to another customer");
-    }
-  }
-
-  /**
-   * Runs after the ownership check, so the owner is the caller. A soft-deleted customer does not
-   * exist to the API, even though their orders stay.
-   */
-  private void ensureOwnerNotDeleted(Order order) {
-    if (order.getCustomer().getUser().getUserDeletedAt() != null) {
-      throw new CustomerNotFoundException("Customer not found");
     }
   }
 

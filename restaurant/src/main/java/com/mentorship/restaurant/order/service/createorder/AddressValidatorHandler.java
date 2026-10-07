@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.order.service.handler.createOrder;
+package com.mentorship.restaurant.order.service.createorder;
 
 import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;

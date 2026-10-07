@@ -5,7 +5,7 @@ import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.request.AcceptOrderRequest;
 import com.mentorship.restaurant.order.model.request.RejectOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
-import com.mentorship.restaurant.order.service.OrderService;
+import com.mentorship.restaurant.order.service.OrderStatusService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Order status")
 @RequiredArgsConstructor
 public class OrderStatusController {
-  private final OrderService orderService;
+  private final OrderStatusService orderStatusService;
 
   private void refuseSystemRole(ActorRole role) {
     if (role == ActorRole.SYSTEM) {
@@ -38,7 +38,7 @@ public class OrderStatusController {
       @Valid @RequestBody(required = false) AcceptOrderRequest request) {
     refuseSystemRole(role);
     Integer prepTimeMinutes = request == null ? null : request.getPrepTimeMinutes();
-    return ResponseEntity.ok(orderService.accept(orderId, restaurantId, role, prepTimeMinutes));
+    return ResponseEntity.ok(orderStatusService.accept(orderId, restaurantId, role, prepTimeMinutes));
   }
 
   @PostMapping("/{orderId}/reject")
@@ -49,27 +49,27 @@ public class OrderStatusController {
       @Valid @RequestBody RejectOrderRequest request) {
     refuseSystemRole(role);
     return ResponseEntity.ok(
-        orderService.reject(orderId, restaurantId, role, request.getReason(), request.getNote()));
+        orderStatusService.reject(orderId, restaurantId, role, request.getReason(), request.getNote()));
   }
 
   @PostMapping("/{orderId}/cancel")
   public ResponseEntity<OrderStatusResponse> cancel(
       @PathVariable Long orderId, @RequestParam Long customerId, @RequestParam ActorRole role) {
     refuseSystemRole(role);
-    return ResponseEntity.ok(orderService.cancel(orderId, customerId, role));
+    return ResponseEntity.ok(orderStatusService.cancel(orderId, customerId, role));
   }
 
   @PostMapping("/{orderId}/preparing")
   public ResponseEntity<OrderStatusResponse> startPreparing(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
     refuseSystemRole(role);
-    return ResponseEntity.ok(orderService.startPreparing(orderId, restaurantId, role));
+    return ResponseEntity.ok(orderStatusService.startPreparing(orderId, restaurantId, role));
   }
 
   @PostMapping("/{orderId}/ready-for-pickup")
   public ResponseEntity<OrderStatusResponse> readyForPickup(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
     refuseSystemRole(role);
-    return ResponseEntity.ok(orderService.readyForPickup(orderId, restaurantId, role));
+    return ResponseEntity.ok(orderStatusService.readyForPickup(orderId, restaurantId, role));
   }
 }

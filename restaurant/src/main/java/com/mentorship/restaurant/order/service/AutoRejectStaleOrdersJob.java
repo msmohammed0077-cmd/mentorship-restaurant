@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
     matchIfMissing = true)
 @RequiredArgsConstructor
 public class AutoRejectStaleOrdersJob {
-  private final OrderService orderService;
+  private final OrderStatusService orderStatusService;
 
   @Scheduled(fixedDelayString = "PT1M")
   public void sweep() {
-    orderService.autoRejectStaleOrders();
+    orderStatusService.autoRejectStaleOrders();
   }
 }

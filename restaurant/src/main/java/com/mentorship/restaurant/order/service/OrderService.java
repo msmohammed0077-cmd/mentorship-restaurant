@@ -1,80 +1,101 @@
 package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.order.model.OrderCursor;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
-import com.mentorship.restaurant.order.model.entity.OrderTransition;
-import com.mentorship.restaurant.order.model.entity.RejectionReason;
+import com.mentorship.restaurant.cart.exception.CartNotFoundException;
+import com.mentorship.restaurant.cart.model.entity.Cart;
+import com.mentorship.restaurant.cart.repository.CartRepository;
+import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
+import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
+import com.mentorship.restaurant.customer.model.entity.Address;
+import com.mentorship.restaurant.customer.repository.AddressRepository;
+import com.mentorship.restaurant.order.exception.OrderNotFoundException;
+import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
+import com.mentorship.restaurant.order.model.entity.Order;
+import com.mentorship.restaurant.order.model.mapper.OrderMapper;
 import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
-import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
-import com.mentorship.restaurant.order.model.response.OrderRatingResponse;
 import com.mentorship.restaurant.order.model.response.OrderResponse;
-import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
-import com.mentorship.restaurant.order.service.handler.AcceptOrderHandler;
-import com.mentorship.restaurant.order.service.handler.AutoRejectStaleOrdersHandler;
-import com.mentorship.restaurant.order.service.handler.CancelOrderHandler;
-import com.mentorship.restaurant.order.service.handler.CreateOrderHandler;
-import com.mentorship.restaurant.order.service.handler.RateOrderHandler;
-import com.mentorship.restaurant.order.service.handler.RejectOrderHandler;
-import com.mentorship.restaurant.order.service.handler.UpdateOrderStatusHandler;
-import com.mentorship.restaurant.order.service.handler.ViewOrderHandler;
-import com.mentorship.restaurant.order.service.handler.ViewOrderHistoryHandler;
+import com.mentorship.restaurant.order.repository.OrderRepository;
+import com.mentorship.restaurant.order.service.createorder.AddressValidatorHandler;
+import com.mentorship.restaurant.order.service.createorder.CartValidatorHandler;
+import com.mentorship.restaurant.order.service.createorder.ItemsValidatorHandler;
+import com.mentorship.restaurant.order.service.createorder.OrderFinalizer;
+import com.mentorship.restaurant.order.service.createorder.OrderHandler;
+import com.mentorship.restaurant.order.service.createorder.ProcessPaymentHandler;
+import com.mentorship.restaurant.order.service.createorder.SendNotificationHandler;
+import com.mentorship.restaurant.support.PaymentProcesser;
+import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Creating and viewing orders, plus the guards the other order services share. Those services
+ * inject this one; this one never injects them, so Spring cannot meet a cycle.
+ */
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-  private final UpdateOrderStatusHandler updateOrderStatusHandler;
-  private final AcceptOrderHandler acceptOrderHandler;
-  private final RejectOrderHandler rejectOrderHandler;
-  private final CancelOrderHandler cancelOrderHandler;
-  private final AutoRejectStaleOrdersHandler autoRejectStaleOrdersHandler;
-  private final ViewOrderHistoryHandler viewOrderHistoryHandler;
-  private final RateOrderHandler rateOrderHandler;
-  private final ViewOrderHandler viewOrderHandler;
-  private final CreateOrderHandler createOrderHandler;
 
-  public OrderStatusResponse startPreparing(Long orderId, Long restaurantId, ActorRole role) {
-    return updateOrderStatusHandler.transition(
-        orderId, OrderTransition.START_PREPARING, restaurantId, role);
-  }
+  private final OrderRepository orderRepository;
+  private final OrderMapper orderMapper;
+  private final CartRepository cartRepository;
+  private final AddressRepository addressRepository;
+  private final PaymentProcesser paymentProcesser;
 
-  public OrderStatusResponse readyForPickup(Long orderId, Long restaurantId, ActorRole role) {
-    return updateOrderStatusHandler.transition(orderId, OrderTransition.READY, restaurantId, role);
-  }
-
-  public OrderStatusResponse accept(
-      Long orderId, Long restaurantId, ActorRole role, Integer prepTimeMinutes) {
-    return acceptOrderHandler.accept(orderId, restaurantId, role, prepTimeMinutes);
-  }
-
-  public OrderStatusResponse reject(
-      Long orderId, Long restaurantId, ActorRole role, RejectionReason reason, String note) {
-    return rejectOrderHandler.reject(orderId, restaurantId, role, reason, note);
-  }
-
-  public OrderStatusResponse cancel(Long orderId, Long customerId, ActorRole role) {
-    return cancelOrderHandler.cancel(orderId, customerId, role);
-  }
-
-  public OrderHistoryResponse viewOrderHistory(
-      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
-    return viewOrderHistoryHandler.viewOrderHistory(customerId, role, limit, cursor);
-  }
-
-  public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
-    return rateOrderHandler.rate(orderId, customerId, score, comment);
-  }
-
+  /** A chain of responsibility: each link validates or acts, then hands on to the next. */
+  @Transactional
   public OrderResponse createOrder(CreateOrderRequest request) {
-    return createOrderHandler.createOrder(request);
+    Cart cart =
+        cartRepository
+            .findById(request.getCartId())
+            .orElseThrow(() -> new CartNotFoundException("Cart Not Found"));
+    Address address =
+        addressRepository
+            .findById(request.getAddressId())
+            .orElseThrow(() -> new AddressNotFoundException("Address Not Found"));
+
+    OrderHandler orderHandler =
+        OrderHandler.processOrder(
+            new CartValidatorHandler(cart),
+            new AddressValidatorHandler(address),
+            new ItemsValidatorHandler(cart),
+            new ProcessPaymentHandler(paymentProcesser),
+            new OrderFinalizer(cart, address, orderMapper, orderRepository, cartRepository),
+            new SendNotificationHandler());
+
+    OrderResponse response =
+        OrderResponse.builder()
+            .customerId(request.getCustomerId())
+            .restaurantId(request.getRestaurantId())
+            .build();
+
+    return orderHandler.handle(request, response);
   }
 
+  @Transactional(readOnly = true)
   public OrderResponse viewOrderDetails(Long orderId) {
-    return viewOrderHandler.viewOrder(orderId);
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new OrderNotFoundException("Order not found"));
+
+    return orderMapper.toResponse(order);
   }
 
-  public void autoRejectStaleOrders() {
-    autoRejectStaleOrdersHandler.autoRejectStaleOrders();
+  /** Shared: the order's owner (customer or restaurant) must be the actor. */
+  public void ensureOwnedBy(Long ownerId, Long actorId, String message) {
+    if (!ownerId.equals(actorId)) {
+      throw new OrderNotOwnedException(message);
+    }
+  }
+
+  /**
+   * Shared: a soft-deleted customer does not exist to the API, even though their orders stay for
+   * history, so acting on them is a 404. Callers run it after the ownership check, so the owner is
+   * the caller.
+   */
+  public void ensureOwnerActive(OffsetDateTime ownerDeletedAt) {
+    if (ownerDeletedAt != null) {
+      throw new CustomerNotFoundException("Customer not found");
+    }
   }
 }

@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
-  @Autowired private com.mentorship.restaurant.order.service.OrderService orderService;
+  @Autowired private com.mentorship.restaurant.order.service.OrderStatusService orderStatusService;
 
   private static final String ACCEPT =
       "/api/v1/orders/{id}/accept?restaurantId={r}&role=RESTAURANT";
@@ -231,7 +231,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     seedOrderLine(orderId, KOFTA, 2);
     int stockBefore = stockFor(KOFTA);
 
-    orderService.autoRejectStaleOrders();
+    orderStatusService.autoRejectStaleOrders();
 
     Map<String, Object> order = orderRow(orderId);
     assertThat(order.get("order_status")).isEqualTo("REJECTED");
@@ -250,7 +250,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void leavesAnOrderInsideTheDeadlineAlone() {
     long orderId = seedOrderPlacedAt("PLACED", OffsetDateTime.now().minusMinutes(5));
 
-    orderService.autoRejectStaleOrders();
+    orderStatusService.autoRejectStaleOrders();
 
     assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }

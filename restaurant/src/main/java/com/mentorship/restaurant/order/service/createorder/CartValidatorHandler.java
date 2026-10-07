@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.order.service.handler.createOrder;
+package com.mentorship.restaurant.order.service.createorder;
 
 import ch.qos.logback.core.joran.conditional.IfAction;
 import com.mentorship.restaurant.cart.exception.CartNotFoundException;
