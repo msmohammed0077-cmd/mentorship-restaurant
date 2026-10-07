@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.customer.repository;
+package com.mentorship.restaurant.user.repository;
 
-import com.mentorship.restaurant.customer.model.entity.User;
+import com.mentorship.restaurant.user.model.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,6 +1,6 @@
 package com.mentorship.restaurant.customer.model.request;
 
-import com.mentorship.restaurant.customer.model.entity.Gender;
+import com.mentorship.restaurant.user.model.entity.Gender;
 import com.mentorship.restaurant.customer.model.validation.MaxUtf8Bytes;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

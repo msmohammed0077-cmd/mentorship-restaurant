@@ -1,6 +1,6 @@
 package com.mentorship.restaurant.customer.model.response;
 
-import com.mentorship.restaurant.customer.model.entity.Gender;
+import com.mentorship.restaurant.user.model.entity.Gender;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Data;
