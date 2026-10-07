@@ -11,7 +11,7 @@ history can pick it up. Each sub-project gets its own design → plan → PR, an
 | # | What | Status | Design | Branch / PR |
 |---|---|---|---|---|
 | A | Safety net: green `main`, working create-order chain, end-to-end tests pinning today's order behaviour (#82 §1, §2 chain, §5 tests) | **Done.** PR open, waiting for review | `2026-10-06-order-safety-net-design.md` | `feat/GH-82-order-safety-net`, #102 |
-| B | Remove the handler pattern: one service per controller | **Design approved (2026-10-07). Plan written** (`2026-10-06-remove-handlers-plan.md`, gitignored, so local only). Next: execute it | `2026-10-06-remove-handlers-design.md` | `feat/GH-84-remove-handlers`, stacked on A; its PR targets `feat/GH-82-order-safety-net` |
+| B | Remove the handler pattern: one service per controller | **Done.** PR open, waiting for review | `2026-10-06-remove-handlers-design.md` | `feat/GH-84-remove-handlers`, #103, stacked on A; targets `feat/GH-82-order-safety-net` |
 | C | Domain boundaries | Not started. Needs brainstorming | — | — |
 | D | The mentor's smaller points | Not started. Needs brainstorming | — | — |
 
