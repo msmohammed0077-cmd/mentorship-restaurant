@@ -34,7 +34,7 @@ END FUNCTION
 
 ```text
 
-Client          CreateOrderHandler       CartRepository
+Client          OrderService             CartRepository
   |                     |                      |
   |-- createOrder() --->|                      |
   |                     |-- findById(cartId) ->|

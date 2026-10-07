@@ -18,7 +18,7 @@ The customer exists, is not soft-deleted, and has no order in flight.
 `DELETE /api/v1/customers/{customerId}` — **204**, no body. A **soft** delete.
 
 Builds on #73, #69 and #71 (`CustomerController`, `CustomerService`,
-`CustomerRepository.findActiveById`). Adds `DeleteCustomerHandler`,
+`CustomerRepository.findActiveById`). Adds `CustomerService.deleteCustomer`,
 `CustomerHasActiveOrdersException`, `OrderRepository.existsByCustomer_IdAndStatusIn` and
 `CartRepository.deleteByCustomer_Id`.
 
@@ -75,28 +75,28 @@ int deleteByCustomer_Id(Long customerId);
 **One statement, scoped to the customer.** A derived `deleteBy…` without `@Query` would load the
 cart and delete it entity by entity.
 
-**Bulk query vs managed entity.** The handler sets `userDeletedAt` on the user it loaded, then runs
+**Bulk query vs managed entity.** The service sets `userDeletedAt` on the user it loaded, then runs
 the bulk delete. `flushAutomatically = true` flushes the soft-delete `UPDATE` before the `DELETE`
-runs, and the handler reads nothing afterwards, so there is no stale entity to map. No
+runs, and the service reads nothing afterwards, so there is no stale entity to map. No
 `clearAutomatically` is needed.
 
 ## Soft-deleted customers elsewhere
 
-#68 says soft-deleted customers do not exist to the API, but the address, cart and order handlers
+#68 says soft-deleted customers do not exist to the API, but the address, cart and order lookups
 predate that and looked customers up with plain `findById` / `existsById`. They now filter
 `user.userDeletedAt is null` too:
 
-| Handler | Before | Now |
+| Service | Before | Now |
 | --- | --- | --- |
-| `ViewAddressesHandler` | `findByIdWithAddresses` (no filter) | `findByIdWithAddresses` (filters soft-deleted) |
-| `AddAddressHandler` | `findById` | `findActiveById` |
-| `AddToCartHandler` | `findById` | `findActiveById` |
-| `ViewOrderHistoryHandler` | `existsById` | `existsActiveById` (new) |
+| `AddressService.viewAddresses` | `findByIdWithAddresses` (no filter) | `findByIdWithAddresses` (filters soft-deleted) |
+| `AddressService.addAddress` | `findById` | `findActiveById` |
+| `CartService.addItem` | `findById` | `findActiveById` |
+| `OrderHistoryService.viewOrderHistory` | `existsById` | `existsActiveById` (new) |
 
 Update / set-default / delete address and cancel / rate order look up the address or order, not the
 customer, so there was no customer lookup to filter. [#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)
 makes that lookup fetch the owner's user in the same query (a join fetch, or for cancel a projection
-in the `CUSTOMER` ownership branch of `UpdateOrderStatusHandler`) and checks `userDeletedAt` in
+in the `CUSTOMER` ownership branch of `OrderStatusService`) and checks `userDeletedAt` in
 Java, after the not-found and ownership checks. A soft-deleted customer acting on their own address
 or order gets 404 "Customer not found"; on a missing or another customer's row they get the same
 address- or order-level answer as anyone else. A deleted customer has no cart, so the cart-by-id endpoints
@@ -113,7 +113,7 @@ have nothing to reach.
 
 ## Exception Flows
 
-- **1a. Id is not a number:** 400 (type mismatch, before the handler runs).
+- **1a. Id is not a number:** 400 (type mismatch, before the service runs).
 - **2a. No active customer with that id** (unknown, or already deleted): 404, "Customer not found".
 - **3a. An order is still in flight:** 409, "Customer has active orders". Nothing changes.
 
@@ -131,15 +131,13 @@ have nothing to reach.
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant S as CustomerService
-    participant H as DeleteCustomerHandler
+    participant H as CustomerService
     participant CR as CustomerRepository
     participant OR as OrderRepository
     participant CaR as CartRepository
 
     Caller->>C: DELETE /api/v1/customers/{customerId}
-    C->>S: deleteCustomer(customerId)
-    S->>H: deleteCustomer(customerId)
+    C->>H: deleteCustomer(customerId)
     H->>CR: findActiveById(customerId)
     CR-->>H: Optional<Customer> (user join-fetched)
     alt empty (unknown or soft-deleted)
@@ -162,8 +160,7 @@ sequenceDiagram
 ## Structure
 
 ```text
-CustomerController -> CustomerService        (delegates only)
-                   -> DeleteCustomerHandler  (@Service, @Transactional)
+CustomerController -> CustomerService        (@Service, @Transactional)
                    -> CustomerRepository     (findActiveById)
                    -> OrderRepository        (existsByCustomer_IdAndStatusIn)
                    -> CartRepository         (deleteByCustomer_Id, bulk)

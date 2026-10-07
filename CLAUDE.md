@@ -18,15 +18,21 @@ docker compose --profile app up        # database + application
 
 ## Architecture
 
-The pattern is set by `ModifyCartItemHandler`. Follow it rather than inventing a new shape.
+The pattern is set by `CartService`. Follow it rather than inventing a new shape.
 
-**One `@Service` handler per use-case** holds the logic, annotated `@Transactional`, with guards as private methods (`ensureStockAvailable`, `ensureSameRestaurant`). Named `<UseCase>Handler` in `cart/service/handler/`.
+**One `@Service` per controller holds the logic.** Each public method is one use-case, annotated `@Transactional` (`readOnly = true` for reads), with guards as private `ensureXxx()` methods (`ensureStockAvailable`, `ensureSameRestaurant`). Related services share their domain's directory: `order/service/` holds `OrderService`, `OrderStatusService`, `OrderHistoryService` and `OrderRatingService`. There are no per-use-case handler classes; ADR 0002 records why.
 
-**`CartService` only delegates.** One method per use-case, no logic, no repositories.
+**A guard two services in a domain share goes on that domain's primary service** (`OrderService`, `CustomerService`) as a public method, and the others inject it: `OrderRatingService` calls `orderService.ensureOwnedBy(...)`, `AddressService` calls `customerService.findActiveCustomer(...)`. Dependencies run one way only. The primary service never injects its siblings, because Spring refuses to start with a constructor-injection cycle. A guard only one service uses stays private there. Lookups that run different queries stay separate even when they throw the same exception.
+
+**Chain of responsibility is fine where a use-case is a pipeline of steps.** Create-order validates the cart, address and items, then pays, saves and notifies, each link in `order/service/createorder/` handing on to the next. `OrderService.createOrder` builds and runs the chain.
+
+**Across domains, inject the other domain's service, never its repository.** `CustomerService` asks `OrderService` whether active orders exist; it does not inject `OrderRepository`. This keeps each domain's queries and rules behind one door. Known violations, to be fixed in sub-project C of #84 and not to be copied: `CartService` → `CustomerRepository`; `CustomerService` → `OrderRepository`, `CartRepository`; `OrderService` → `CartRepository`, `AddressRepository` (and the chain's `OrderFinalizer` → `CartRepository`); `OrderStatusService` → `MenuItemRepository`; `OrderHistoryService` → `CustomerRepository`. They wait for C because fixing them naively creates cycles (`CustomerService ↔ OrderService`, `CustomerService ↔ CartService`), and breaking those means deciding what each domain owns.
+
+**A `@Transactional` method called from the same class gets no transaction of its own.** The call skips Spring's proxy, so the annotation is ignored. When each item of a loop needs its own transaction, use `TransactionTemplate`: `OrderStatusService.autoRejectStaleOrders` rejects each stale order in its own, so one failure neither rolls back nor stops the rest.
 
 **Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no factories, no queries. Do not put business rules on an entity.
 
-`@NoArgsConstructor(access = PROTECTED)` is the default, but `Cart` and `CartItem` use a plain `@NoArgsConstructor` because handlers construct them from another package. Widen an entity only when application code has to build it.
+`@NoArgsConstructor(access = PROTECTED)` is the default, but `Cart` and `CartItem` use a plain `@NoArgsConstructor` because services construct them from another package. Widen an entity only when application code has to build it.
 
 **Lombok and `boolean` fields:** `private boolean isOpen` generates `isOpen()` **and `setOpen()`** — it strips the `is` prefix from the setter but not the getter.
 
@@ -50,20 +56,20 @@ The pattern is set by `ModifyCartItemHandler`. Follow it rather than inventing a
 
 **Never `save()` an entity that is already managed** inside `@Transactional`. Dirty checking issues the `UPDATE` at flush; the extra call is noise.
 
-**A bulk query and the entities it affects cannot share a transaction safely.** A `@Modifying` query bypasses the persistence context, so a collection loaded before it goes stale and `clearAutomatically` detaches the entity outright. Take what you need out of the entity *before* the first such query, and re-read anything you need after it — `ClearCartHandler` and `CheckoutCartHandler` are the worked examples. Checking existence with `existsById` rather than `findById` is the cheap way to make the mistake impossible, because there is then no stale entity in scope to map.
+**A bulk query and the entities it affects cannot share a transaction safely.** A `@Modifying` query bypasses the persistence context, so a collection loaded before it goes stale and `clearAutomatically` detaches the entity outright. Take what you need out of the entity *before* the first such query, and re-read anything you need after it — `CartService.clearCart` and `CartService.checkout` are the worked examples. Checking existence with `existsById` rather than `findById` is the cheap way to make the mistake impossible, because there is then no stale entity in scope to map.
 
 **Reads do not validate business state.** `viewCart` reports what is in the cart. Stock, opening hours and the rest belong to the operations that change something — a read must not fail because the world moved on.
 
 ### Where validation goes
 
-Shape and range live on the request as Jakarta annotations (`@NotNull`, `@Positive`, `@Max`) and are rejected with a 400 before the handler runs. Handlers only check what needs loaded state — is the restaurant open, is the item in stock, is it already in the cart. Do not re-check a bound in the handler; that code is unreachable over HTTP.
+Shape and range live on the request as Jakarta annotations (`@NotNull`, `@Positive`, `@Max`) and are rejected with a 400 before the service runs. Services only check what needs loaded state — is the restaurant open, is the item in stock, is it already in the cart. Do not re-check a bound in the service; that code is unreachable over HTTP.
 
 ### Layering
 
 ```text
-Controller  -> CartService (delegates only)
-            -> <UseCase>Handler  (@Service, @Transactional, the logic)
-            -> Repositories      (all lookups)
+Controller  -> <Domain>Service   (@Service, @Transactional, the logic; one per controller)
+            -> <Primary>Service  (shared guards within a domain, injected one way)
+            -> Repositories      (all lookups; own domain only — see the cross-domain rule)
             -> Entities          (anemic)
             -> Mappers           (responses)
 ```

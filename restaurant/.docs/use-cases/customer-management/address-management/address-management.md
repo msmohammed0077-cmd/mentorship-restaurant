@@ -46,7 +46,7 @@ Customer
 13. A soft-deleted customer does not exist: every address operation on their addresses returns
     404 `Customer not found`. Their address rows are kept for history. Update, set-default and
     delete look up the address, not the customer, so that lookup join-fetches the address's owner
-    and the owner's user in **one query**, and the handler checks `userDeletedAt` in Java
+    and the owner's user in **one query**, and the service checks `userDeletedAt` in Java
     ([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The address
     checks run first and the soft-delete check last, so for an active customer the answers are
     exactly as before. A consequence is that the customer-level answer is only given for an

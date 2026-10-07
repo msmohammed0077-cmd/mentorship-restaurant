@@ -3,7 +3,6 @@
 //   cart
 //     controller       CartController
 //     service          CartService
-//     service.handler  AddToCartHandler          (command record)
 //     repository       CartRepository, CartItemRepository,
 //                      MenuItemRepository, CustomerRepository
 //     model.entity     Cart, CartItem, MenuItem, Menu, Restaurant, Customer
@@ -27,15 +26,13 @@ class CartService {
 
     addItem(customerId, menuItemId, quantity): CartResponse {
 
-        command = new AddToCartHandler(customerId, menuItemId, quantity)
-
-        if (command.quantity <= 0)
+        if (quantity <= 0)
             throw InvalidQuantityException
 
-        customer = customerRepository.findById(command.customerId)
+        customer = customerRepository.findById(customerId)
             orElseThrow CustomerNotFoundException
 
-        menuItem = menuItemRepository.findById(command.menuItemId)
+        menuItem = menuItemRepository.findById(menuItemId)
             orElseThrow MenuItemNotFoundException
 
         restaurant = menuItem.menu.restaurant
@@ -44,7 +41,7 @@ class CartService {
         if (!restaurant.isOpen)
             throw RestaurantClosedException("Restaurant is closed")
 
-        cart = cartRepository.findByCustomerId(command.customerId)   // may be empty
+        cart = cartRepository.findByCustomerId(customerId)   // may be empty
 
         existingLine = cart.isPresent()
             ? cartItemRepository.findByCartIdAndMenuItemId(cart.id, menuItem.id)
@@ -52,7 +49,7 @@ class CartService {
 
         // step 3 - stock is checked against the resulting quantity, so an
         // increment cannot walk past available stock one call at a time
-        resultingQuantity = existingLine.map(line -> line.quantity).orElse(0) + command.quantity
+        resultingQuantity = existingLine.map(line -> line.quantity).orElse(0) + quantity
         if (menuItem.stockQuantity < resultingQuantity)
             throw OutOfStockException("Item is not in stock")
 
@@ -66,9 +63,9 @@ class CartService {
 
         // step 6 / flow 1a
         if (existingLine.isPresent())
-            existingLine.increaseQuantityBy(command.quantity)
+            existingLine.increaseQuantityBy(quantity)
         else
-            cartItemRepository.save(CartItem.create(cart, menuItem, command.quantity))
+            cartItemRepository.save(CartItem.create(cart, menuItem, quantity))
 
         // totals are not stored - CartResponse computes them from the lines
         return CartRestMapper.toResponse(cart)

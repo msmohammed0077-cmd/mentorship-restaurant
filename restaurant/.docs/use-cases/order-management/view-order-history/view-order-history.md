@@ -43,7 +43,7 @@ Two deviations from the issue text, both agreed:
 ## Authorisation
 
 There is no auth in this project and this ticket does not add any, per #34. The caller passes a role
-and the handler checks it, exactly as #47's and #48's endpoints do.
+and the service checks it, exactly as #47's and #48's endpoints do.
 
 ```http
 GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
@@ -197,7 +197,7 @@ found the spec had claimed it while no migration created it, so both queries wer
 ## Exception Flows
 
 - **1a. `customerId` or `role` missing, `limit` outside 1..50, or `cursor` malformed:** 400. Shape
-  and range are rejected by validation before the handler runs. `limit` is also `@NotNull`: an empty
+  and range are rejected by validation before the service runs. `limit` is also `@NotNull`: an empty
   `?limit=` binds null *over* the field default and null passes `@Min`/`@Max`, which used to reach
   `limit + 1` and 500.
 - **2a. Customer does not exist or is soft-deleted:** 404 — "Customer not found".
@@ -235,14 +235,12 @@ flowchart TD
 sequenceDiagram
     actor Customer
     participant C as OrderHistoryController
-    participant S as OrderService
-    participant H as ViewOrderHistoryHandler
+    participant H as OrderHistoryService
     participant CR as CustomerRepository
     participant OR as OrderRepository
 
     Customer->>C: GET /api/v1/orders?customerId&role&limit&cursor
-    C->>S: viewOrderHistory(request)
-    S->>H: viewOrderHistory(customerId, role, limit, cursor)
+    C->>H: viewOrderHistory(request)
 
     alt role is not CUSTOMER
         H-->>C: TransitionNotAllowedForRoleException (403)
@@ -268,8 +266,7 @@ sequenceDiagram
 ## Structure
 
 ```text
-OrderHistoryController -> OrderService (delegates only)
-                       -> ViewOrderHistoryHandler  (@Service, @Transactional(readOnly = true))
+OrderHistoryController -> OrderHistoryService      (@Service, @Transactional(readOnly = true))
                        -> OrderRepository          (the two keyset queries)
                        -> KeysetPage<T>            (limit + 1, trim, hasMore)
 ```
