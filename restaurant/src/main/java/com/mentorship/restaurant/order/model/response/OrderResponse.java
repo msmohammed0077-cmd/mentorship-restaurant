@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-import com.mentorship.restaurant.order.model.entity.Transaction;
+import com.mentorship.restaurant.payment.model.entity.Transaction;
 import lombok.*;
 
 @Getter

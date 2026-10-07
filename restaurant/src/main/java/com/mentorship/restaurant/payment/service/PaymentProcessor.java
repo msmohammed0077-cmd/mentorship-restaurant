@@ -1,11 +1,11 @@
-package com.mentorship.restaurant.support;
+package com.mentorship.restaurant.payment.service;
 
-import com.mentorship.restaurant.order.model.entity.Transaction;
+import com.mentorship.restaurant.payment.model.entity.Transaction;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PaymentProcesser {
+public class PaymentProcessor {
 
   public Transaction process(String cardId) {
     Transaction transaction = new Transaction();

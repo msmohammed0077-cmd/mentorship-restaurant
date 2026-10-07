@@ -1,15 +1,17 @@
-package com.mentorship.restaurant.customer.service;
+package com.mentorship.restaurant.payment.service;
+
+import com.mentorship.restaurant.customer.service.CustomerService;
 
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.customer.exception.PaymentMethodAccessDeniedException;
-import com.mentorship.restaurant.customer.exception.PaymentMethodNotFoundException;
+import com.mentorship.restaurant.payment.exception.PaymentMethodAccessDeniedException;
+import com.mentorship.restaurant.payment.exception.PaymentMethodNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
-import com.mentorship.restaurant.customer.model.entity.PaymentMethod;
-import com.mentorship.restaurant.customer.model.mapper.PaymentMethodMapper;
-import com.mentorship.restaurant.customer.model.request.AddPaymentMethodRequest;
-import com.mentorship.restaurant.customer.model.response.PaymentMethodResponse;
+import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
+import com.mentorship.restaurant.payment.model.mapper.PaymentMethodMapper;
+import com.mentorship.restaurant.payment.model.request.AddPaymentMethodRequest;
+import com.mentorship.restaurant.payment.model.response.PaymentMethodResponse;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
-import com.mentorship.restaurant.customer.repository.PaymentMethodRepository;
+import com.mentorship.restaurant.payment.repository.PaymentMethodRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

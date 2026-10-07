@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.customer;
+package com.mentorship.restaurant.payment;
 
 import com.mentorship.restaurant.support.PaymentMethodEndpointTestSupport;
 import java.time.YearMonth;

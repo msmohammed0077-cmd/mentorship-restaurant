@@ -1,4 +1,6 @@
-package com.mentorship.restaurant.order.model.entity;
+package com.mentorship.restaurant.payment.model.entity;
+
+import com.mentorship.restaurant.order.model.entity.Order;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

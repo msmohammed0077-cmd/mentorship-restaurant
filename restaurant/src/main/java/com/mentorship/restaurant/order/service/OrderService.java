@@ -21,7 +21,7 @@ import com.mentorship.restaurant.order.service.createorder.OrderFinalizer;
 import com.mentorship.restaurant.order.service.createorder.OrderHandler;
 import com.mentorship.restaurant.order.service.createorder.ProcessPaymentHandler;
 import com.mentorship.restaurant.order.service.createorder.SendNotificationHandler;
-import com.mentorship.restaurant.support.PaymentProcesser;
+import com.mentorship.restaurant.payment.service.PaymentProcessor;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class OrderService {
   private final OrderMapper orderMapper;
   private final CartRepository cartRepository;
   private final AddressRepository addressRepository;
-  private final PaymentProcesser paymentProcesser;
+  private final PaymentProcessor paymentProcessor;
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
   @Transactional
@@ -58,7 +58,7 @@ public class OrderService {
             new CartValidatorHandler(cart),
             new AddressValidatorHandler(address),
             new ItemsValidatorHandler(cart),
-            new ProcessPaymentHandler(paymentProcesser),
+            new ProcessPaymentHandler(paymentProcessor),
             new OrderFinalizer(cart, address, orderMapper, orderRepository, cartRepository),
             new SendNotificationHandler());
 

@@ -7,7 +7,7 @@ import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderItem;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
-import com.mentorship.restaurant.order.model.entity.Transaction;
+import com.mentorship.restaurant.payment.model.entity.Transaction;
 import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderItemResponse;
 import com.mentorship.restaurant.order.model.response.OrderResponse;

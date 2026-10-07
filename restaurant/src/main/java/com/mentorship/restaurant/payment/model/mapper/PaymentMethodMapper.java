@@ -1,7 +1,7 @@
-package com.mentorship.restaurant.customer.model.mapper;
+package com.mentorship.restaurant.payment.model.mapper;
 
-import com.mentorship.restaurant.customer.model.entity.PaymentMethod;
-import com.mentorship.restaurant.customer.model.response.PaymentMethodResponse;
+import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
+import com.mentorship.restaurant.payment.model.response.PaymentMethodResponse;
 import java.util.List;
 import org.springframework.stereotype.Component;
 

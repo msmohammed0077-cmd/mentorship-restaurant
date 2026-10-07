@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.customer.repository;
+package com.mentorship.restaurant.payment.repository;
 
-import com.mentorship.restaurant.customer.model.entity.PaymentMethod;
+import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

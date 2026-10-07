@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.customer.model.validation;
+package com.mentorship.restaurant.payment.model.validation;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;

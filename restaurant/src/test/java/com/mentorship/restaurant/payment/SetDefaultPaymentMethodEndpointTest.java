@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.customer;
+package com.mentorship.restaurant.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

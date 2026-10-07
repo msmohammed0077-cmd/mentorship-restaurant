@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.customer.service;
 
+import com.mentorship.restaurant.payment.service.PaymentMethodService;
+
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.customer.exception.CustomerHasActiveOrdersException;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;

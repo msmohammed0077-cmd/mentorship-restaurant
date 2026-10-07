@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.order.model.entity;
 
+import com.mentorship.restaurant.payment.model.entity.Transaction;
+
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.model.entity.Customer;

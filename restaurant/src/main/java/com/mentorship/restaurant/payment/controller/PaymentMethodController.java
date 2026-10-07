@@ -1,8 +1,8 @@
-package com.mentorship.restaurant.customer.controller;
+package com.mentorship.restaurant.payment.controller;
 
-import com.mentorship.restaurant.customer.model.request.AddPaymentMethodRequest;
-import com.mentorship.restaurant.customer.model.response.PaymentMethodResponse;
-import com.mentorship.restaurant.customer.service.PaymentMethodService;
+import com.mentorship.restaurant.payment.model.request.AddPaymentMethodRequest;
+import com.mentorship.restaurant.payment.model.response.PaymentMethodResponse;
+import com.mentorship.restaurant.payment.service.PaymentMethodService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;

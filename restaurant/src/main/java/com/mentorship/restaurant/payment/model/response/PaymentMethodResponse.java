@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.customer.model.response;
+package com.mentorship.restaurant.payment.model.response;
 
-import com.mentorship.restaurant.customer.model.entity.CardBrand;
+import com.mentorship.restaurant.payment.model.entity.CardBrand;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

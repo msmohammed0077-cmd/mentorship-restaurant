@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.customer.model.validation;
+package com.mentorship.restaurant.payment.model.validation;
 
-import com.mentorship.restaurant.customer.model.request.AddPaymentMethodRequest;
+import com.mentorship.restaurant.payment.model.request.AddPaymentMethodRequest;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import java.time.YearMonth;

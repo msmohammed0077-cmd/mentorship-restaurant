@@ -1,10 +1,11 @@
-package com.mentorship.restaurant.customer.exception;
+package com.mentorship.restaurant.payment.exception;
+
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.NOT_FOUND)
-public class PaymentMethodNotFoundException extends CustomerException {
+public class PaymentMethodNotFoundException extends PaymentException {
 
   public PaymentMethodNotFoundException(String message) {
     super(message);

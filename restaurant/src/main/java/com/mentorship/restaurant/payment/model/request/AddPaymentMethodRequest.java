@@ -1,7 +1,7 @@
-package com.mentorship.restaurant.customer.model.request;
+package com.mentorship.restaurant.payment.model.request;
 
-import com.mentorship.restaurant.customer.model.entity.CardBrand;
-import com.mentorship.restaurant.customer.model.validation.NotExpired;
+import com.mentorship.restaurant.payment.model.entity.CardBrand;
+import com.mentorship.restaurant.payment.model.validation.NotExpired;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
