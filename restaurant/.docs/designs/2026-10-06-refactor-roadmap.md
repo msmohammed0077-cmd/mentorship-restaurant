@@ -12,7 +12,7 @@ history can pick it up. Each sub-project gets its own design → plan → PR, an
 |---|---|---|---|---|
 | A | Safety net: green `main`, working create-order chain, end-to-end tests pinning today's order behaviour (#82 §1, §2 chain, §5 tests) | **Done.** PR open, waiting for review | `2026-10-06-order-safety-net-design.md` | `feat/GH-82-order-safety-net`, #102 |
 | B | Remove the handler pattern: one service per controller | **Done.** PR open, waiting for review | `2026-10-06-remove-handlers-design.md` | `feat/GH-84-remove-handlers`, #103, stacked on A; targets `feat/GH-82-order-safety-net` |
-| C | Domain boundaries: C1 moves code to its owning domain, C2 fixes cross-domain dependencies | **Design approved (2026-10-07). C1 plan written** (`2026-10-07-domain-moves-plan.md`, gitignored, so local only). Next: execute it | `2026-10-07-domain-boundaries-design.md` | C1 `feat/GH-84-domain-moves` (stacked on B), C2 `feat/GH-84-domain-boundaries` (stacked on C1) |
+| C | Domain boundaries: C1 moves code to its owning domain, C2 fixes cross-domain dependencies | **C1 done.** PR open, waiting for review. C2 not planned yet | `2026-10-07-domain-boundaries-design.md` | C1 `feat/GH-84-domain-moves`, #105, stacked on B; C2 `feat/GH-84-domain-boundaries` (stacked on C1) |
 | D | The mentor's smaller points | Not started. Needs brainstorming | — | — |
 
 Order matters: each step needs the previous one's tests or structure. A pins behaviour; B
