@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.cart.model.entity;
 
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

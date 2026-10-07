@@ -1,6 +1,6 @@
 package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.cart.repository.MenuItemRepository;
+import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.order.exception.IllegalOrderTransitionException;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;

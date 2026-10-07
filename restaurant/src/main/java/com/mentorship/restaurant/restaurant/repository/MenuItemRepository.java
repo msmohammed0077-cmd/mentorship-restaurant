@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.cart.repository;
+package com.mentorship.restaurant.restaurant.repository;
 
-import com.mentorship.restaurant.cart.model.entity.MenuItem;
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

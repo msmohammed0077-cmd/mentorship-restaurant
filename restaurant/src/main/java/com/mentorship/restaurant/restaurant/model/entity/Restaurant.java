@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.cart.model.entity;
+package com.mentorship.restaurant.restaurant.model.entity;
 
 import com.mentorship.restaurant.customer.model.entity.User;
 import jakarta.persistence.Column;
