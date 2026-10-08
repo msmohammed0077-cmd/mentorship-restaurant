@@ -30,17 +30,16 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
         .isEqualTo("Customer not found");
   }
 
+  /** The cart-by-id endpoints can still reach it: #104. */
   @Test
-  void deletesTheCustomersCart() {
+  void keepsTheCustomersCart() {
     long customerId = insertCustomer(email("sara"));
-    insertCartItem(insertCart(customerId), KOFTA, 1);
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
 
     deleteCustomer(customerId).expectStatus().isNoContent();
 
-    Integer carts =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM carts WHERE customer_id = ?", Integer.class, customerId);
-    assertThat(carts).isZero();
+    assertThat(cartExists(cartId)).isTrue();
   }
 
   @Test

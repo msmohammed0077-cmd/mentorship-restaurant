@@ -8,6 +8,7 @@ import com.mentorship.restaurant.customer.service.AddressService;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.model.entity.Order;
+import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
 import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderResponse;
@@ -21,6 +22,10 @@ import com.mentorship.restaurant.order.service.createorder.ProcessPaymentHandler
 import com.mentorship.restaurant.order.service.createorder.SendNotificationHandler;
 import com.mentorship.restaurant.payment.service.PaymentProcessor;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+  /** Derived from {@link OrderStatus#isTerminal()} so the two can never disagree. */
+  private static final Set<OrderStatus> ACTIVE_ORDER_STATUSES =
+      Arrays.stream(OrderStatus.values())
+          .filter(status -> !status.isTerminal())
+          .collect(Collectors.toCollection(() -> EnumSet.noneOf(OrderStatus.class)));
 
   private final OrderRepository orderRepository;
   private final OrderMapper orderMapper;
@@ -71,6 +82,14 @@ public class OrderService {
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
     return orderMapper.toResponse(order);
+  }
+
+  /**
+   * Whether the customer has an order in a non-terminal status. For delete-customer; joins the
+   * caller's transaction.
+   */
+  public boolean hasActiveOrders(Long customerId) {
+    return orderRepository.existsByCustomer_IdAndStatusIn(customerId, ACTIVE_ORDER_STATUSES);
   }
 
   /** Shared: the order's owner (customer or restaurant) must be the actor. */
