@@ -9,6 +9,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderItemResponse;
 import com.mentorship.restaurant.order.model.response.OrderResponse;
+import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import com.mentorship.restaurant.order.model.response.TransactionResponse;
 import com.mentorship.restaurant.payment.model.entity.Transaction;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
@@ -42,6 +43,20 @@ public class OrderMapper {
         .customerNote(order.getCustomerNote())
         .transactionResponse(toTransactionResponse(order.getTransaction()))
         .build();
+  }
+
+  /**
+   * One row of order history. {@code status.name()} is what the old query's {@code cast(o.status as
+   * string)} returned, because the column is {@code EnumType.STRING}.
+   */
+  public OrderSummaryResponse toSummary(Order order, long itemCount) {
+    return new OrderSummaryResponse(
+        order.getId(),
+        order.getStatus().name(),
+        order.getRestaurant().getRestaurantName(),
+        itemCount,
+        order.getTotal(),
+        order.getCreatedAt());
   }
 
   public Order createNewOrderEntity(

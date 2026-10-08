@@ -3,33 +3,20 @@ package com.mentorship.restaurant.order.repository;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
-import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.ScrollPosition;
+import org.springframework.data.domain.Window;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
-  String SELECT_SUMMARY =
-      """
-      select new com.mentorship.restaurant.order.model.response.OrderSummaryResponse(
-        o.id,
-        cast(o.status as string),
-        o.restaurant.restaurantName,
-        (select count(oi) from OrderItem oi where oi.order = o),
-        o.total,
-        o.createdAt)
-      from Order o
-      where o.customer.id = :customerId
-      """;
-
-  String NEWEST_FIRST = " order by o.createdAt desc, o.id desc";
-
   boolean existsByCustomer_IdAndStatusIn(Long customerId, Collection<OrderStatus> statuses);
 
   @Modifying(flushAutomatically = true)
@@ -94,17 +81,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
       """)
   List<Long> findStalePlacedOrderIds(@Param("deadline") OffsetDateTime deadline);
 
-  @Query(SELECT_SUMMARY + NEWEST_FIRST)
-  List<OrderSummaryResponse> findFirstPage(@Param("customerId") Long customerId, Pageable pageable);
-
-  @Query(
-      SELECT_SUMMARY
-          + " and (o.createdAt < :cursorCreatedAt"
-          + " or (o.createdAt = :cursorCreatedAt and o.id < :cursorId))"
-          + NEWEST_FIRST)
-  List<OrderSummaryResponse> findPageAfter(
-      @Param("customerId") Long customerId,
-      @Param("cursorCreatedAt") OffsetDateTime cursorCreatedAt,
-      @Param("cursorId") Long cursorId,
-      Pageable pageable);
+  /**
+   * A customer's orders, newest first, one keyset window at a time. Derived rather than
+   * {@code @Query} because Spring Data scrolls only derived queries. The graph loads the restaurant
+   * for the summary, and the transaction: an eager inverse one-to-one that Hibernate would
+   * otherwise fetch with one SELECT per order.
+   */
+  @EntityGraph(attributePaths = {"restaurant", "transaction"})
+  Window<Order> findByCustomer_IdOrderByCreatedAtDescIdDesc(
+      Long customerId, ScrollPosition position, Limit limit);
 }
