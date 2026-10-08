@@ -13,7 +13,7 @@ history can pick it up. Each sub-project gets its own design → plan → PR, an
 | A | Safety net: green `main`, working create-order chain, end-to-end tests pinning today's order behaviour (#82 §1, §2 chain, §5 tests) | **Done.** PR open, waiting for review | `2026-10-06-order-safety-net-design.md` | `feat/GH-82-order-safety-net`, #102 |
 | B | Remove the handler pattern: one service per controller | **Done.** PR open, waiting for review | `2026-10-06-remove-handlers-design.md` | `feat/GH-84-remove-handlers`, #103, stacked on A; targets `feat/GH-82-order-safety-net` |
 | C | Domain boundaries: C1 moves code to its owning domain, C2 fixes cross-domain dependencies | **Done.** C1 and C2 PRs open as drafts, waiting for review | `2026-10-07-domain-boundaries-design.md` | C1 `feat/GH-84-domain-moves`, #105, stacked on B; C2 `feat/GH-84-domain-boundaries`, #106, stacked on C1 |
-| D | The mentor's smaller points | Not started. Needs brainstorming | — | — |
+| D | The mentor's smaller points: D1 builders and names, D2 the rating and history queries | **Design approved (2026-10-08).** Next: D1's plan | `2026-10-08-mentor-points-design.md` | D1 `feat/GH-84-builders-and-names` (stacked on C2), D2 `feat/GH-84-query-builtins` (stacked on D1) |
 
 Order matters: each step needs the previous one's tests or structure. A pins behaviour; B
 restructures; C moves code between domains; D renames and reshapes.
@@ -61,7 +61,9 @@ To decide in C:
 - #81 (closed) also asked whether a JPQL join from one domain's repository into another domain's
   entity counts as a boundary crossing. Undecided.
 
-## D — the mentor's smaller points (open)
+## D — the mentor's smaller points (decided; see `2026-10-08-mentor-points-design.md`)
+
+Settled on 2026-10-08: builders on every entity the application creates; `rateOrder`; `OrderStatus.ACTIVE`; rating in one JPQL projection; history on Spring Data's Scroll API. Declined, with reasons in the design: `/changePassword`, `CustomerRequest` and its field renames, a boolean soft-delete flag. Kept for history:
 
 From the annotated RAR. To diff against it again: `unrar x` (RARLAB's unrar; `unar` and this
 `7z` can't decode it) and compare with `diff -rq --strip-trailing-cr`. Only 13 files differ from
