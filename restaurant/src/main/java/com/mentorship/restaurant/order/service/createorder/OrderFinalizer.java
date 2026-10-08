@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.order.service.createorder;
 
 import com.mentorship.restaurant.cart.model.entity.Cart;
-import com.mentorship.restaurant.cart.repository.CartRepository;
+import com.mentorship.restaurant.cart.service.CartService;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
@@ -17,7 +17,7 @@ public class OrderFinalizer extends OrderHandler {
   private final Address address;
   private final OrderMapper orderMapper;
   private final OrderRepository orderRepository;
-  private final CartRepository cartRepository;
+  private final CartService cartService;
 
   @Override
   public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
@@ -27,7 +27,7 @@ public class OrderFinalizer extends OrderHandler {
 
     Order saved = orderRepository.save(order);
 
-    cartRepository.deleteById(request.getCartId());
+    cartService.deleteCart(request.getCartId());
 
     response = orderMapper.toResponse(saved);
 

@@ -94,6 +94,16 @@ public class AddressService {
     return addressMapper.toResponse(address);
   }
 
+  /**
+   * Any customer's address by id, else a 404. For create-order, which checks no owner here, as
+   * before; joins the caller's transaction.
+   */
+  public Address findAddress(Long addressId) {
+    return addressRepository
+        .findById(addressId)
+        .orElseThrow(() -> new AddressNotFoundException("Address not found"));
+  }
+
   private Address findCustomersAddress(Long addressId, Long customerId) {
     return addressRepository
         .findByIdAndCustomerIdWithOwner(addressId, customerId)

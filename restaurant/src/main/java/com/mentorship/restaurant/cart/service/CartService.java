@@ -112,10 +112,16 @@ public class CartService {
     return new CheckoutCartResponse("SUCCESS", "Payment successful");
   }
 
-  private Cart findCart(Long cartId) {
+  /** The cart, else a 404. Create-order calls it too; joins the caller's transaction. */
+  public Cart findCart(Long cartId) {
     return cartRepository
         .findById(cartId)
         .orElseThrow(() -> new CartNotFoundException("Cart not found"));
+  }
+
+  /** Create-order's last step once the order is saved; joins the caller's transaction. */
+  public void deleteCart(Long cartId) {
+    cartRepository.deleteById(cartId);
   }
 
   private void ensureCartExists(Long cartId) {

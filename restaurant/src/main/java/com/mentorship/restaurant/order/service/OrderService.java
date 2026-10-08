@@ -1,12 +1,10 @@
 package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.cart.exception.CartNotFoundException;
 import com.mentorship.restaurant.cart.model.entity.Cart;
-import com.mentorship.restaurant.cart.repository.CartRepository;
-import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
+import com.mentorship.restaurant.cart.service.CartService;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
-import com.mentorship.restaurant.customer.repository.AddressRepository;
+import com.mentorship.restaurant.customer.service.AddressService;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.model.entity.Order;
@@ -37,21 +35,15 @@ public class OrderService {
 
   private final OrderRepository orderRepository;
   private final OrderMapper orderMapper;
-  private final CartRepository cartRepository;
-  private final AddressRepository addressRepository;
+  private final CartService cartService;
+  private final AddressService addressService;
   private final PaymentProcessor paymentProcessor;
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
   @Transactional
   public OrderResponse createOrder(CreateOrderRequest request) {
-    Cart cart =
-        cartRepository
-            .findById(request.getCartId())
-            .orElseThrow(() -> new CartNotFoundException("Cart Not Found"));
-    Address address =
-        addressRepository
-            .findById(request.getAddressId())
-            .orElseThrow(() -> new AddressNotFoundException("Address Not Found"));
+    Cart cart = cartService.findCart(request.getCartId());
+    Address address = addressService.findAddress(request.getAddressId());
 
     OrderHandler orderHandler =
         OrderHandler.processOrder(
@@ -59,7 +51,7 @@ public class OrderService {
             new AddressValidatorHandler(address),
             new ItemsValidatorHandler(cart),
             new ProcessPaymentHandler(paymentProcessor),
-            new OrderFinalizer(cart, address, orderMapper, orderRepository, cartRepository),
+            new OrderFinalizer(cart, address, orderMapper, orderRepository, cartService),
             new SendNotificationHandler());
 
     OrderResponse response =
