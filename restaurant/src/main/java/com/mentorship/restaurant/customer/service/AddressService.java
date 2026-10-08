@@ -29,14 +29,16 @@ public class AddressService {
   public AddressResponse addAddress(Long customerId, AddAddressRequest request) {
     Customer customer = customerService.findActiveCustomer(customerId);
 
-    Address address = new Address();
-    address.setCustomer(customer);
-    address.setLabel(request.getLabel());
-    address.setLine(request.getLine());
-    address.setCity(request.getCity());
-    address.setArea(request.getArea());
-    address.setNote(request.getNote());
-    address.setDefault(!addressRepository.existsByCustomer_Id(customerId));
+    Address address =
+        Address.builder()
+            .customer(customer)
+            .label(request.getLabel())
+            .line(request.getLine())
+            .city(request.getCity())
+            .area(request.getArea())
+            .note(request.getNote())
+            .isDefault(!addressRepository.existsByCustomer_Id(customerId))
+            .build();
 
     return addressMapper.toResponse(addressRepository.save(address));
   }

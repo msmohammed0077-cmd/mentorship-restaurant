@@ -33,16 +33,17 @@ public class CustomerService {
 
     ensureEmailAvailable(email);
 
-    User user = new User();
-    user.setUserName(request.getName());
-    user.setUserEmail(email);
-    user.setUserPassword(passwordEncoder.encode(request.getPassword()));
-    user.setUserPhone(request.getPhone());
-    user.setUserDateOfBirth(request.getDateOfBirth());
-    user.setUserGender(request.getGender());
+    User user =
+        User.builder()
+            .userName(request.getName())
+            .userEmail(email)
+            .userPassword(passwordEncoder.encode(request.getPassword()))
+            .userPhone(request.getPhone())
+            .userDateOfBirth(request.getDateOfBirth())
+            .userGender(request.getGender())
+            .build();
 
-    Customer customer = new Customer();
-    customer.setUser(userService.create(user));
+    Customer customer = Customer.builder().user(userService.create(user)).build();
 
     return customerMapper.toResponse(customerRepository.save(customer));
   }
