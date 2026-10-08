@@ -236,7 +236,7 @@ sequenceDiagram
     actor Customer
     participant C as OrderHistoryController
     participant H as OrderHistoryService
-    participant CR as CustomerRepository
+    participant CS as CustomerService
     participant OR as OrderRepository
 
     Customer->>C: GET /api/v1/orders?customerId&role&limit&cursor
@@ -246,10 +246,9 @@ sequenceDiagram
         H-->>C: TransitionNotAllowedForRoleException (403)
     end
 
-    H->>CR: existsActiveById(customerId)
-    CR-->>H: boolean
-    alt absent
-        H-->>C: CustomerNotFoundException (404)
+    H->>CS: ensureActiveCustomerExists(customerId)
+    alt unknown or soft-deleted
+        CS-->>C: CustomerNotFoundException (404)
     end
 
     alt no cursor
@@ -267,6 +266,7 @@ sequenceDiagram
 
 ```text
 OrderHistoryController -> OrderHistoryService      (@Service, @Transactional(readOnly = true))
+                       -> CustomerService          (ensureActiveCustomerExists)
                        -> OrderRepository          (the two keyset queries)
                        -> KeysetPage<T>            (limit + 1, trim, hasMore)
 ```

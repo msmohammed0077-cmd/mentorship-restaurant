@@ -29,8 +29,8 @@ Any caller. There is no auth yet (see *Authorisation*).
 Adds migration `V13__create_payment_methods.sql`, the `PaymentMethod` entity and `CardBrand` enum,
 `PaymentMethodRepository`, `PaymentMethodService`,
 `PaymentMethodController`, `PaymentMethodMapper`, two exceptions, and the `@NotExpired` request
-constraint. Builds on `CustomerRepository.findActiveById` from #69 and #72, and adds
-`CustomerRepository.findByIdWithPaymentMethods` and the `Customer.paymentMethods` collection.
+constraint. Builds on `CustomerService.findActiveCustomer` from #69 and #72, and adds the
+`Customer.paymentMethods` collection.
 
 ### What a payment method is
 
@@ -152,16 +152,16 @@ indexed), `payment_method_brand`, `payment_method_last4` (`CHAR(4)`),
 | `findByIdWithOwner` | set default, delete | by payment-method id only; `join fetch` the customer and its user, **no** soft-delete filter — the service decides (rule 6) |
 | `clearDefaultForCustomer` | set default | `@Modifying(flushAutomatically = true)`, one `UPDATE` scoped to the customer |
 
-`CustomerRepository`:
+`CustomerService` (never `CustomerRepository`, another domain's: ADR 0004):
 
 | Method | Used by | Notes |
 | --- | --- | --- |
-| `findActiveById` | add | the entity is needed to link the card |
-| `findByIdWithPaymentMethods` | list | `join fetch` user, `left join fetch` `paymentMethods`, filters `userDeletedAt is null`; empty = 404 customer. Mirrors `findByIdWithAddresses` |
+| `findActiveCustomer` | add, list | filters `userDeletedAt is null`; absent = 404 customer. List then reads `customer.getPaymentMethods()` inside its read-only transaction |
+| `ensureActive` | set default, delete | the owner's soft-delete check, after the ownership check |
 
 `Customer.paymentMethods` is `@OneToMany(mappedBy = "customer")` with
 `@OrderBy("isDefault DESC, createdAt DESC, id DESC")`, so the list order lives on the mapping and
-the fetch query emits it as `ORDER BY`.
+loading the collection emits it as `ORDER BY`.
 
 ### Statements per request
 
@@ -243,15 +243,15 @@ sequenceDiagram
     actor Caller
     participant C as PaymentMethodController
     participant H as PaymentMethodService
-    participant CR as CustomerRepository
+    participant CS as CustomerService
     participant PR as PaymentMethodRepository
 
     Caller->>C: POST /api/v1/payment-methods?customerId=
     C->>C: @Valid body incl. @NotExpired (400 on shape error or expired card)
     C->>H: addPaymentMethod(customerId, request)
-    H->>CR: findActiveById(customerId)
-    alt empty (unknown or soft-deleted)
-        H-->>C: CustomerNotFoundException (404)
+    H->>CS: findActiveCustomer(customerId)
+    alt unknown or soft-deleted
+        CS-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
     H->>PR: existsByCustomer_Id(customerId)
@@ -295,8 +295,8 @@ sequenceDiagram
     C-->>Caller: 200 OK
 ```
 
-Delete applies the same three checks as set default and removes the row. List is one
-`findByIdWithPaymentMethods` call: empty is a 404, otherwise the collection is mapped.
+Delete applies the same three checks as set default and removes the row. List calls
+`CustomerService.findActiveCustomer` (404 if absent) and maps `customer.getPaymentMethods()`.
 
 ## Structure
 
@@ -304,7 +304,7 @@ Delete applies the same three checks as set default and removes the row. List is
 PaymentMethodController -> PaymentMethodService            (@Service; add, set default, delete @Transactional;
                                                              view @Transactional(readOnly = true))
                         -> CustomerService                 (findActiveCustomer, ensureActive)
-                        -> CustomerRepository, PaymentMethodRepository
+                        -> PaymentMethodRepository
                         -> PaymentMethodMapper             (responses)
 ```
 

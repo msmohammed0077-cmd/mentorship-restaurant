@@ -18,9 +18,10 @@ The customer exists, is not soft-deleted, and has no order in flight.
 `DELETE /api/v1/customers/{customerId}` — **204**, no body. A **soft** delete.
 
 Builds on #73, #69 and #71 (`CustomerController`, `CustomerService`,
-`CustomerRepository.findActiveById`). Adds `CustomerService.deleteCustomer`,
-`CustomerHasActiveOrdersException`, `OrderRepository.existsByCustomer_IdAndStatusIn` and
-`CartRepository.deleteByCustomer_Id`.
+`CustomerRepository.findActiveById`). Adds `CustomerDeletionService.deleteCustomer`,
+`CustomerHasActiveOrdersException`, `OrderService.hasActiveOrders` and
+`OrderRepository.existsByCustomer_IdAndStatusIn`. Delete-customer has its own service because
+it is the only customer use-case that needs the order domain (ADR 0004).
 
 Also makes the older customer lookups outside this umbrella exclude soft-deleted customers (see
 *Soft-deleted customers elsewhere*).
@@ -34,11 +35,10 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
    (`CustomerHasActiveOrdersException`). A restaurant must never lose the customer of an order in
    flight. The set of active statuses is derived from `OrderStatus.isTerminal()`, so a new status
    is classified in one place.
-3. Otherwise, in one transaction:
-   - `user_deleted_at` is set to now on the customer's user;
-   - the customer's cart is deleted in **one** statement; its `cart_items` go with it by
-     `ON DELETE CASCADE`.
-4. **Past orders, ratings and addresses are kept** for history. Nothing else is deleted.
+3. Otherwise `user_deleted_at` is set to now on the customer's user.
+4. **Past orders, ratings, addresses and the cart are kept.** Nothing is deleted. Until #84 the
+   cart was deleted too; the cart-by-id endpoints can still reach the kept cart, which
+   [#104](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/104) tracks.
 5. Afterwards the customer **does not exist** to the API: `GET`, `PATCH`, the password endpoint,
    every address operation, add-to-cart, order history, cancel and rate all return 404, "Customer
    not found" (for address and order operations, on their own address or order — see *Soft-deleted
@@ -64,21 +64,8 @@ Response, **204**, no body.
 boolean existsByCustomer_IdAndStatusIn(Long customerId, Collection<OrderStatus> statuses);
 ```
 
-A derived `exists` query: one `select … limit 1`, no entity loaded.
-
-```java
-@Modifying(flushAutomatically = true)
-@Query("delete from Cart cart where cart.customer.id = :customerId")
-int deleteByCustomer_Id(Long customerId);
-```
-
-**One statement, scoped to the customer.** A derived `deleteBy…` without `@Query` would load the
-cart and delete it entity by entity.
-
-**Bulk query vs managed entity.** The service sets `userDeletedAt` on the user it loaded, then runs
-the bulk delete. `flushAutomatically = true` flushes the soft-delete `UPDATE` before the `DELETE`
-runs, and the service reads nothing afterwards, so there is no stale entity to map. No
-`clearAutomatically` is needed.
+A derived `exists` query: one `select … limit 1`, no entity loaded. `CustomerDeletionService`
+reaches it through `OrderService.hasActiveOrders`, never the repository (ADR 0004).
 
 ## Soft-deleted customers elsewhere
 
@@ -90,8 +77,8 @@ predate that and looked customers up with plain `findById` / `existsById`. They 
 | --- | --- | --- |
 | `AddressService.viewAddresses` | `findByIdWithAddresses` (no filter) | `findByIdWithAddresses` (filters soft-deleted) |
 | `AddressService.addAddress` | `findById` | `findActiveById` |
-| `CartService.addItem` | `findById` | `findActiveById` |
-| `OrderHistoryService.viewOrderHistory` | `existsById` | `existsActiveById` (new) |
+| `CartService.addItem` | `findById` | `findActiveById`, through `CustomerService.findActiveCustomer` |
+| `OrderHistoryService.viewOrderHistory` | `existsById` | `existsActiveById` (new), through `CustomerService.ensureActiveCustomerExists` |
 
 Update / set-default / delete address and cancel / rate order look up the address or order, not the
 customer, so there was no customer lookup to filter. [#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)
@@ -99,8 +86,8 @@ makes that lookup fetch the owner's user in the same query (a join fetch, or for
 in the `CUSTOMER` ownership branch of `OrderStatusService`) and checks `userDeletedAt` in
 Java, after the not-found and ownership checks. A soft-deleted customer acting on their own address
 or order gets 404 "Customer not found"; on a missing or another customer's row they get the same
-address- or order-level answer as anyone else. A deleted customer has no cart, so the cart-by-id endpoints
-have nothing to reach.
+address- or order-level answer as anyone else. A deleted customer's cart is kept, and the cart-by-id
+endpoints do not check its owner, so they still reach it: #104.
 
 ## Main Success Scenario
 
@@ -108,8 +95,7 @@ have nothing to reach.
 2. The system loads the active customer and its user.
 3. The system checks the customer has no order in a non-terminal status.
 4. The system sets `user_deleted_at` on the user.
-5. The system deletes the customer's cart (flushing the soft-delete first).
-6. The system returns 204.
+5. The system returns 204.
 
 ## Exception Flows
 
@@ -120,8 +106,7 @@ have nothing to reach.
 ## Postconditions
 
 - `users.user_deleted_at` is set; the `users` and `customers` rows remain.
-- The customer has no `carts` or `cart_items` rows.
-- Orders, order items, ratings and addresses are unchanged.
+- Orders, order items, ratings, addresses, the cart and its items are unchanged.
 
 ## Diagram
 
@@ -131,39 +116,35 @@ have nothing to reach.
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant H as CustomerService
-    participant CR as CustomerRepository
-    participant OR as OrderRepository
-    participant CaR as CartRepository
+    participant D as CustomerDeletionService
+    participant CS as CustomerService
+    participant OS as OrderService
 
     Caller->>C: DELETE /api/v1/customers/{customerId}
-    C->>H: deleteCustomer(customerId)
-    H->>CR: findActiveById(customerId)
-    CR-->>H: Optional<Customer> (user join-fetched)
-    alt empty (unknown or soft-deleted)
-        H-->>C: CustomerNotFoundException (404)
+    C->>D: deleteCustomer(customerId)
+    D->>CS: findActiveCustomer(customerId)
+    CS-->>D: Customer (user join-fetched)
+    alt unknown or soft-deleted
+        CS-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
-    H->>OR: existsByCustomer_IdAndStatusIn(customerId, active statuses)
-    OR-->>H: boolean
+    D->>OS: hasActiveOrders(customerId)
+    OS-->>D: boolean
     alt an order is in flight
-        H-->>C: CustomerHasActiveOrdersException (409)
+        D-->>C: CustomerHasActiveOrdersException (409)
         C-->>Caller: 409 Conflict
     end
-    H->>H: user.setUserDeletedAt(now) (dirty checking)
-    H->>CaR: deleteByCustomer_Id(customerId)
-    Note over H,CaR: flushAutomatically writes the UPDATE first,<br/>then one DELETE; cart_items cascade
-    H-->>C: void
+    D->>D: user.setUserDeletedAt(now) (dirty checking)
+    D-->>C: void
     C-->>Caller: 204 No Content
 ```
 
 ## Structure
 
 ```text
-CustomerController -> CustomerService        (@Service, @Transactional)
-                   -> CustomerRepository     (findActiveById)
-                   -> OrderRepository        (existsByCustomer_IdAndStatusIn)
-                   -> CartRepository         (deleteByCustomer_Id, bulk)
+CustomerController -> CustomerDeletionService  (@Service, @Transactional; its own service, ADR 0004)
+                   -> CustomerService          (findActiveCustomer -> CustomerRepository.findActiveById)
+                   -> OrderService             (hasActiveOrders -> OrderRepository.existsByCustomer_IdAndStatusIn)
 ```
 
 ## Testing
@@ -174,7 +155,7 @@ CustomerController -> CustomerService        (@Service, @Transactional)
 | Case | Expected |
 | --- | --- |
 | Delete a new customer | 204; then `GET` → 404; a second `DELETE` → 404, "Customer not found" |
-| Customer with a cart (item added via the cart API) | 204; no `carts` row left for the customer |
+| Customer with a cart (seeded via SQL) | 204; the cart is still there (#104) |
 | Customer with a `PLACED` order (seeded via SQL) | 409, "Customer has active orders"; `GET` still 200 |
 | Unknown id `999999` | 404, "Customer not found" |
 | Address list for a deleted customer | 404, "Customer not found" |
@@ -190,6 +171,6 @@ cascade.
 2. **No restore.** Undeleting is not exposed; it would also have to handle the email having been
    reused meanwhile.
 3. **A check-then-act race.** An order placed between the active-order check and the commit is not
-   seen. There is no checkout for a customer without a cart, and the cart is deleted in the same
-   transaction, so the window is small. Accepted.
+   seen. The window is one short transaction. Accepted. The cart used to be deleted in the same
+   transaction; it is kept now, and what can still reach it is #104's to close.
 4. **IDOR** is #34's accepted trade, tracked with auth.

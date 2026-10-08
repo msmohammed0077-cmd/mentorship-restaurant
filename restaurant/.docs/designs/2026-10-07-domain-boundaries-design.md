@@ -175,6 +175,8 @@ files the PR touches.
   mappings allowed), and "a use-case whose dependencies would close a cycle gets its own service;
   `CustomerDeletionService` is the example". The known-violations list goes.
 - Delete-customer spec: the cart is kept; link #104.
+- The specs whose diagrams name a repository C2 rewires: create-order, add-cart-item,
+  view-order-history, payment-methods, create-customer, update-customer.
 - ADR `0004-cross-domain-access-through-services.md`: the rule, why delete-customer has its own
   service, and the rejected alternatives above.
 - The roadmap: C's status.

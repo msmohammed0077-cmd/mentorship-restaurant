@@ -100,15 +100,15 @@ sequenceDiagram
     actor Customer
     participant C as CartController
     participant S as CartService
-    participant MIR as MenuItemRepository
+    participant RS as RestaurantService
     participant CR as CartRepository
     participant CIR as CartItemRepository
 
     Customer->>C: POST /api/carts/items (itemId, quantity)
     C->>S: addItem(customerId, menuItemId, quantity)
 
-    S->>MIR: findById(menuItemId)
-    MIR-->>S: MenuItem (+ Menu -> Restaurant)
+    S->>RS: findMenuItem(menuItemId)
+    RS-->>S: MenuItem (+ Menu -> Restaurant)
 
     alt restaurant is closed
         S-->>C: RestaurantClosedException

@@ -187,7 +187,7 @@ sequenceDiagram
     participant C as CustomerController
     participant H as CustomerService
     participant CR as CustomerRepository
-    participant UR as UserRepository
+    participant US as UserService
     participant M as CustomerMapper
 
     Caller->>C: PATCH /api/v1/customers/{customerId}
@@ -203,8 +203,8 @@ sequenceDiagram
     end
     opt email present
         H->>H: email = trim(lower(email))
-        H->>UR: existsActiveByEmailAndIdNot(email, userId)
-        UR-->>H: boolean
+        H->>US: isEmailTakenByOther(email, userId)
+        US-->>H: boolean
         alt taken by another active user
             H-->>C: EmailAlreadyInUseException (409)
             C-->>Caller: 409 Conflict
@@ -256,7 +256,7 @@ sequenceDiagram
 ```text
 CustomerController -> CustomerService        (@Service, @Transactional)
                    -> CustomerRepository     (findActiveById)
-                   -> UserRepository         (existsActiveByEmailAndIdNot)
+                   -> UserService            (isEmailTakenByOther -> UserRepository)
                    -> PasswordEncoder        (matches, encode)
                    -> CustomerMapper         (CustomerResponse)
 ```

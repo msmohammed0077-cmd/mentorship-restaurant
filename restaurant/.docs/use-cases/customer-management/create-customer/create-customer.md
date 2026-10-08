@@ -121,7 +121,7 @@ CREATE UNIQUE INDEX uq_users_active_email
 It is case-insensitive, and it lets a soft-deleted user's email be used again.
 
 **The index is only the backstop.** The service checks first with
-`UserRepository.existsActiveByEmail`, which uses the same `lower(...)` and the same
+`UserService.isEmailTaken` (`UserRepository.existsActiveByEmail`), which uses the same `lower(...)` and the same
 `deleted_at IS NULL` filter. Two concurrent requests for the same email can both pass the check.
 The index then refuses the second insert, which surfaces as a generic 500, not a 409. That is
 accepted for now.
@@ -156,7 +156,7 @@ sequenceDiagram
     actor Caller
     participant C as CustomerController
     participant H as CustomerService
-    participant UR as UserRepository
+    participant US as UserService
     participant PE as PasswordEncoder
     participant CR as CustomerRepository
 
@@ -166,15 +166,15 @@ sequenceDiagram
     end
     C->>H: createCustomer(request)
     H->>H: email = trim(lower(email))
-    H->>UR: existsActiveByEmail(email)
-    UR-->>H: boolean
+    H->>US: isEmailTaken(email)
+    US-->>H: boolean
     alt taken by an active user
         H-->>C: EmailAlreadyInUseException (409)
     end
     H->>PE: encode(password)
     PE-->>H: hash
-    H->>UR: save(user)
-    UR-->>H: user
+    H->>US: create(user)
+    US-->>H: user
     H->>CR: save(customer)
     CR-->>H: customer
     H-->>C: CustomerResponse
@@ -185,7 +185,7 @@ sequenceDiagram
 
 ```text
 CustomerController -> CustomerService        (@Service, @Transactional)
-                   -> UserRepository         (existsActiveByEmail, save)
+                   -> UserService            (isEmailTaken, create -> UserRepository)
                    -> CustomerRepository     (save)
                    -> CustomerMapper         (CustomerResponse)
 ```

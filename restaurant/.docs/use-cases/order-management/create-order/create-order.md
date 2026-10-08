@@ -34,13 +34,13 @@ END FUNCTION
 
 ```text
 
-Client          OrderService             CartRepository
+Client          OrderService             CartService
   |                     |                      |
   |-- createOrder() --->|                      |
-  |                     |-- findById(cartId) ->|
+  |                     |-- findCart(cartId) ->|
   |                     |<----- Cart ----------|
   |                     |                      |
-  |                     |---- findById(addressId) ---> AddressRepository
+  |                     |---- findAddress(addressId) ---> AddressService
   |                     |<--------- Address ------------|
   |                     |                      |
   |                     |                      |

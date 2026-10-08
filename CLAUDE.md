@@ -28,7 +28,16 @@ The pattern is set by `CartService`. Follow it rather than inventing a new shape
 
 **Chain of responsibility is fine where a use-case is a pipeline of steps.** Create-order validates the cart, address and items, then pays, saves and notifies, each link in `order/service/createorder/` handing on to the next. `OrderService.createOrder` builds and runs the chain.
 
-**Across domains, inject the other domain's service, never its repository.** `CustomerService` asks `OrderService` whether active orders exist; it does not inject `OrderRepository`. This keeps each domain's queries and rules behind one door. Known violations, to be fixed in sub-project C2 of #84 and not to be copied: `CartService` → `CustomerRepository`, `MenuItemRepository`; `CustomerService` → `OrderRepository`, `CartRepository`, `UserRepository`; `OrderService` → `CartRepository`, `AddressRepository` (and the chain's `OrderFinalizer` → `CartRepository`); `OrderStatusService` → `MenuItemRepository`; `OrderHistoryService` → `CustomerRepository`; `PaymentMethodService` → `CustomerRepository`. They wait for C because fixing them naively creates cycles (`CustomerService ↔ OrderService`, `CustomerService ↔ CartService`), and breaking those means deciding what each domain owns.
+**Across domains, call the other domain's service, never its repository.** `CartService` asks `CustomerService.findActiveCustomer` and `RestaurantService.decrementStock`; it does not inject `CustomerRepository` or `MenuItemRepository`. This keeps each domain's queries and rules behind one door. Entity mappings across domains (`Order.customer`, `CartItem.menuItem`) are allowed: they are the schema's foreign keys, and JPQL may join through them. Only injection is restricted. The methods other domains call carry no `@Transactional`; they join the caller's transaction. A domain's service can exist before its controller when other domains need it: `RestaurantService` has none until the restaurant CRUD (#85–#101). The create-order chain's `ProcessPaymentHandler` uses `PaymentProcessor` directly, because it is a payment component, not a repository. ADR 0004 records why. To check, from `restaurant/` (prints nothing when clean):
+
+```bash
+for d in cart customer order payment restaurant user; do
+  grep -rln "import com\.mentorship\.restaurant\.$d\.repository\." src/main/java/com/mentorship/restaurant --include='*.java' \
+    | grep -v "/com/mentorship/restaurant/$d/"
+done
+```
+
+**A use-case whose dependencies would close a cycle gets its own service.** Delete-customer needs order, and order needs customer through cart and address, so `deleteCustomer` lives in `CustomerDeletionService`, not `CustomerService`; `CustomerController` injects both. Nothing points back at it, so there is no cycle. Reach for this before `@Lazy`, which hides a cycle instead of removing it.
 
 **A `@Transactional` method called from the same class gets no transaction of its own.** The call skips Spring's proxy, so the annotation is ignored. When each item of a loop needs its own transaction, use `TransactionTemplate`: `OrderStatusService.autoRejectStaleOrders` rejects each stale order in its own, so one failure neither rolls back nor stops the rest.
 
@@ -71,7 +80,8 @@ Shape and range live on the request as Jakarta annotations (`@NotNull`, `@Positi
 ```text
 Controller  -> <Domain>Service   (@Service, @Transactional, the logic; one per controller)
             -> <Primary>Service  (shared guards within a domain, injected one way)
-            -> Repositories      (all lookups; own domain only — see the cross-domain rule)
+            -> Other domains' services (never their repositories — see the cross-domain rule)
+            -> Repositories      (all lookups; own domain only)
             -> Entities          (anemic)
             -> Mappers           (responses)
 ```
