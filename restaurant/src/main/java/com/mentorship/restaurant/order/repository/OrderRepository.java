@@ -58,18 +58,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   Optional<OrderOwnerProjection> findOwnerById(@Param("orderId") Long orderId);
 
   /**
-   * Loads the order with its customer and the customer's user in one query, so a handler can check
-   * ownership and the owner's soft delete without a second round trip. Soft-deleted owners are not
-   * filtered.
+   * Everything rate-order checks, in one query: the owner, the owner's soft delete, the status, and
+   * whether a rating exists. Soft-deleted owners are not filtered; the service decides.
    */
   @Query(
       """
-      select o from Order o
-      join fetch o.customer customer
-      join fetch customer.user
+      select customer.id as customerId, user.userDeletedAt as customerDeletedAt,
+             o.status as status, case when rating.id is null then false else true end as rated
+      from Order o join o.customer customer join customer.user user
+      left join OrderRating rating on rating.order = o
       where o.id = :orderId
       """)
-  Optional<Order> findByIdWithOwner(@Param("orderId") Long orderId);
+  Optional<OrderRatingContextProjection> findRatingContextById(@Param("orderId") Long orderId);
 
   @Modifying(flushAutomatically = true)
   @Query("update Order o set o.prepTimeMinutes = :minutes where o.id = :orderId")
