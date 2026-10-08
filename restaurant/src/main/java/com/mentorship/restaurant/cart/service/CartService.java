@@ -191,20 +191,20 @@ public class CartService {
   }
 
   private Cart createCartFor(Customer customer) {
-    Cart cart = new Cart();
-    cart.setCustomer(customer);
-    return cartRepository.save(cart);
+    return cartRepository.save(Cart.builder().customer(customer).build());
   }
 
   private CartItem newLine(Cart cart, MenuItem menuItem, Integer quantity, String note) {
-    CartItem line = new CartItem();
-    line.setCart(cart);
-    line.setMenuItem(menuItem);
-    line.setQuantity(quantity);
-    line.setNote(note);
-    // Captured from the menu item, so a later menu price change does not reprice
-    // what is already in the cart.
-    line.setItemPrice(menuItem.getItemPrice());
+    CartItem line =
+        CartItem.builder()
+            .cart(cart)
+            .menuItem(menuItem)
+            .quantity(quantity)
+            .note(note)
+            // Captured from the menu item, so a later menu price change does not reprice
+            // what is already in the cart.
+            .itemPrice(menuItem.getItemPrice())
+            .build();
     return cartItemRepository.save(line);
   }
 
