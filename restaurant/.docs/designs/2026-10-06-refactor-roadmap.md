@@ -13,7 +13,7 @@ history can pick it up. Each sub-project gets its own design → plan → PR, an
 | A | Safety net: green `main`, working create-order chain, end-to-end tests pinning today's order behaviour (#82 §1, §2 chain, §5 tests) | **Done.** PR open, waiting for review | `2026-10-06-order-safety-net-design.md` | `feat/GH-82-order-safety-net`, #102 |
 | B | Remove the handler pattern: one service per controller | **Done.** PR open, waiting for review | `2026-10-06-remove-handlers-design.md` | `feat/GH-84-remove-handlers`, #103, stacked on A; targets `feat/GH-82-order-safety-net` |
 | C | Domain boundaries: C1 moves code to its owning domain, C2 fixes cross-domain dependencies | **Done.** C1 and C2 PRs open as drafts, waiting for review | `2026-10-07-domain-boundaries-design.md` | C1 `feat/GH-84-domain-moves`, #105, stacked on B; C2 `feat/GH-84-domain-boundaries`, #106, stacked on C1 |
-| D | The mentor's smaller points: D1 builders and names, D2 the rating and history queries | **Design approved (2026-10-08).** Next: D1's plan | `2026-10-08-mentor-points-design.md` | D1 `feat/GH-84-builders-and-names` (stacked on C2), D2 `feat/GH-84-query-builtins` (stacked on D1) |
+| D | The mentor's smaller points: D1 builders and names, D2 the rating and history queries | **D1 done.** Draft PR open, waiting for review. Next: D2's plan | `2026-10-08-mentor-points-design.md` | D1 `feat/GH-84-builders-and-names`, #107, stacked on C2, D2 `feat/GH-84-query-builtins` (stacked on D1) |
 
 Order matters: each step needs the previous one's tests or structure. A pins behaviour; B
 restructures; C moves code between domains; D renames and reshapes.
