@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Menu items and their stock, for the cart and order domains. No controller yet: the restaurant
- * and menu CRUD (#85-#101) adds one. Every method joins the caller's transaction.
+ * Menu items and their stock, for the cart and order domains. No controller yet: the restaurant and
+ * menu CRUD (#85-#101) adds one. Every method joins the caller's transaction.
  */
 @Service
 @RequiredArgsConstructor

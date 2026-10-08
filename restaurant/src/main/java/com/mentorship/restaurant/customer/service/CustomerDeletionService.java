@@ -9,10 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Delete-customer, on its own because it is the only customer use-case that needs the order
- * domain, and order (through cart and address) needs {@link CustomerService}. Inside
- * CustomerService it would close a constructor-injection cycle; here nothing points back at it.
- * ADR 0004.
+ * Delete-customer, on its own because it is the only customer use-case that needs the order domain,
+ * and order (through cart and address) needs {@link CustomerService}. Inside CustomerService it
+ * would close a constructor-injection cycle; here nothing points back at it. ADR 0004.
  */
 @Service
 @RequiredArgsConstructor

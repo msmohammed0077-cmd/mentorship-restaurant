@@ -184,7 +184,6 @@ public class OrderStatusService {
   /** Puts every line's quantity back on its menu item. */
   private void restoreStock(Long orderId) {
     List<OrderLineProjection> lines = orderItemRepository.findLinesByOrderId(orderId);
-    lines.forEach(
-        line -> restaurantService.restoreStock(line.getMenuItemId(), line.getQuantity()));
+    lines.forEach(line -> restaurantService.restoreStock(line.getMenuItemId(), line.getQuantity()));
   }
 }
