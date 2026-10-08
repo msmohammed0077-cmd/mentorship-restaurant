@@ -39,11 +39,13 @@ public class OrderRatingService {
     ensureOrderIsDelivered(order);
     ensureOrderIsNotRated(orderId);
 
-    OrderRating rating = new OrderRating();
-    rating.setOrder(order);
-    rating.setScore(score);
-    rating.setComment(comment);
-    rating.setCreatedAt(OffsetDateTime.now());
+    OrderRating rating =
+        OrderRating.builder()
+            .order(order)
+            .score(score)
+            .comment(comment)
+            .createdAt(OffsetDateTime.now())
+            .build();
 
     try {
       return orderRatingMapper.toResponse(orderRatingRepository.saveAndFlush(rating));

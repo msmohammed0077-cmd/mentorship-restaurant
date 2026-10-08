@@ -8,9 +8,9 @@ import lombok.*;
 @Table(name = "order_tracking")
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class OrderTracking {
 
   @Id

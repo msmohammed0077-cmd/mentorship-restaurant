@@ -172,13 +172,14 @@ public class OrderStatusService {
   }
 
   private void recordHistory(Long orderId, OrderTransition transition, ActorRole role) {
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(orderRepository.getReferenceById(orderId));
-    history.setFromStatus(transition.from());
-    history.setToStatus(transition.to());
-    history.setActorRole(role);
-    history.setAt(OffsetDateTime.now());
-    orderStatusHistoryRepository.save(history);
+    orderStatusHistoryRepository.save(
+        OrderStatusHistory.builder()
+            .order(orderRepository.getReferenceById(orderId))
+            .fromStatus(transition.from())
+            .toStatus(transition.to())
+            .actorRole(role)
+            .at(OffsetDateTime.now())
+            .build());
   }
 
   /** Puts every line's quantity back on its menu item. */

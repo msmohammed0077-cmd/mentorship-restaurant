@@ -46,19 +46,20 @@ public class OrderMapper {
 
   public Order createNewOrderEntity(
       CreateOrderRequest request, Cart cart, Address address, Transaction transaction) {
-    Order order = new Order();
-
-    order.setStatus(OrderStatus.PLACED);
-    order.setAddress(address);
-    order.setTransaction(transaction);
-    order.setCustomer(cart.getCustomer());
-    order.setRestaurant(cart.getItems().get(0).getMenuItem().getMenu().getRestaurant());
+    Order order =
+        Order.builder()
+            .status(OrderStatus.PLACED)
+            .address(address)
+            .transaction(transaction)
+            .customer(cart.getCustomer())
+            .restaurant(cart.getItems().get(0).getMenuItem().getMenu().getRestaurant())
+            .customerNote(request.getCustomerNote())
+            .build();
     if (transaction != null) {
       transaction.setOrder(order);
     }
 
-    order.setCustomerNote(request.getCustomerNote());
-
+    // The items point back at the order, so they are built after it.
     List<OrderItem> orderItems =
         cart.getItems().stream().map(cartItem -> toOrderItem(cartItem, order)).toList();
 
@@ -78,14 +79,13 @@ public class OrderMapper {
 
     MenuItem menuItem = cartItem.getMenuItem();
 
-    OrderItem orderItem = new OrderItem();
-    orderItem.setOrder(order);
-    orderItem.setMenuItem(menuItem);
-    orderItem.setItemName(menuItem.getName());
-    orderItem.setQuantity(cartItem.getQuantity());
-    orderItem.setItemPrice(cartItem.getItemPrice());
-
-    return orderItem;
+    return OrderItem.builder()
+        .order(order)
+        .menuItem(menuItem)
+        .itemName(menuItem.getName())
+        .quantity(cartItem.getQuantity())
+        .itemPrice(cartItem.getItemPrice())
+        .build();
   }
 
   private TransactionResponse toTransactionResponse(Transaction transaction) {
