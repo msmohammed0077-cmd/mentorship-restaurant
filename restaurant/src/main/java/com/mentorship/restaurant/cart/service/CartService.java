@@ -15,12 +15,11 @@ import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
-import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
-import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
+import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +34,7 @@ public class CartService {
   private final CartRepository cartRepository;
   private final CartItemRepository cartItemRepository;
   private final CustomerRepository customerRepository;
-  private final MenuItemRepository menuItemRepository;
+  private final RestaurantService restaurantService;
   private final CartMapper cartMapper;
 
   private record Line(Long menuItemId, Integer quantity) {}
@@ -46,10 +45,7 @@ public class CartService {
         customerRepository
             .findActiveById(customerId)
             .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
-    MenuItem menuItem =
-        menuItemRepository
-            .findById(menuItemId)
-            .orElseThrow(() -> new MenuItemNotFoundException("Item not found"));
+    MenuItem menuItem = restaurantService.findMenuItem(menuItemId);
     Cart cart = cartRepository.findByCustomer_Id(customerId).orElse(null);
 
     validateNewLine(cart, menuItem, quantity);
@@ -110,7 +106,7 @@ public class CartService {
       throw new EmptyCartException("Cart is empty");
     }
 
-    lines.forEach(this::decrementStockAtomically);
+    lines.forEach(line -> restaurantService.decrementStock(line.menuItemId(), line.quantity()));
     cartItemRepository.deleteAllByCart_Id(cartId);
 
     return new CheckoutCartResponse("SUCCESS", "Payment successful");
@@ -214,13 +210,5 @@ public class CartService {
     return cart.getItems().stream()
         .map(cartItem -> new Line(cartItem.getMenuItem().getId(), cartItem.getQuantity()))
         .toList();
-  }
-
-  private void decrementStockAtomically(Line line) {
-    int updatedRows =
-        menuItemRepository.decrementStockIfAvailable(line.menuItemId(), line.quantity());
-    if (updatedRows == 0) {
-      throw new OutOfStockException("Requested quantity exceeds available stock");
-    }
   }
 }

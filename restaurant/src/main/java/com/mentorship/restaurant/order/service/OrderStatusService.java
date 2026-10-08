@@ -16,7 +16,7 @@ import com.mentorship.restaurant.order.repository.OrderLineProjection;
 import com.mentorship.restaurant.order.repository.OrderOwnerProjection;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
-import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
+import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +37,7 @@ public class OrderStatusService {
   private final OrderRepository orderRepository;
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final OrderItemRepository orderItemRepository;
-  private final MenuItemRepository menuItemRepository;
+  private final RestaurantService restaurantService;
   private final OrderStatusMapper orderStatusMapper;
   private final OrderService orderService;
   private final TransactionTemplate transactionTemplate;
@@ -185,6 +185,6 @@ public class OrderStatusService {
   private void restoreStock(Long orderId) {
     List<OrderLineProjection> lines = orderItemRepository.findLinesByOrderId(orderId);
     lines.forEach(
-        line -> menuItemRepository.incrementStock(line.getMenuItemId(), line.getQuantity()));
+        line -> restaurantService.restoreStock(line.getMenuItemId(), line.getQuantity()));
   }
 }
