@@ -16,7 +16,7 @@ import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.payment.service.PaymentMethodService;
 import com.mentorship.restaurant.user.model.entity.User;
-import com.mentorship.restaurant.user.repository.UserRepository;
+import com.mentorship.restaurant.user.service.UserService;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -39,7 +39,7 @@ public class CustomerService {
           .collect(Collectors.toCollection(() -> EnumSet.noneOf(OrderStatus.class)));
 
   private final CustomerRepository customerRepository;
-  private final UserRepository userRepository;
+  private final UserService userService;
   private final OrderRepository orderRepository;
   private final CartRepository cartRepository;
   private final CustomerMapper customerMapper;
@@ -60,7 +60,7 @@ public class CustomerService {
     user.setUserGender(request.getGender());
 
     Customer customer = new Customer();
-    customer.setUser(userRepository.save(user));
+    customer.setUser(userService.create(user));
 
     return customerMapper.toResponse(customerRepository.save(customer));
   }
@@ -142,13 +142,13 @@ public class CustomerService {
   }
 
   private void ensureEmailAvailable(String email) {
-    if (userRepository.existsActiveByEmail(email)) {
+    if (userService.isEmailTaken(email)) {
       throw new EmailAlreadyInUseException("Email is already in use");
     }
   }
 
   private void ensureEmailAvailableExcept(String email, Long userId) {
-    if (userRepository.existsActiveByEmailAndIdNot(email, userId)) {
+    if (userService.isEmailTakenByOther(email, userId)) {
       throw new EmailAlreadyInUseException("Email is already in use");
     }
   }
