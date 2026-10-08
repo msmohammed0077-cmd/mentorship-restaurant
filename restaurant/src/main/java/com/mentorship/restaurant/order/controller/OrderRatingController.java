@@ -22,10 +22,10 @@ public class OrderRatingController {
   private final OrderRatingService orderRatingService;
 
   @PostMapping("/{orderId}/rating")
-  public ResponseEntity<OrderRatingResponse> rate(
+  public ResponseEntity<OrderRatingResponse> rateOrder(
       @PathVariable Long orderId, @Valid @RequestBody RateOrderRequest request) {
     OrderRatingResponse response =
-        orderRatingService.rate(
+        orderRatingService.rateOrder(
             orderId, request.getCustomerId(), request.getScore(), request.getComment());
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }

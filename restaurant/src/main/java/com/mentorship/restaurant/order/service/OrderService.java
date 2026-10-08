@@ -22,10 +22,6 @@ import com.mentorship.restaurant.order.service.createorder.ProcessPaymentHandler
 import com.mentorship.restaurant.order.service.createorder.SendNotificationHandler;
 import com.mentorship.restaurant.payment.service.PaymentProcessor;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,12 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
-  /** Derived from {@link OrderStatus#isTerminal()} so the two can never disagree. */
-  private static final Set<OrderStatus> ACTIVE_ORDER_STATUSES =
-      Arrays.stream(OrderStatus.values())
-          .filter(status -> !status.isTerminal())
-          .collect(Collectors.toCollection(() -> EnumSet.noneOf(OrderStatus.class)));
 
   private final OrderRepository orderRepository;
   private final OrderMapper orderMapper;
@@ -89,7 +79,7 @@ public class OrderService {
    * caller's transaction.
    */
   public boolean hasActiveOrders(Long customerId) {
-    return orderRepository.existsByCustomer_IdAndStatusIn(customerId, ACTIVE_ORDER_STATUSES);
+    return orderRepository.existsByCustomer_IdAndStatusIn(customerId, OrderStatus.ACTIVE);
   }
 
   /** Shared: the order's owner (customer or restaurant) must be the actor. */

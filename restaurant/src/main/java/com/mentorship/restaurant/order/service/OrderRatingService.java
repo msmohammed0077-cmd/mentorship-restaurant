@@ -26,7 +26,7 @@ public class OrderRatingService {
   private final OrderService orderService;
 
   @Transactional
-  public OrderRatingResponse rate(Long orderId, Long customerId, Integer score, String comment) {
+  public OrderRatingResponse rateOrder(Long orderId, Long customerId, Integer score, String comment) {
     Order order =
         orderRepository
             .findByIdWithOwner(orderId)
