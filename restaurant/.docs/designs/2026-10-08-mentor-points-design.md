@@ -65,7 +65,7 @@ None. 177 tests pass and no test file changes.
 Today rating reads twice before it writes: `findByIdWithOwner` (order, customer, user) then `existsByOrderId`. D2 reads once, with an interface projection beside `OrderOwnerProjection`, the pattern cancel already uses:
 
 ```java
-public interface OrderRatingContext {
+public interface OrderRatingContextProjection {
   Long getCustomerId();
   OffsetDateTime getCustomerDeletedAt();   // null while active
   OrderStatus getStatus();
@@ -79,7 +79,7 @@ public interface OrderRatingContext {
     left join OrderRating r on r.order = o
     where o.id = :orderId
     """)
-Optional<OrderRatingContext> findRatingContextById(@Param("orderId") Long orderId);
+Optional<OrderRatingContextProjection> findRatingContextById(@Param("orderId") Long orderId);
 ```
 
 `rateOrder` runs today's checks in today's order on that row: empty → 404 "Order not found"; `orderService.ensureOwnedBy` → 403; `orderService.ensureOwnerActive` → 404; not `DELIVERED` → `OrderNotDeliveredException`; rated → 409 "Order is already rated". The rating is built with `orderRepository.getReferenceById(orderId)`, a proxy that issues no SELECT; `OrderRatingMapper` reads only the order's id, which the proxy holds. `saveAndFlush` and its unique-constraint catch stay as the backstop for two concurrent ratings.
@@ -93,17 +93,17 @@ Optional<OrderRatingContext> findRatingContextById(@Param("orderId") Long orderI
 The two hand-written keyset queries (`findFirstPage`, `findPageAfter`) and `paging/KeysetPage` give way to the Scroll API. Scrolling works only with derived query methods, Query-by-Example and Querydsl ("Scrolling with String-based query methods is not yet supported"), so the query becomes derived and returns entities:
 
 ```java
-@EntityGraph(attributePaths = "restaurant")
+@EntityGraph(attributePaths = {"restaurant", "transaction"})
 Window<Order> findByCustomer_IdOrderByCreatedAtDescIdDesc(
     Long customerId, ScrollPosition position, Limit limit);
 ```
 
-Spring writes the keyset condition, over-fetches one row to answer `hasNext()`, and keeps `createdAt desc, id desc`. **The plan's first step verifies** that a derived `Window` method takes `Limit` together with `@EntityGraph` on Spring Data JPA 4.1; the docs show the parts, not this combination. The fallback is the fluent `findBy(specification, q -> q.limit(…).sortBy(…).scroll(…))` through `JpaSpecificationExecutor`, still built in.
+The graph also loads `Order.transaction`, an eager inverse one-to-one that Hibernate would otherwise fetch with one SELECT per order. Spring writes the keyset condition, over-fetches one row to answer `hasNext()`, and keeps `createdAt desc, id desc`. **The plan's first step verifies** that a derived `Window` method takes `Limit` together with `@EntityGraph` on Spring Data JPA 4.1; the docs show the parts, not this combination. The fallback is the fluent `findBy(specification, q -> q.limit(…).sortBy(…).scroll(…))` through `JpaSpecificationExecutor`, still built in.
 
 `OrderHistoryService.viewOrderHistory` keeps its checks (role, customer exists, cursor usable), then:
 
 - **Cursor in:** none → `ScrollPosition.keyset()`; given → `ScrollPosition.forward(Map.of("createdAt", cursor.getCreatedAt(), "id", cursor.getOrderId()))`.
-- **Rows:** each `Order` maps to `OrderSummaryResponse` in Java. `status.name()` equals today's `cast(o.status as string)` because the column is `EnumType.STRING`; restaurant name, total and `createdAt` come from the entity.
+- **Rows:** `OrderMapper.toSummary` maps each `Order` to `OrderSummaryResponse`. `status.name()` equals today's `cast(o.status as string)` because the column is `EnumType.STRING`; restaurant name, total and `createdAt` come from the entity.
 - **Item counts:** one grouped query per page in `OrderItemRepository`, `select oi.order.id, count(oi) from OrderItem oi where oi.order.id in :orderIds group by oi.order.id`. It is the one piece the Scroll API cannot express (today it is a correlated subquery in the summary). A page becomes two SELECTs instead of one. Rejected: a `countBy` per row (N+1), `@Formula` on `Order` (a query on an entity), loading `items` to call `size()` (reads every line to count it).
 - **Cursor out:** if `window.hasNext()` and the page is not empty, the last row's `createdAt` and `id`; otherwise `next_cursor` is null. The same values as today.
 

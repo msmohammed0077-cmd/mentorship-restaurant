@@ -112,14 +112,15 @@ GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
 The API is **snake_case**. Java fields stay camelCase and Jackson renames them. `next_cursor` is
 **absent** on the last page rather than null.
 
-**The queries return the response DTO directly.** Spring Data rewrites the constructor expression,
-so there is no projection interface and no mapper — the repository names a response class, which is
-the cost of removing that layer. The `limit + 1` read, the trim and the "is there another page"
-answer live in a reusable `KeysetPage<T>`, since every future keyset endpoint repeats them.
+**The query returns `Order` entities, one keyset window at a time** (see *Paging*), and
+`OrderMapper.toSummary` builds each row. An entity graph loads the restaurant and the order's
+transaction in the same SELECT; the transaction is an eager inverse one-to-one, which would
+otherwise cost one SELECT per order.
 
 Rows are **summaries**. Line items are not included — a history list is a list, and the detail view
 is [#36](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/36). `item_count` comes
-from a count projection, not from loading the lines.
+from one grouped count per page (`OrderItemRepository.countItemsByOrderIds`), not from loading the
+lines; an order with no lines counts 0.
 
 ## Paging
 
@@ -127,31 +128,29 @@ Keyset, not offset. Order history is append-heavy and read newest-first, which i
 offset drifts: an order placed mid-scroll shifts every later row down a page, so the reader sees one
 row twice and never sees another.
 
-The first page and later pages are **two separate queries**, not one query with a nullable cursor.
-Postgres cannot infer a type for a bare `:param is null` placeholder and fails the statement
-outright:
-
-```text
-ERROR: could not determine data type of parameter $2
-```
-
-Splitting also keeps each statement on the index without an `OR` in the way:
+**Spring Data's Scroll API does the keyset work** (ADR 0006). `OrderRepository.findByCustomer_IdOrderByCreatedAtDescIdDesc(customerId, position, limit)`
+returns a `Window<Order>`. The first page starts from `ScrollPosition.keyset()`; a later one from
+`ScrollPosition.forward({createdAt, id})`, built from the cursor. Spring writes the equivalent of
+the condition this use-case used to write by hand:
 
 ```sql
--- first page
+-- first page: no cursor condition at all
 WHERE customer_id = :customerId
 ORDER BY order_created_at DESC, order_id DESC
-LIMIT :limit
 
 -- pages after a cursor
 WHERE customer_id = :customerId
   AND (order_created_at < :cursorTs
        OR (order_created_at = :cursorTs AND order_id < :cursorId))
 ORDER BY order_created_at DESC, order_id DESC
-LIMIT :limit
 ```
 
-The row-value comparison is written out as an `OR` because HQL has no tuple comparison.
+The first page carries no cursor parameter, so no bare `:param is null` placeholder reaches
+Postgres, which cannot infer a type for one (`could not determine data type of parameter $2`).
+
+**The method is derived, not `@Query`,** because Spring Data scrolls only derived queries,
+Query-by-Example and Querydsl. That is why rows are entities mapped in Java rather than a DTO built
+in the query, and why the item count is a second, grouped query: a derived method cannot express it.
 
 The cursor is composite because `order_created_at` is not unique — two orders can share a
 timestamp, and `order_id` is what keeps the page boundary stable when they do.
@@ -169,7 +168,7 @@ clients, where an opaque cursor could have been changed freely.
 Validation stays, because the values are still caller-supplied: half a cursor is a 400, and a
 timestamp outside year 1–9999 is a 400 rather than a 500 from Postgres.
 
-`limit + 1` rows are read, so the last page is detected without a second count query.
+Spring reads `limit + 1` rows and answers `Window.hasNext()`, so the last page is detected without a total count.
 
 The cost, accepted: **no total count and no page numbers.** Keyset paging cannot cheaply produce
 either.
@@ -238,6 +237,7 @@ sequenceDiagram
     participant H as OrderHistoryService
     participant CS as CustomerService
     participant OR as OrderRepository
+    participant OIR as OrderItemRepository
 
     Customer->>C: GET /api/v1/orders?customerId&role&limit&cursor
     C->>H: viewOrderHistory(request)
@@ -252,11 +252,14 @@ sequenceDiagram
     end
 
     alt no cursor
-        H->>OR: findFirstPage(customerId, limit + 1)
+        H->>OR: findByCustomer_IdOrderByCreatedAtDescIdDesc(customerId, keyset(), limit)
     else cursor given
-        H->>OR: findPageAfter(customerId, cursorTs, cursorId, limit + 1)
+        H->>OR: findByCustomer_IdOrderByCreatedAtDescIdDesc(customerId, forward(createdAt, id), limit)
     end
-    OR-->>H: List<OrderSummaryProjection>
+    OR-->>H: Window<Order> (restaurant and transaction fetched)
+    H->>OIR: countItemsByOrderIds(the page's order ids)
+    OIR-->>H: List<OrderItemCountProjection>
+    H->>H: OrderMapper.toSummary per order; nextCursor from the last row if hasNext()
 
     H-->>C: OrderHistoryResponse(orders, nextCursor)
     C-->>Customer: 200 OK
@@ -267,8 +270,9 @@ sequenceDiagram
 ```text
 OrderHistoryController -> OrderHistoryService      (@Service, @Transactional(readOnly = true))
                        -> CustomerService          (ensureActiveCustomerExists)
-                       -> OrderRepository          (the two keyset queries)
-                       -> KeysetPage<T>            (limit + 1, trim, hasMore)
+                       -> OrderRepository          (Window<Order>: Spring Data keyset scrolling)
+                       -> OrderItemRepository      (countItemsByOrderIds, one grouped query)
+                       -> OrderMapper              (toSummary)
 ```
 
 A separate controller from `OrderStatusController`: that one owns transitions, this one owns a read.

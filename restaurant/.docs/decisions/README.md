@@ -10,5 +10,6 @@ Use [`_template.md`](./_template.md) for new records.
 - [0003 — Domain layout](./0003-domain-layout.md)
 - [0004 — Cross-domain access through services](./0004-cross-domain-access-through-services.md)
 - [0005 — Builders on entities](./0005-builders-on-entities.md)
+- [0006 — Keyset paging with the Scroll API](./0006-keyset-paging-with-the-scroll-api.md)
 
 <!-- Add new ADRs here as they're written. -->
