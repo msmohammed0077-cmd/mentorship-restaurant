@@ -8,9 +8,6 @@ import org.springframework.stereotype.Component;
 public class PaymentProcessor {
 
   public Transaction process(String cardId) {
-    Transaction transaction = new Transaction();
-    transaction.setStatus("PAID");
-    transaction.setTransactionDate(LocalDateTime.now());
-    return transaction;
+    return Transaction.builder().status("PAID").transactionDate(LocalDateTime.now()).build();
   }
 }

@@ -26,14 +26,16 @@ public class PaymentMethodService {
   public PaymentMethodResponse addPaymentMethod(Long customerId, AddPaymentMethodRequest request) {
     Customer customer = customerService.findActiveCustomer(customerId);
 
-    PaymentMethod paymentMethod = new PaymentMethod();
-    paymentMethod.setCustomer(customer);
-    paymentMethod.setBrand(request.getBrand());
-    paymentMethod.setLast4(request.getLast4());
-    paymentMethod.setExpiryMonth(request.getExpiryMonth());
-    paymentMethod.setExpiryYear(request.getExpiryYear());
-    paymentMethod.setHolderName(request.getHolderName());
-    paymentMethod.setDefault(!paymentMethodRepository.existsByCustomer_Id(customerId));
+    PaymentMethod paymentMethod =
+        PaymentMethod.builder()
+            .customer(customer)
+            .brand(request.getBrand())
+            .last4(request.getLast4())
+            .expiryMonth(request.getExpiryMonth())
+            .expiryYear(request.getExpiryYear())
+            .holderName(request.getHolderName())
+            .isDefault(!paymentMethodRepository.existsByCustomer_Id(customerId))
+            .build();
 
     return paymentMethodMapper.toResponse(paymentMethodRepository.save(paymentMethod));
   }
