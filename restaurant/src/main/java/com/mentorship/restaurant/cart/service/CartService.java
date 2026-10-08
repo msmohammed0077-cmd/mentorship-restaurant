@@ -12,9 +12,8 @@ import com.mentorship.restaurant.cart.model.response.CartResponse;
 import com.mentorship.restaurant.cart.model.response.CheckoutCartResponse;
 import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
-import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
+import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
@@ -33,7 +32,7 @@ public class CartService {
 
   private final CartRepository cartRepository;
   private final CartItemRepository cartItemRepository;
-  private final CustomerRepository customerRepository;
+  private final CustomerService customerService;
   private final RestaurantService restaurantService;
   private final CartMapper cartMapper;
 
@@ -41,10 +40,7 @@ public class CartService {
 
   @Transactional
   public CartResponse addItem(Long customerId, Long menuItemId, Integer quantity, String note) {
-    Customer customer =
-        customerRepository
-            .findActiveById(customerId)
-            .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+    Customer customer = customerService.findActiveCustomer(customerId);
     MenuItem menuItem = restaurantService.findMenuItem(menuItemId);
     Cart cart = cartRepository.findByCustomer_Id(customerId).orElse(null);
 

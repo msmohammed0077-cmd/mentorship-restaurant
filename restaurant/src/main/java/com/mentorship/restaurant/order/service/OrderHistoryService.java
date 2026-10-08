@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.order.service;
 
-import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
+import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.order.exception.InvalidCursorException;
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.OrderCursor;
@@ -23,14 +22,14 @@ public class OrderHistoryService {
   private static final int MIN_YEAR = 1;
   private static final int MAX_YEAR = 9999;
 
-  private final CustomerRepository customerRepository;
+  private final CustomerService customerService;
   private final OrderRepository orderRepository;
 
   @Transactional(readOnly = true)
   public OrderHistoryResponse viewOrderHistory(
       Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
     ensureCustomerRole(role);
-    ensureCustomerExists(customerId);
+    customerService.ensureActiveCustomerExists(customerId);
     ensureCursorIsUsable(cursor);
 
     PageRequest pageRequest = PageRequest.of(0, limit + 1);
@@ -48,12 +47,6 @@ public class OrderHistoryService {
     if (role != ActorRole.CUSTOMER) {
       throw new TransitionNotAllowedForRoleException(
           "Role " + role + " may not read order history");
-    }
-  }
-
-  private void ensureCustomerExists(Long customerId) {
-    if (!customerRepository.existsActiveById(customerId)) {
-      throw new CustomerNotFoundException("Customer not found");
     }
   }
 

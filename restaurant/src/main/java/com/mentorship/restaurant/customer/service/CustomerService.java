@@ -14,7 +14,6 @@ import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.repository.OrderRepository;
-import com.mentorship.restaurant.payment.service.PaymentMethodService;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.time.OffsetDateTime;
@@ -122,13 +121,20 @@ public class CustomerService {
   }
 
   /**
-   * The active customer, else a 404. Shared with {@link AddressService} and {@link
-   * PaymentMethodService}; joins the caller's transaction.
+   * The active customer, else a 404. Shared with {@link AddressService} and with the cart, payment
+   * and delete-customer services; joins the caller's transaction.
    */
   public Customer findActiveCustomer(Long customerId) {
     return customerRepository
         .findActiveById(customerId)
         .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+  }
+
+  /** {@link #findActiveCustomer} for callers that need no entity: one count query, same 404. */
+  public void ensureActiveCustomerExists(Long customerId) {
+    if (!customerRepository.existsActiveById(customerId)) {
+      throw new CustomerNotFoundException("Customer not found");
+    }
   }
 
   /**

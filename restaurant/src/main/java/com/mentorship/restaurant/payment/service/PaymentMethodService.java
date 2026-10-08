@@ -1,8 +1,6 @@
 package com.mentorship.restaurant.payment.service;
 
-import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
-import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.payment.exception.PaymentMethodAccessDeniedException;
 import com.mentorship.restaurant.payment.exception.PaymentMethodNotFoundException;
@@ -21,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentMethodService {
 
   private final PaymentMethodRepository paymentMethodRepository;
-  private final CustomerRepository customerRepository;
   private final CustomerService customerService;
   private final PaymentMethodMapper paymentMethodMapper;
 
@@ -44,10 +41,8 @@ public class PaymentMethodService {
   /** A read: expired saved cards are still listed. */
   @Transactional(readOnly = true)
   public List<PaymentMethodResponse> viewPaymentMethods(Long customerId) {
-    Customer customer =
-        customerRepository
-            .findByIdWithPaymentMethods(customerId)
-            .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+    // The collection loads lazily inside this read-only transaction, ordered by its @OrderBy.
+    Customer customer = customerService.findActiveCustomer(customerId);
 
     return paymentMethodMapper.toResponseList(customer.getPaymentMethods());
   }
