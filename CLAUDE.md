@@ -41,9 +41,9 @@ done
 
 **A `@Transactional` method called from the same class gets no transaction of its own.** The call skips Spring's proxy, so the annotation is ignored. When each item of a loop needs its own transaction, use `TransactionTemplate`: `OrderStatusService.autoRejectStaleOrders` rejects each stale order in its own, so one failure neither rolls back nor stops the rest.
 
-**Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no factories, no queries. Do not put business rules on an entity.
+**Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no hand-written factory methods, no queries. Do not put business rules on an entity.
 
-`@NoArgsConstructor(access = PROTECTED)` is the default, but `Cart` and `CartItem` use a plain `@NoArgsConstructor` because services construct them from another package. Widen an entity only when application code has to build it.
+**An entity the application creates has a builder; setters change it.** It carries `@Builder`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` for Hibernate and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` for the builder, so nothing outside calls a constructor. **An initialised field needs `@Builder.Default`** (`private List<CartItem> items = new ArrayList<>();`): without it the builder sets the list to null, and the first `getItems().add(...)` throws. Updates keep using setters, which dirty checking turns into the `UPDATE`. An entity the application never creates (`Restaurant`, `Menu`, `MenuItem`) has only the protected no-args constructor. ADR 0005 records why.
 
 **Lombok and `boolean` fields:** `private boolean isOpen` generates `isOpen()` **and `setOpen()`** — it strips the `is` prefix from the setter but not the getter.
 
