@@ -42,7 +42,7 @@ It does not deliver cancel (#41) or order creation (#35).
 
 Restock, refund and coupon release are needed identically by **reject here** and **cancel in #41**.
 Cancel is only legal while `PLACED`, and reject only happens from `PLACED`, so **they are the same
-operation from the same state**. It is written once, here, as `CompensateOrderHandler`.
+operation from the same state**. It is written once, here, as `OrderStatusService.restoreStock`.
 
 Two copies of this would drift, and the copy that drifts is the one that silently fails to restore
 stock.
@@ -53,12 +53,13 @@ stock.
 | **Refund** | **Not implemented.** There is no payment in this codebase — checkout's "Payment successful" is a hardcoded string. When payment is real, it belongs in this method. |
 | **Release coupon** | **Not implemented.** There are no coupons in this codebase — no table, no entity, no endpoint. When they exist, they belong in this method. |
 
-The two unimplemented steps are named in the handler rather than silently absent, so the next person
+The two unimplemented steps are named in the method rather than silently absent, so the next person
 adds them here instead of discovering the gap in production. This use-case does **not** fake them
 with empty no-op classes; an empty class that looks implemented is worse than an absence that is
 documented.
 
-`CompensateOrderHandler` is `@Transactional(propagation = MANDATORY)` — it must never run in a
+`restoreStock` is a private method of `OrderStatusService`, so it only ever runs inside the caller's
+transaction (reject, cancel, or auto-reject's per-order `TransactionTemplate`) — it must never run in a
 transaction of its own. If the caller's transaction rolls back, the restock has to roll back with
 it, or a failed rejection hands stock back anyway.
 
@@ -184,7 +185,7 @@ the transition itself, since status and reason are written by two different stat
 
 ## Exception Flows
 
-- **Reason missing, or not in the fixed set:** 400. Rejected by validation before the handler runs.
+- **Reason missing, or not in the fixed set:** 400. Rejected by validation before the service runs.
 - **A restaurant supplying `NO_RESPONSE`:** 400 — "NO_RESPONSE is reserved for the system".
 - **`prep_time_minutes` not positive:** 400.
 - **Order not found:** 404.
@@ -222,7 +223,7 @@ order that was not actually moved would hand back stock twice.
 ## Two things the build changed
 
 **SYSTEM has no restaurant, and callers may not claim to be it.** The auto-reject sweep calls the
-same handler a restaurant does, but passes no `restaurantId`. The ownership check therefore skips
+same service method a restaurant does, but passes no `restaurantId`. The ownership check therefore skips
 the comparison for `SYSTEM` — while still checking existence, so the sweep cannot resurrect an order
 deleted while it was running.
 
@@ -240,16 +241,15 @@ failing type, package and all, and this project's rule is that error responses d
 ## Structure
 
 ```text
-OrderStatusController -> OrderService (delegates only)
-                      -> AcceptOrderHandler   (@Service, @Transactional)
-                      -> RejectOrderHandler    (@Service, @Transactional)
-                          -> UpdateOrderStatusHandler  (#47's transition + history)
-                          -> CompensateOrderHandler    (restock; #41 calls this too)
-                      -> AutoRejectStaleOrdersHandler  (the sweep's logic)
-                      -> AutoRejectStaleOrdersJob      (@Scheduled trigger only)
+OrderStatusController    -> OrderStatusService      (@Service)
+                               accept, reject          (@Transactional)
+                                 -> transition         (#47's transition + history)
+                                 -> restoreStock       (restock; cancel (#41) calls this too)
+                               autoRejectStaleOrders   (the sweep's logic; a TransactionTemplate per order)
+AutoRejectStaleOrdersJob -> OrderStatusService      (@Scheduled trigger only)
 ```
 
-`AcceptOrderHandler` and `RejectOrderHandler` are separate services rather than branches in one:
+`accept` and `reject` are separate methods rather than branches in one:
 they take different payloads, and only one of them compensates.
 
 ## Testing
@@ -282,7 +282,7 @@ creates them until #35.
 **The scheduled timer is disabled under test** (`app.orders.auto-reject.enabled=false`). A background
 sweep and a suite that seeds `PLACED` orders with past timestamps are in a race the suite would
 eventually lose — it passed only because the run finishes well inside the sweep's interval. The sweep
-test calls the handler directly, which exercises the same code without the timing.
+test calls the service directly, which exercises the same code without the timing.
 
 The two "stock not restored twice" cases matter most. A double restock is silent, permanent, and
 invisible until inventory drifts.
@@ -290,7 +290,7 @@ invisible until inventory drifts.
 # Notes
 
 1. **Refund and coupon release are not implemented** because neither payment nor coupons exist here.
-   They are named in `CompensateOrderHandler` so they are added in one place.
+   They are named in `OrderStatusService.restoreStock` so they are added in one place.
 2. **`NO_RESPONSE` is an addition to #48's listed set**, so an unanswered order is distinguishable
    from `OTHER`. Restaurants may not supply it.
 3. **Restock is one statement per line**, never read-modify-write, so a concurrent sale is not lost.

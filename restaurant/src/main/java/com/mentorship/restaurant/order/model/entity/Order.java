@@ -1,8 +1,9 @@
 package com.mentorship.restaurant.order.model.entity;
 
-import com.mentorship.restaurant.cart.model.entity.Restaurant;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.model.entity.Customer;
+import com.mentorship.restaurant.payment.model.entity.Transaction;
+import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +22,9 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,7 +34,9 @@ import org.hibernate.annotations.CreationTimestamp;
 @Table(name = "orders")
 @Getter
 @Setter
-@NoArgsConstructor
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Order {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,6 +77,7 @@ public class Order {
   private String rejectionNote;
 
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+  @Builder.Default
   private List<OrderItem> items = new ArrayList<>();
 
   @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)

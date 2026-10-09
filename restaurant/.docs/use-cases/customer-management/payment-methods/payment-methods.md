@@ -27,11 +27,10 @@ Any caller. There is no auth yet (see *Authorisation*).
 | Delete | `DELETE /api/v1/payment-methods/{paymentMethodId}?customerId={customerId}` | 204 |
 
 Adds migration `V13__create_payment_methods.sql`, the `PaymentMethod` entity and `CardBrand` enum,
-`PaymentMethodRepository`, `AddPaymentMethodHandler`, `ViewPaymentMethodsHandler`,
-`SetDefaultPaymentMethodHandler`, `DeletePaymentMethodHandler`, `PaymentMethodService`,
+`PaymentMethodRepository`, `PaymentMethodService`,
 `PaymentMethodController`, `PaymentMethodMapper`, two exceptions, and the `@NotExpired` request
-constraint. Builds on `CustomerRepository.findActiveById` from #69 and #72, and adds
-`CustomerRepository.findByIdWithPaymentMethods` and the `Customer.paymentMethods` collection.
+constraint. Builds on `CustomerService.findActiveCustomer` from #69 and #72, and adds the
+`Customer.paymentMethods` collection.
 
 ### What a payment method is
 
@@ -49,11 +48,11 @@ number (PAN) or a CVV — that would put the project in PCI-DSS scope. A request
    month". A card is valid through the end of its expiry month: it is expired iff
    `YearMonth.of(year, month).isBefore(YearMonth.now())`. The check is the class-level
    `@NotExpired` constraint on `AddPaymentMethodRequest` (validator in
-   `customer/model/validation/`): it depends only on request fields and today's date, so per the
-   validation rule it belongs on the request, not in the handler. It reports on the
+   `payment/model/validation/`): it depends only on request fields and today's date, so per the
+   validation rule it belongs on the request, not in the service. It reports on the
    `expiryMonth` property because `GlobalExceptionHandler` formats field errors only, and it passes
    when either field is missing or the month is out of range, leaving those to the field
-   constraints. Because it runs before the handler, an expired card for an unknown customer is a
+   constraints. Because it runs before the service, an expired card for an unknown customer is a
    400, not a 404.
 4. **At most one default per customer**, enforced by the partial unique index
    `uq_payment_methods_one_default_per_customer` (as V8 does for addresses). Setting a default
@@ -150,19 +149,19 @@ indexed), `payment_method_brand`, `payment_method_last4` (`CHAR(4)`),
 | Method | Used by | Notes |
 | --- | --- | --- |
 | `existsByCustomer_Id` | add | decides whether the new card is the first |
-| `findByIdWithOwner` | set default, delete | by payment-method id only; `join fetch` the customer and its user, **no** soft-delete filter — the handler decides (rule 6) |
+| `findByIdWithOwner` | set default, delete | by payment-method id only; `join fetch` the customer and its user, **no** soft-delete filter — the service decides (rule 6) |
 | `clearDefaultForCustomer` | set default | `@Modifying(flushAutomatically = true)`, one `UPDATE` scoped to the customer |
 
-`CustomerRepository`:
+`CustomerService` (never `CustomerRepository`, another domain's: ADR 0004):
 
 | Method | Used by | Notes |
 | --- | --- | --- |
-| `findActiveById` | add | the entity is needed to link the card |
-| `findByIdWithPaymentMethods` | list | `join fetch` user, `left join fetch` `paymentMethods`, filters `userDeletedAt is null`; empty = 404 customer. Mirrors `findByIdWithAddresses` |
+| `findActiveCustomer` | add, list | filters `userDeletedAt is null`; absent = 404 customer. List then reads `customer.getPaymentMethods()` inside its read-only transaction |
+| `ensureActive` | set default, delete | the owner's soft-delete check, after the ownership check |
 
 `Customer.paymentMethods` is `@OneToMany(mappedBy = "customer")` with
 `@OrderBy("isDefault DESC, createdAt DESC, id DESC")`, so the list order lives on the mapping and
-the fetch query emits it as `ORDER BY`.
+loading the collection emits it as `ORDER BY`.
 
 ### Statements per request
 
@@ -185,17 +184,17 @@ that never violates it.
 **Bulk query vs managed entity.** Set default loads the chosen card (with its customer and user,
 which the bulk query does not touch either), then runs the bulk `UPDATE`
 that clears the old default. The bulk query bypasses the persistence context, but it only touches
-the *old* default row, never the loaded one, so the loaded entity is still accurate. The handler
+the *old* default row, never the loaded one, so the loaded entity is still accurate. The service
 then sets `isDefault` on it and dirty checking writes it at commit — after the old default was
 cleared, so the partial unique index is never violated. No `clearAutomatically`, no `save()`. Same
-shape as `SetDefaultAddressHandler`.
+shape as `AddressService.setDefaultAddress`.
 
 ## Main Success Scenarios
 
 ### Add
 
 1. The caller submits a card for a customer.
-2. The system validates the body, including that the card is not expired (400 before the handler).
+2. The system validates the body, including that the card is not expired (400 before the service).
 3. The system loads the active customer.
 4. The system marks it default if the customer has no card yet.
 5. The system saves it and returns 201.
@@ -224,7 +223,7 @@ shape as `SetDefaultAddressHandler`.
 ## Exception Flows
 
 - **Body invalid** (missing field, `last4` not four digits, month out of range, unknown brand, or
-  an expired card — "expiryMonth must not be before the current month"): 400, before the handler
+  an expired card — "expiryMonth must not be before the current month"): 400, before the service
   runs. Nothing is saved.
 - **`customerId` or path id missing or not a number:** 400.
 - **Customer unknown or soft-deleted** (add, list): 404, "Customer not found".
@@ -243,18 +242,16 @@ shape as `SetDefaultAddressHandler`.
 sequenceDiagram
     actor Caller
     participant C as PaymentMethodController
-    participant S as PaymentMethodService
-    participant H as AddPaymentMethodHandler
-    participant CR as CustomerRepository
+    participant H as PaymentMethodService
+    participant CS as CustomerService
     participant PR as PaymentMethodRepository
 
     Caller->>C: POST /api/v1/payment-methods?customerId=
     C->>C: @Valid body incl. @NotExpired (400 on shape error or expired card)
-    C->>S: addPaymentMethod(customerId, request)
-    S->>H: addPaymentMethod(customerId, request)
-    H->>CR: findActiveById(customerId)
-    alt empty (unknown or soft-deleted)
-        H-->>C: CustomerNotFoundException (404)
+    C->>H: addPaymentMethod(customerId, request)
+    H->>CS: findActiveCustomer(customerId)
+    alt unknown or soft-deleted
+        CS-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
     H->>PR: existsByCustomer_Id(customerId)
@@ -270,11 +267,11 @@ sequenceDiagram
 sequenceDiagram
     actor Caller
     participant C as PaymentMethodController
-    participant H as SetDefaultPaymentMethodHandler
+    participant H as PaymentMethodService
     participant PR as PaymentMethodRepository
 
     Caller->>C: PUT /api/v1/payment-methods/{id}/default?customerId=
-    C->>H: setDefaultPaymentMethod(customerId, id) (via PaymentMethodService)
+    C->>H: setDefaultPaymentMethod(customerId, id)
     H->>PR: findByIdWithOwner(id)
     Note over H,PR: one SELECT, join fetch customer and user
     alt empty
@@ -298,18 +295,16 @@ sequenceDiagram
     C-->>Caller: 200 OK
 ```
 
-Delete applies the same three checks as set default and removes the row. List is one
-`findByIdWithPaymentMethods` call: empty is a 404, otherwise the collection is mapped.
+Delete applies the same three checks as set default and removes the row. List calls
+`CustomerService.findActiveCustomer` (404 if absent) and maps `customer.getPaymentMethods()`.
 
 ## Structure
 
 ```text
-PaymentMethodController -> PaymentMethodService            (delegates only)
-                        -> AddPaymentMethodHandler         (@Transactional)
-                        -> ViewPaymentMethodsHandler       (@Transactional(readOnly = true))
-                        -> SetDefaultPaymentMethodHandler  (@Transactional)
-                        -> DeletePaymentMethodHandler      (@Transactional)
-                        -> CustomerRepository, PaymentMethodRepository
+PaymentMethodController -> PaymentMethodService            (@Service; add, set default, delete @Transactional;
+                                                             view @Transactional(readOnly = true))
+                        -> CustomerService                 (findActiveCustomer, ensureActive)
+                        -> PaymentMethodRepository
                         -> PaymentMethodMapper             (responses)
 ```
 

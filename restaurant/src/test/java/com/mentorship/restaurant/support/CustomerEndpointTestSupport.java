@@ -1,6 +1,9 @@
 package com.mentorship.restaurant.support;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,18 +84,109 @@ public abstract class CustomerEndpointTestSupport {
         jdbcTemplate.queryForObject(
             """
             INSERT INTO orders
-              (customer_id, restaurant_id, order_status, order_total, order_created_at)
-            VALUES (?, ?, ?, 370.00, ?)
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            VALUES (?, ?, ?, ?, 370.00, ?)
             RETURNING order_id
             """,
             Long.class,
             customerId,
             NILE_KITCHEN,
+            addressIdForCustomer(jdbcTemplate, customerId),
             status,
             OffsetDateTime.now());
     if (orderId == null) {
       throw new IllegalStateException("Order not created for customer " + customerId);
     }
     return orderId;
+  }
+
+  /**
+   * The customer's default address, else their newest, else a new one. Static so {@link
+   * OrderEndpointTestSupport}, which does not extend this class, can share it.
+   */
+  protected static long addressIdForCustomer(JdbcTemplate jdbcTemplate, long customerId) {
+    List<Long> existing =
+        jdbcTemplate.queryForList(
+            """
+            SELECT address_id FROM addresses WHERE customer_id = ?
+            ORDER BY address_is_default DESC, address_created_at DESC LIMIT 1
+            """,
+            Long.class,
+            customerId);
+    if (!existing.isEmpty()) {
+      return existing.get(0);
+    }
+    Long addressId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO addresses (
+              customer_id, address_label, address_line, address_city, address_area,
+              address_note, address_is_default
+            )
+            VALUES (?, 'Home', '12 Tahrir Street', 'Cairo', 'Dokki', 'Blue gate', TRUE)
+            RETURNING address_id
+            """,
+            Long.class,
+            customerId);
+    if (addressId == null) {
+      throw new IllegalStateException("Address not created for customer " + customerId);
+    }
+    return addressId;
+  }
+
+  /** Inserts an empty cart for the customer. Returns the cart id. */
+  protected long insertCart(long customerId) {
+    Long cartId =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id", Long.class, customerId);
+    if (cartId == null) {
+      throw new IllegalStateException("Cart not created for customer " + customerId);
+    }
+    return cartId;
+  }
+
+  /** Adds a line at the menu item's current price, as add-to-cart would. */
+  protected void insertCartItem(long cartId, long menuItemId, int quantity) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
+        SELECT ?, menu_item_id, ?, menu_item_price FROM menu_items WHERE menu_item_id = ?
+        """,
+        cartId,
+        quantity,
+        menuItemId);
+  }
+
+  protected boolean cartExists(long cartId) {
+    Boolean exists =
+        jdbcTemplate.queryForObject(
+            "SELECT EXISTS (SELECT 1 FROM carts WHERE cart_id = ?)", Boolean.class, cartId);
+    return Boolean.TRUE.equals(exists);
+  }
+
+  protected int stockFor(long menuItemId) {
+    Integer stock =
+        jdbcTemplate.queryForObject(
+            "SELECT menu_item_stock FROM menu_items WHERE menu_item_id = ?",
+            Integer.class,
+            menuItemId);
+    if (stock == null) {
+      throw new IllegalStateException("Stock not found for menu item " + menuItemId);
+    }
+    return stock;
+  }
+
+  protected int orderCountFor(long customerId) {
+    Integer count =
+        jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM orders WHERE customer_id = ?", Integer.class, customerId);
+    return count == null ? 0 : count;
+  }
+
+  protected Optional<Map<String, Object>> transactionFor(long orderId) {
+    return jdbcTemplate
+        .queryForList("SELECT * FROM transaction WHERE order_id = ?", orderId)
+        .stream()
+        .findFirst();
   }
 }

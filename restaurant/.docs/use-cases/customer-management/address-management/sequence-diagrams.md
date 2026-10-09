@@ -8,15 +8,13 @@ Related documents: [Use case](./address-management.md) and [Pseudocode](./pseudo
 sequenceDiagram
     actor Customer
     participant C as AddressController
-    participant S as AddressService
-    participant H as AddAddressHandler
+    participant H as AddressService
     participant Customers as CustomerRepository
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
     Customer->>C: POST /api/v1/addresses?customerId={customerId}
-    C->>S: addAddress(customerId, request)
-    S->>H: addAddress(customerId, request)
+    C->>H: addAddress(customerId, request)
     H->>Customers: findById(customerId)
     alt customer not found
         H-->>C: CustomerNotFoundException
@@ -30,8 +28,7 @@ sequenceDiagram
         Addresses-->>H: saved Address
         H->>M: toResponse(saved Address)
         M-->>H: AddressResponse
-        H-->>S: AddressResponse
-        S-->>C: AddressResponse
+        H-->>C: AddressResponse
         C-->>Customer: 201 Created
     end
 ```
@@ -42,15 +39,13 @@ sequenceDiagram
 sequenceDiagram
     actor Customer
     participant C as AddressController
-    participant S as AddressService
-    participant H as ViewAddressesHandler
+    participant H as AddressService
     participant Customers as CustomerRepository
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
     Customer->>C: GET /api/v1/addresses?customerId={customerId}
-    C->>S: viewAddresses(customerId)
-    S->>H: viewAddresses(customerId)
+    C->>H: viewAddresses(customerId)
     H->>Customers: existsById(customerId)
     alt customer not found
         H-->>C: CustomerNotFoundException
@@ -60,8 +55,7 @@ sequenceDiagram
         Addresses-->>H: addresses ordered default first, newest first
         H->>M: toResponseList(addresses)
         M-->>H: List<AddressResponse>
-        H-->>S: List<AddressResponse>
-        S-->>C: List<AddressResponse>
+        H-->>C: List<AddressResponse>
         C-->>Customer: 200 OK
     end
 ```
@@ -72,14 +66,12 @@ sequenceDiagram
 sequenceDiagram
     actor Customer
     participant C as AddressController
-    participant S as AddressService
-    participant H as UpdateAddressHandler
+    participant H as AddressService
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
     Customer->>C: PUT /api/v1/addresses/{addressId}?customerId={customerId}
-    C->>S: updateAddress(customerId, addressId, request)
-    S->>H: updateAddress(customerId, addressId, request)
+    C->>H: updateAddress(customerId, addressId, request)
     H->>Addresses: findById(addressId)
     alt address not found
         H-->>C: AddressNotFoundException
@@ -89,8 +81,7 @@ sequenceDiagram
         H->>H: replace label, line, city, area, note
         H->>M: toResponse(address)
         M-->>H: AddressResponse
-        H-->>S: AddressResponse
-        S-->>C: AddressResponse
+        H-->>C: AddressResponse
         C-->>Customer: 200 OK
     end
 ```
@@ -101,14 +92,12 @@ sequenceDiagram
 sequenceDiagram
     actor Customer
     participant C as AddressController
-    participant S as AddressService
-    participant H as SetDefaultAddressHandler
+    participant H as AddressService
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
     Customer->>C: PUT /api/v1/addresses/{addressId}/default?customerId={customerId}
-    C->>S: setDefaultAddress(customerId, addressId)
-    S->>H: setDefaultAddress(customerId, addressId)
+    C->>H: setDefaultAddress(customerId, addressId)
     H->>Addresses: findById(addressId)
     alt address not found
         H-->>C: AddressNotFoundException
@@ -121,8 +110,7 @@ sequenceDiagram
         end
         H->>M: toResponse(address)
         M-->>H: AddressResponse
-        H-->>S: AddressResponse
-        S-->>C: AddressResponse
+        H-->>C: AddressResponse
         C-->>Customer: 200 OK
     end
 ```
@@ -133,13 +121,11 @@ sequenceDiagram
 sequenceDiagram
     actor Customer
     participant C as AddressController
-    participant S as AddressService
-    participant H as DeleteAddressHandler
+    participant H as AddressService
     participant Addresses as AddressRepository
 
     Customer->>C: DELETE /api/v1/addresses/{addressId}?customerId={customerId}
-    C->>S: deleteAddress(customerId, addressId)
-    S->>H: deleteAddress(customerId, addressId)
+    C->>H: deleteAddress(customerId, addressId)
     H->>Addresses: findById(addressId)
     alt address not found
         H-->>C: AddressNotFoundException
@@ -147,8 +133,7 @@ sequenceDiagram
         H-->>C: AddressAccessDeniedException
     else address belongs to customer
         H->>Addresses: delete(address)
-        H-->>S: void
-        S-->>C: void
+        H-->>C: void
         C-->>Customer: 204 No Content
     end
 ```

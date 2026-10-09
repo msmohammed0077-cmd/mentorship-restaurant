@@ -147,7 +147,7 @@ something that did not happen.
 ## Authorization
 
 There is no auth in this project and this ticket does not add any. The controller takes the caller's
-role as a parameter and the handler checks it against the transition's owner.
+role as a parameter and the service checks it against the transition's owner.
 
 ```http
 POST /api/v1/orders/42/preparing?restaurantId=1&role=RESTAURANT
@@ -243,7 +243,7 @@ A soft-deleted customer does not exist to the API (#68), but their orders are ke
 comparing `orders.customer_id` alone would still let them act on those orders. The `CUSTOMER` branch
 therefore reads the owner with **one** projection query, `OrderRepository.findOwnerById`, which joins
 the order's customer and user and returns the customer id and `userDeletedAt`
-([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The handler checks,
+([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The service checks,
 in Java: order found (else 404 "Order not found"), owned by the caller (else 403 "Order belongs to
 another customer"), owner not soft-deleted (else 404 "Customer not found"). Because ownership is
 checked first, the owner is the caller, so the last check is about the caller. It all runs after the
@@ -319,14 +319,12 @@ nothing about which order ids exist.
 sequenceDiagram
     actor Restaurant
     participant C as OrderStatusController
-    participant S as OrderService
-    participant H as UpdateOrderStatusHandler
+    participant H as OrderStatusService
     participant OR as OrderRepository
     participant HR as OrderStatusHistoryRepository
 
     Restaurant->>C: POST /api/v1/orders/42/preparing?restaurantId&role
-    C->>S: startPreparing(orderId, restaurantId, role)
-    S->>H: transition(orderId, START_PREPARING, restaurantId, role)
+    C->>H: startPreparing(orderId, restaurantId, role)
 
     alt role does not own the transition
         H-->>C: TransitionNotAllowedForRoleException (403)
@@ -357,8 +355,7 @@ managed entity, and loading one would go stale the moment the bulk update runs.
 ## Structure
 
 ```text
-OrderStatusController -> OrderService (delegates only)
-                      -> UpdateOrderStatusHandler  (@Service, @Transactional)
+OrderStatusController -> OrderStatusService        (@Service, @Transactional)
                       -> OrderRepository           (the conditional update)
                       -> OrderStatusHistoryRepository
                       -> Order / OrderItem / OrderStatusHistory  (anemic)
@@ -369,8 +366,8 @@ OrderStatusController -> OrderService (delegates only)
 
 Two frictions, noted rather than fixed here:
 
-1. `order/` imports `Customer`, `Restaurant` and `MenuItem` from `cart.model.entity`. Those entities
-   are not cart-specific and are in the wrong package; moving them touches the whole cart package.
+1. `order/` imported `Restaurant` and `MenuItem` from `cart.model.entity`, though they are not
+   cart-specific. Resolved in #84: they now live in `restaurant/`.
 2. `GlobalExceptionHandler` catches `CartException` only, so an `OrderException` base is registered
    alongside it, sharing the same body-builder. Collapsing both into one base is its own ticket.
 

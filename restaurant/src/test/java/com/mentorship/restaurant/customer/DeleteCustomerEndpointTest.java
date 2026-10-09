@@ -30,17 +30,16 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
         .isEqualTo("Customer not found");
   }
 
+  /** The cart-by-id endpoints can still reach it: #104. */
   @Test
-  void deletesTheCustomersCart() {
+  void keepsTheCustomersCart() {
     long customerId = insertCustomer(email("sara"));
-    insertCartWithItem(customerId, KOFTA);
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, KOFTA, 1);
 
     deleteCustomer(customerId).expectStatus().isNoContent();
 
-    Integer carts =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM carts WHERE customer_id = ?", Integer.class, customerId);
-    assertThat(carts).isZero();
+    assertThat(cartExists(cartId)).isTrue();
   }
 
   @Test
@@ -99,18 +98,5 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
             Boolean.class,
             customerId);
     return Boolean.TRUE.equals(deleted);
-  }
-
-  private void insertCartWithItem(long customerId, long menuItemId) {
-    jdbcTemplate.update(
-        """
-        WITH new_cart AS (
-          INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id
-        )
-        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
-        SELECT cart_id, ?, 1, 185.00 FROM new_cart
-        """,
-        customerId,
-        menuItemId);
   }
 }

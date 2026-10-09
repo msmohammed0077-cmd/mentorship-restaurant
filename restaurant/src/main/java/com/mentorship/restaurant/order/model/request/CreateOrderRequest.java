@@ -24,5 +24,5 @@ public class CreateOrderRequest {
 
   private String cardId;
 
-  private PaymentMethod paymentMethod;
+  private PaymentType paymentMethod;
 }

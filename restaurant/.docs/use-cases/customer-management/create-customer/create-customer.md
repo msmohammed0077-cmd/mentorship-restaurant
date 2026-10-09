@@ -23,7 +23,7 @@ build on:
 - Migration `V12`: profile columns on `users`, the `user_deleted_at` soft-delete marker, and the
   partial unique index on `lower(user_email)`.
 - The `Gender` enum, the new `User` mappings, and plain `@NoArgsConstructor` on `User` and
-  `Customer` (the handler builds both, the same exception `Cart` has).
+  `Customer` (the service builds both, the same exception `Cart` has).
 - A BCrypt `PasswordEncoder` bean in `config/`. `spring-boot-starter-security` was already a
   dependency.
 - `CustomerController`, `CustomerService`, `CustomerMapper`, `CustomerResponse`,
@@ -92,8 +92,8 @@ at `encode` time. `@Size` counts characters, and a multi-byte character (`é`, a
 several bytes, so the upper bound is a custom `@MaxUtf8Bytes(72)` constraint. An over-long password
 is a 400 from validation, never a failure inside the encoder.
 
-**Whitespace around the email** is rejected with 400 by `@Email` before the handler runs, so over
-HTTP the trim in rule 1 never finds anything to remove. It stays in the handler so the stored
+**Whitespace around the email** is rejected with 400 by `@Email` before the service runs, so over
+HTTP the trim in rule 1 never finds anything to remove. It stays in the service so the stored
 value is normalised whatever the validator accepts. Lower-casing does all the real work.
 
 ## Data Model
@@ -120,8 +120,8 @@ CREATE UNIQUE INDEX uq_users_active_email
 
 It is case-insensitive, and it lets a soft-deleted user's email be used again.
 
-**The index is only the backstop.** The handler checks first with
-`UserRepository.existsActiveByEmail`, which uses the same `lower(...)` and the same
+**The index is only the backstop.** The service checks first with
+`UserService.isEmailTaken` (`UserRepository.existsActiveByEmail`), which uses the same `lower(...)` and the same
 `deleted_at IS NULL` filter. Two concurrent requests for the same email can both pass the check.
 The index then refuses the second insert, which surfaces as a generic 500, not a 409. That is
 accepted for now.
@@ -155,9 +155,8 @@ A `users` row with a BCrypt hash, and a `customers` row linked to it. No cart an
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant S as CustomerService
-    participant H as CreateCustomerHandler
-    participant UR as UserRepository
+    participant H as CustomerService
+    participant US as UserService
     participant PE as PasswordEncoder
     participant CR as CustomerRepository
 
@@ -165,18 +164,17 @@ sequenceDiagram
     alt body invalid
         C-->>Caller: 400 Bad Request
     end
-    C->>S: createCustomer(request)
-    S->>H: createCustomer(request)
+    C->>H: createCustomer(request)
     H->>H: email = trim(lower(email))
-    H->>UR: existsActiveByEmail(email)
-    UR-->>H: boolean
+    H->>US: isEmailTaken(email)
+    US-->>H: boolean
     alt taken by an active user
         H-->>C: EmailAlreadyInUseException (409)
     end
     H->>PE: encode(password)
     PE-->>H: hash
-    H->>UR: save(user)
-    UR-->>H: user
+    H->>US: create(user)
+    US-->>H: user
     H->>CR: save(customer)
     CR-->>H: customer
     H-->>C: CustomerResponse
@@ -186,9 +184,8 @@ sequenceDiagram
 ## Structure
 
 ```text
-CustomerController -> CustomerService        (delegates only)
-                   -> CreateCustomerHandler  (@Service, @Transactional)
-                   -> UserRepository         (existsActiveByEmail, save)
+CustomerController -> CustomerService        (@Service, @Transactional)
+                   -> UserService            (isEmailTaken, create -> UserRepository)
                    -> CustomerRepository     (save)
                    -> CustomerMapper         (CustomerResponse)
 ```

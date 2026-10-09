@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.customer.model.entity;
 
+import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
+import com.mentorship.restaurant.user.model.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,6 +15,9 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,7 +26,9 @@ import lombok.Setter;
 @Table(name = "customers")
 @Getter
 @Setter
-@NoArgsConstructor
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Customer {
 
   @Id
@@ -35,9 +42,11 @@ public class Customer {
 
   @OneToMany(mappedBy = "customer")
   @OrderBy("isDefault DESC, createdAt DESC")
+  @Builder.Default
   private List<Address> addresses = new ArrayList<>();
 
   @OneToMany(mappedBy = "customer")
   @OrderBy("isDefault DESC, createdAt DESC, id DESC")
+  @Builder.Default
   private List<PaymentMethod> paymentMethods = new ArrayList<>();
 }

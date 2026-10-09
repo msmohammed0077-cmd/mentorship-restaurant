@@ -18,7 +18,7 @@ None beyond the customer existing and not being soft-deleted.
 `GET /api/v1/customers/{customerId}` — **200** with the customer's profile.
 
 Builds on #73 (`CustomerController`, `CustomerService`, `CustomerMapper`, `CustomerResponse`). Adds
-`CustomerRepository.findActiveById` and `GetCustomerHandler`.
+`CustomerRepository.findActiveById` and `CustomerService.getCustomer`.
 
 ## Business Rules
 
@@ -83,7 +83,7 @@ check, so every customer lookup excludes deleted users the same way.
 
 ## Exception Flows
 
-- **1a. Id is not a number:** 400 (type mismatch, before the handler runs).
+- **1a. Id is not a number:** 400 (type mismatch, before the service runs).
 - **2a. No active customer with that id:** 404, "Customer not found".
 
 ## Postconditions
@@ -98,14 +98,12 @@ Nothing changes.
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant S as CustomerService
-    participant H as GetCustomerHandler
+    participant H as CustomerService
     participant CR as CustomerRepository
     participant M as CustomerMapper
 
     Caller->>C: GET /api/v1/customers/{customerId}
-    C->>S: getCustomer(customerId)
-    S->>H: getCustomer(customerId)
+    C->>H: getCustomer(customerId)
     H->>CR: findActiveById(customerId)
     CR-->>H: Optional<Customer> (user join-fetched)
     alt empty (unknown or soft-deleted)
@@ -121,8 +119,7 @@ sequenceDiagram
 ## Structure
 
 ```text
-CustomerController -> CustomerService     (delegates only)
-                   -> GetCustomerHandler  (@Service, @Transactional(readOnly = true))
+CustomerController -> CustomerService     (@Service, @Transactional(readOnly = true))
                    -> CustomerRepository  (findActiveById)
                    -> CustomerMapper      (CustomerResponse)
 ```

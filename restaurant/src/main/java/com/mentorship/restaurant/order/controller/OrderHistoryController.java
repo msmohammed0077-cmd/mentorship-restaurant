@@ -2,7 +2,7 @@ package com.mentorship.restaurant.order.controller;
 
 import com.mentorship.restaurant.order.model.request.ViewOrderHistoryRequest;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
-import com.mentorship.restaurant.order.service.OrderService;
+import com.mentorship.restaurant.order.service.OrderHistoryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,13 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Order history")
 @RequiredArgsConstructor
 public class OrderHistoryController {
-  private final OrderService orderService;
+  private final OrderHistoryService orderHistoryService;
 
   @GetMapping
   public ResponseEntity<OrderHistoryResponse> viewOrderHistory(
       @Valid @ModelAttribute ViewOrderHistoryRequest request) {
     return ResponseEntity.ok(
-        orderService.viewOrderHistory(
+        orderHistoryService.viewOrderHistory(
             request.getCustomerId(), request.getRole(), request.getLimit(), request.getCursor()));
   }
 }

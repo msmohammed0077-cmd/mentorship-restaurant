@@ -22,7 +22,7 @@ Two endpoints:
 
 Builds on #73 and #69 (`CustomerController`, `CustomerService`, `CustomerMapper`,
 `CustomerRepository.findActiveById`). Adds `UpdateCustomerRequest`, `ChangePasswordRequest`,
-`UpdateCustomerHandler`, `ChangePasswordHandler`, `UserRepository.existsActiveByEmailAndIdNot` and
+`CustomerService.updateCustomer`, `CustomerService.changePassword`, `UserRepository.existsActiveByEmailAndIdNot` and
 `IncorrectPasswordException`.
 
 **Why two endpoints.** Profile edits and credential changes follow different rules. Anyone can
@@ -44,7 +44,7 @@ current password; the PATCH has no `password` field at all.
    there is no way to set `phone`, `date_of_birth` or `gender` back to `null`. Accepted limitation.
 5. A `password` property in the body is **ignored**, like any unknown property. Use the password
    endpoint.
-6. The customer is a **managed entity**: the handler mutates `customer.getUser()` and dirty checking
+6. The customer is a **managed entity**: the service mutates `customer.getUser()` and dirty checking
    issues the `UPDATE`. No `save()`.
 
 ### Change password
@@ -164,7 +164,7 @@ concurrent updates to the same email can both pass the check, and the loser surf
 
 ## Exception Flows
 
-- **Id is not a number:** 400 (type mismatch, before the handler runs).
+- **Id is not a number:** 400 (type mismatch, before the service runs).
 - **Update, 2a. A present field is invalid** (blank name, bad or blank email, bad phone, a date of
   birth not in the past, an unknown gender): 400.
 - **Update, 3a / Change password, 3a. No active customer with that id:** 404, "Customer not found".
@@ -185,18 +185,16 @@ concurrent updates to the same email can both pass the check, and the loser surf
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant S as CustomerService
-    participant H as UpdateCustomerHandler
+    participant H as CustomerService
     participant CR as CustomerRepository
-    participant UR as UserRepository
+    participant US as UserService
     participant M as CustomerMapper
 
     Caller->>C: PATCH /api/v1/customers/{customerId}
     alt body invalid
         C-->>Caller: 400 Bad Request
     end
-    C->>S: updateCustomer(customerId, request)
-    S->>H: updateCustomer(customerId, request)
+    C->>H: updateCustomer(customerId, request)
     H->>CR: findActiveById(customerId)
     CR-->>H: Optional<Customer> (user join-fetched)
     alt empty (unknown or soft-deleted)
@@ -205,8 +203,8 @@ sequenceDiagram
     end
     opt email present
         H->>H: email = trim(lower(email))
-        H->>UR: existsActiveByEmailAndIdNot(email, userId)
-        UR-->>H: boolean
+        H->>US: isEmailTakenByOther(email, userId)
+        US-->>H: boolean
         alt taken by another active user
             H-->>C: EmailAlreadyInUseException (409)
             C-->>Caller: 409 Conflict
@@ -225,8 +223,7 @@ sequenceDiagram
 sequenceDiagram
     actor Caller
     participant C as CustomerController
-    participant S as CustomerService
-    participant H as ChangePasswordHandler
+    participant H as CustomerService
     participant CR as CustomerRepository
     participant PE as PasswordEncoder
 
@@ -234,8 +231,7 @@ sequenceDiagram
     alt body invalid
         C-->>Caller: 400 Bad Request
     end
-    C->>S: changePassword(customerId, request)
-    S->>H: changePassword(customerId, request)
+    C->>H: changePassword(customerId, request)
     H->>CR: findActiveById(customerId)
     CR-->>H: Optional<Customer> (user join-fetched)
     alt empty (unknown or soft-deleted)
@@ -258,11 +254,9 @@ sequenceDiagram
 ## Structure
 
 ```text
-CustomerController -> CustomerService        (delegates only)
-                   -> UpdateCustomerHandler  (@Service, @Transactional)
-                   -> ChangePasswordHandler  (@Service, @Transactional)
+CustomerController -> CustomerService        (@Service, @Transactional)
                    -> CustomerRepository     (findActiveById)
-                   -> UserRepository         (existsActiveByEmailAndIdNot)
+                   -> UserService            (isEmailTakenByOther -> UserRepository)
                    -> PasswordEncoder        (matches, encode)
                    -> CustomerMapper         (CustomerResponse)
 ```

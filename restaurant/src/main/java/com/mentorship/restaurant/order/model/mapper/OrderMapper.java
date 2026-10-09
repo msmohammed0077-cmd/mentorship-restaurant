@@ -2,16 +2,17 @@ package com.mentorship.restaurant.order.model.mapper;
 
 import com.mentorship.restaurant.cart.model.entity.Cart;
 import com.mentorship.restaurant.cart.model.entity.CartItem;
-import com.mentorship.restaurant.cart.model.entity.MenuItem;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderItem;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
-import com.mentorship.restaurant.order.model.entity.Transaction;
 import com.mentorship.restaurant.order.model.request.CreateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderItemResponse;
 import com.mentorship.restaurant.order.model.response.OrderResponse;
+import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import com.mentorship.restaurant.order.model.response.TransactionResponse;
+import com.mentorship.restaurant.payment.model.entity.Transaction;
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -44,21 +45,36 @@ public class OrderMapper {
         .build();
   }
 
+  /**
+   * One row of order history. {@code status.name()} is what the old query's {@code cast(o.status as
+   * string)} returned, because the column is {@code EnumType.STRING}.
+   */
+  public OrderSummaryResponse toSummary(Order order, long itemCount) {
+    return new OrderSummaryResponse(
+        order.getId(),
+        order.getStatus().name(),
+        order.getRestaurant().getRestaurantName(),
+        itemCount,
+        order.getTotal(),
+        order.getCreatedAt());
+  }
+
   public Order createNewOrderEntity(
       CreateOrderRequest request, Cart cart, Address address, Transaction transaction) {
-    Order order = new Order();
-
-    order.setStatus(OrderStatus.PLACED);
-    order.setAddress(address);
-    order.setTransaction(transaction);
-    order.setCustomer(cart.getCustomer());
-    order.setRestaurant(cart.getItems().get(0).getMenuItem().getMenu().getRestaurant());
+    Order order =
+        Order.builder()
+            .status(OrderStatus.PLACED)
+            .address(address)
+            .transaction(transaction)
+            .customer(cart.getCustomer())
+            .restaurant(cart.getItems().get(0).getMenuItem().getMenu().getRestaurant())
+            .customerNote(request.getCustomerNote())
+            .build();
     if (transaction != null) {
       transaction.setOrder(order);
     }
 
-    order.setCustomerNote(request.getCustomerNote());
-
+    // The items point back at the order, so they are built after it.
     List<OrderItem> orderItems =
         cart.getItems().stream().map(cartItem -> toOrderItem(cartItem, order)).toList();
 
@@ -78,14 +94,13 @@ public class OrderMapper {
 
     MenuItem menuItem = cartItem.getMenuItem();
 
-    OrderItem orderItem = new OrderItem();
-    orderItem.setOrder(order);
-    orderItem.setMenuItem(menuItem);
-    orderItem.setItemName(menuItem.getName());
-    orderItem.setQuantity(cartItem.getQuantity());
-    orderItem.setItemPrice(cartItem.getItemPrice());
-
-    return orderItem;
+    return OrderItem.builder()
+        .order(order)
+        .menuItem(menuItem)
+        .itemName(menuItem.getName())
+        .quantity(cartItem.getQuantity())
+        .itemPrice(cartItem.getItemPrice())
+        .build();
   }
 
   private TransactionResponse toTransactionResponse(Transaction transaction) {

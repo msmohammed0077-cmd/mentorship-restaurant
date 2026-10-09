@@ -3,6 +3,8 @@ package com.mentorship.restaurant.exception;
 import com.mentorship.restaurant.cart.exception.CartException;
 import com.mentorship.restaurant.customer.exception.CustomerException;
 import com.mentorship.restaurant.order.exception.OrderException;
+import com.mentorship.restaurant.payment.exception.PaymentException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -39,6 +41,18 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(OrderException.class)
   public ResponseEntity<ApiErrorResponse> handleOrderException(
       OrderException exception, HttpServletRequest request) {
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
+
+  @ExceptionHandler(RestaurantException.class)
+  public ResponseEntity<ApiErrorResponse> handleRestaurantException(
+      RestaurantException exception, HttpServletRequest request) {
+    return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
+  }
+
+  @ExceptionHandler(PaymentException.class)
+  public ResponseEntity<ApiErrorResponse> handlePaymentException(
+      PaymentException exception, HttpServletRequest request) {
     return buildResponse(statusOf(exception), exception.getMessage(), request.getRequestURI());
   }
 

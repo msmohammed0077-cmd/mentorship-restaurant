@@ -4,6 +4,7 @@ import com.mentorship.restaurant.customer.model.request.ChangePasswordRequest;
 import com.mentorship.restaurant.customer.model.request.CreateCustomerRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
+import com.mentorship.restaurant.customer.service.CustomerDeletionService;
 import com.mentorship.restaurant.customer.service.CustomerService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CustomerController {
 
   private final CustomerService customerService;
+  private final CustomerDeletionService customerDeletionService;
 
   @PostMapping
   public ResponseEntity<CustomerResponse> createCustomer(
@@ -54,7 +56,7 @@ public class CustomerController {
 
   @DeleteMapping("/{customerId}")
   public ResponseEntity<Void> deleteCustomer(@PathVariable Long customerId) {
-    customerService.deleteCustomer(customerId);
+    customerDeletionService.deleteCustomer(customerId);
     return ResponseEntity.noContent().build();
   }
 }

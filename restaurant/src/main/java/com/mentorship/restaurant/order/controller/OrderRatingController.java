@@ -2,7 +2,7 @@ package com.mentorship.restaurant.order.controller;
 
 import com.mentorship.restaurant.order.model.request.RateOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderRatingResponse;
-import com.mentorship.restaurant.order.service.OrderService;
+import com.mentorship.restaurant.order.service.OrderRatingService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Order rating")
 @RequiredArgsConstructor
 public class OrderRatingController {
-  private final OrderService orderService;
+  private final OrderRatingService orderRatingService;
 
   @PostMapping("/{orderId}/rating")
-  public ResponseEntity<OrderRatingResponse> rate(
+  public ResponseEntity<OrderRatingResponse> rateOrder(
       @PathVariable Long orderId, @Valid @RequestBody RateOrderRequest request) {
     OrderRatingResponse response =
-        orderService.rate(
+        orderRatingService.rateOrder(
             orderId, request.getCustomerId(), request.getScore(), request.getComment());
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }

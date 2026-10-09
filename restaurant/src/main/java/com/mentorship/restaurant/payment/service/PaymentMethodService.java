@@ -1,0 +1,86 @@
+package com.mentorship.restaurant.payment.service;
+
+import com.mentorship.restaurant.customer.model.entity.Customer;
+import com.mentorship.restaurant.customer.service.CustomerService;
+import com.mentorship.restaurant.payment.exception.PaymentMethodAccessDeniedException;
+import com.mentorship.restaurant.payment.exception.PaymentMethodNotFoundException;
+import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
+import com.mentorship.restaurant.payment.model.mapper.PaymentMethodMapper;
+import com.mentorship.restaurant.payment.model.request.AddPaymentMethodRequest;
+import com.mentorship.restaurant.payment.model.response.PaymentMethodResponse;
+import com.mentorship.restaurant.payment.repository.PaymentMethodRepository;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class PaymentMethodService {
+
+  private final PaymentMethodRepository paymentMethodRepository;
+  private final CustomerService customerService;
+  private final PaymentMethodMapper paymentMethodMapper;
+
+  @Transactional
+  public PaymentMethodResponse addPaymentMethod(Long customerId, AddPaymentMethodRequest request) {
+    Customer customer = customerService.findActiveCustomer(customerId);
+
+    PaymentMethod paymentMethod =
+        PaymentMethod.builder()
+            .customer(customer)
+            .brand(request.getBrand())
+            .last4(request.getLast4())
+            .expiryMonth(request.getExpiryMonth())
+            .expiryYear(request.getExpiryYear())
+            .holderName(request.getHolderName())
+            .isDefault(!paymentMethodRepository.existsByCustomer_Id(customerId))
+            .build();
+
+    return paymentMethodMapper.toResponse(paymentMethodRepository.save(paymentMethod));
+  }
+
+  /** A read: expired saved cards are still listed. */
+  @Transactional(readOnly = true)
+  public List<PaymentMethodResponse> viewPaymentMethods(Long customerId) {
+    // The collection loads lazily inside this read-only transaction, ordered by its @OrderBy.
+    Customer customer = customerService.findActiveCustomer(customerId);
+
+    return paymentMethodMapper.toResponseList(customer.getPaymentMethods());
+  }
+
+  @Transactional
+  public PaymentMethodResponse setDefaultPaymentMethod(Long customerId, Long paymentMethodId) {
+    PaymentMethod paymentMethod = findCustomersPaymentMethod(paymentMethodId, customerId);
+
+    if (!paymentMethod.isDefault()) {
+      // The bulk update bypasses the persistence context, but it only touches the old default,
+      // never this row, so the entity loaded above is still accurate. Setting the flag on it is
+      // written by dirty checking at commit, after the old default has been cleared.
+      paymentMethodRepository.clearDefaultForCustomer(customerId);
+      paymentMethod.setDefault(true);
+    }
+
+    return paymentMethodMapper.toResponse(paymentMethod);
+  }
+
+  /** A hard delete. Deleting the default does not promote another payment method. */
+  @Transactional
+  public void deletePaymentMethod(Long customerId, Long paymentMethodId) {
+    paymentMethodRepository.delete(findCustomersPaymentMethod(paymentMethodId, customerId));
+  }
+
+  /** Loads the payment method, then checks the caller owns it and is not soft-deleted. */
+  private PaymentMethod findCustomersPaymentMethod(Long paymentMethodId, Long customerId) {
+    PaymentMethod paymentMethod =
+        paymentMethodRepository
+            .findByIdWithOwner(paymentMethodId)
+            .orElseThrow(() -> new PaymentMethodNotFoundException("Payment method not found"));
+    if (!paymentMethod.getCustomer().getId().equals(customerId)) {
+      throw new PaymentMethodAccessDeniedException("Payment method belongs to another customer");
+    }
+    // Runs after the ownership check, so the owner is the caller: a soft-deleted caller is a 404.
+    customerService.ensureActive(paymentMethod.getCustomer());
+    return paymentMethod;
+  }
+}
