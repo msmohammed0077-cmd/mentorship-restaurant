@@ -149,6 +149,9 @@ public class OrderStatusService {
         ensureOrderExists(orderId);
         throw new OrderNotOwnedException("No courier is assigned to orders yet");
       }
+      // Unreachable today: no OrderTransition lists ADMIN, so ensureRoleOwnsTransition refuses it
+      // first. Without this case, adding ADMIN to a transition would skip the ownership check.
+      case ADMIN -> throw new OrderNotOwnedException("No ownership rule for an admin yet");
     }
   }
 
