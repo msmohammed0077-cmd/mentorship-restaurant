@@ -56,3 +56,12 @@ Tracked under [#34](https://github.com/msmohammed0077-cmd/mentorship-restaurant/
 | View Order History | [view-order-history](./order-management/view-order-history/view-order-history.md) |
 
 Cancel and rate orders are implemented but have no spec yet; checkout and view order detail are still open.
+
+### Restaurant Management
+
+Tracked under [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/85).
+
+| Use case | Spec |
+| --- | --- |
+| Get Restaurant | [get-restaurant](./restaurant-management/get-restaurant/get-restaurant.md) |
+| List Restaurants | [list-restaurants](./restaurant-management/list-restaurants/list-restaurants.md) |

@@ -80,7 +80,7 @@ Offset paging, entirely Spring's: `Pageable` in, `PagedModel` out.
   { "content": [ {…} ], "page": { "size": 20, "number": 0, "total_elements": 3, "total_pages": 1 } }
   ```
 
-  The metadata names are expected to follow the snake_case setting; the spec records what PR 1's test observes.
+  The metadata names follow the snake_case setting (`total_elements`, `total_pages`), as `ListRestaurantsEndpointTest` asserts.
 - Open and closed restaurants alike. No `?open=` filter until a client needs one.
 
 **Why offset, not keyset:** it is the only option built in end to end (Spring Data has no web resolver or JSON form for a keyset position, so every keyset endpoint needs its own cursor code). Keyset's advantages — deep pages, stability under constant inserts — matter for order history, not for a small, admin-curated directory. Recorded as ADR 0007 in PR 1. Order history's cursor is revisited separately in #110.
@@ -175,7 +175,7 @@ End-to-end, one class per use-case (`RANDOM_PORT` + `RestTestClient`), happy pat
 | 4 | `DeleteRestaurantEndpointTest` | 403; 404, including a second delete; 409 with a `PLACED` order; reads 404 afterwards |
 | 4 | `CreateOrderEndpointTest` +1, `AddCartItemEndpointTest` +1 | deleted restaurant → 404 |
 
-`support/RestaurantEndpointTestSupport`, new in PR 1: `insertRestaurant(name, email, isOpen)` (users and restaurants rows), `softDeleteRestaurant`, `insertMenuItem`, and cleanup of the ids each test inserted.
+`support/RestaurantEndpointTestSupport`, new in PR 1: `insertRestaurant(name, email, isOpen)` (users and restaurants rows), `softDeleteRestaurant`, and cleanup by email prefix. `insertMenuItem` arrives with the first PR that uses it.
 
 ## Documentation
 
