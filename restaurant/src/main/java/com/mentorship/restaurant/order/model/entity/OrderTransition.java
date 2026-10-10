@@ -1,8 +1,5 @@
 package com.mentorship.restaurant.order.model.entity;
 
-import static com.mentorship.restaurant.order.model.entity.ActorRole.COURIER;
-import static com.mentorship.restaurant.order.model.entity.ActorRole.CUSTOMER;
-import static com.mentorship.restaurant.order.model.entity.ActorRole.RESTAURANT;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.ACCEPTED;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.CANCELLED;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.DELIVERED;
@@ -11,6 +8,11 @@ import static com.mentorship.restaurant.order.model.entity.OrderStatus.PLACED;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.PREPARING;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.READY_FOR_PICKUP;
 import static com.mentorship.restaurant.order.model.entity.OrderStatus.REJECTED;
+import static com.mentorship.restaurant.user.model.ActorRole.COURIER;
+import static com.mentorship.restaurant.user.model.ActorRole.CUSTOMER;
+import static com.mentorship.restaurant.user.model.ActorRole.RESTAURANT;
+
+import com.mentorship.restaurant.user.model.ActorRole;
 
 public enum OrderTransition {
   ACCEPT(PLACED, ACCEPTED, RESTAURANT),

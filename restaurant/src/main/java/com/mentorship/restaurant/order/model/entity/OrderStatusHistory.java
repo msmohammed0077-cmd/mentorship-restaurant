@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.order.model.entity;
 
+import com.mentorship.restaurant.user.model.ActorRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
