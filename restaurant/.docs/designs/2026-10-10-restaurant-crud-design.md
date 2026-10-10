@@ -92,7 +92,7 @@ The System Admin creates the restaurant; it has no usable login.
 | Field | Rule |
 |---|---|
 | `name` | required, not blank, max 150 (`user_name`'s limit; stored in both `user_name` and `restaurant_name`) |
-| `description` | optional |
+| `description` | optional, max 1000 |
 | `email` | required, valid email, max 255 — the contact email |
 
 `RestaurantService.createRestaurant`, one transaction:

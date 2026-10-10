@@ -61,7 +61,7 @@ Content-Type: application/json
 | Field | Rule |
 | --- | --- |
 | `name` | required, not blank, max 150 |
-| `description` | optional |
+| `description` | optional, max 1000 |
 | `email` | required, valid email, max 255 |
 
 Response, **201**:
@@ -172,7 +172,7 @@ sequenceDiagram
 | `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM` | 403, nothing written |
 | `CUSTOMER` with a taken email | 403, not 409 |
 | No `role` / unknown `role` | 400 |
-| Blank name, name of 151, no email, malformed email, email over 255, email with surrounding spaces | 400 naming the field |
+| Blank name, name of 151, no email, malformed email, email over 255, email with surrounding spaces, description of 1001 | 400 naming the field |
 | Seeded restaurant's email, upper-cased | 409 |
 | Seeded customer's email | 409 |
 | Email of a soft-deleted restaurant | 201 |

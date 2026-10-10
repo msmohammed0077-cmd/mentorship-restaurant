@@ -19,6 +19,8 @@ public class UpdateRestaurantRequest {
   @Size(max = 150)
   private String name;
 
+  // restaurant_description is TEXT; the cap keeps every list page's size bounded.
+  @Size(max = 1000)
   private String description;
 
   // @Email accepts an empty string, so the same pattern keeps "" from being stored as the email.

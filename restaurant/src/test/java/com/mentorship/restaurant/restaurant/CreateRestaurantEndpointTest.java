@@ -154,6 +154,32 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     rejectsBody(body("Koshary Corner", "not-an-email"), "email");
   }
 
+  @Test
+  void rejectsADescriptionOver1000Characters() {
+    rejectsBody(
+        """
+        { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+        """
+            .formatted(email("koshary"), "x".repeat(1001)),
+        "description");
+  }
+
+  @Test
+  void acceptsADescriptionOf1000Characters() {
+    client
+        .post()
+        .uri("/api/v1/restaurants?role=ADMIN")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(
+            """
+            { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+            """
+                .formatted(email("koshary"), "x".repeat(1000)))
+        .exchange()
+        .expectStatus()
+        .isCreated();
+  }
+
   /** {@code @Email} refuses it before the service runs, so the service does not trim. */
   @Test
   void rejectsAnEmailWithSurroundingWhitespace() {

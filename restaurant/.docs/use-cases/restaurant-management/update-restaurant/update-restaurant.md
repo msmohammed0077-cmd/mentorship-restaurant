@@ -55,7 +55,7 @@ Content-Type: application/json
 | Field | Rule |
 | --- | --- |
 | `name` | optional; if present not blank, max 150 |
-| `description` | optional |
+| `description` | optional, max 1000 |
 | `email` | optional; if present not blank, valid email, max 255 |
 
 Response, **200**:
@@ -176,7 +176,7 @@ sequenceDiagram
 | `CUSTOMER` on an unknown id | 403, not 404 |
 | Unknown id / soft-deleted restaurant | 404 |
 | No `role` | 400 |
-| Blank name, name of 151, blank email, malformed email, email with surrounding spaces | 400 naming the field |
+| Blank name, name of 151, blank email, malformed email, email with surrounding spaces, description of 1001 | 400 naming the field |
 
 Every email the test creates, including the new email of an edit, starts with
 `update.restaurant.test.`; cleanup deletes only those users.
