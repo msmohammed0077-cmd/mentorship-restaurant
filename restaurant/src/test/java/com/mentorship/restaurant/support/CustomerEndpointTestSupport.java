@@ -41,6 +41,15 @@ public abstract class CustomerEndpointTestSupport {
   @BeforeEach
   @AfterEach
   protected void deleteCreatedUsers() {
+    // Orders first: a test that also seeds a restaurant under the prefix deletes it in the same
+    // statement, and Postgres checks orders' restaurant key before the customer cascade runs.
+    jdbcTemplate.update(
+        """
+        DELETE FROM orders WHERE customer_id IN (
+          SELECT customer_id FROM customers JOIN users USING (user_id) WHERE user_email LIKE ?
+        )
+        """,
+        emailPrefix() + "%");
     // customers, and every row hanging off them, follow by ON DELETE CASCADE.
     jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", emailPrefix() + "%");
   }

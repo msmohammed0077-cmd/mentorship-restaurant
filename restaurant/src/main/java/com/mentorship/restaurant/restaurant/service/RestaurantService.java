@@ -3,6 +3,7 @@ package com.mentorship.restaurant.restaurant.service;
 import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantActionNotAllowedException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantEmailInUseException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantNotFoundException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
@@ -142,6 +143,16 @@ public class RestaurantService {
 
   public void restoreStock(Long menuItemId, Integer quantity) {
     menuItemRepository.incrementStock(menuItemId, quantity);
+  }
+
+  /**
+   * Checkout's guard: the cart's restaurant must exist and be open. A deleted one is 404, a closed
+   * one 409, as add-to-cart answers.
+   */
+  public void ensureOrderable(Long restaurantId) {
+    if (!findActiveRestaurant(restaurantId).isOpen()) {
+      throw new RestaurantClosedException("Restaurant is closed");
+    }
   }
 
   private Restaurant findActiveRestaurant(Long restaurantId) {
