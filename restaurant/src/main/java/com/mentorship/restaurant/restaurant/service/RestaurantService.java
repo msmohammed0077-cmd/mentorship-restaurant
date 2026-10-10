@@ -9,6 +9,7 @@ import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.model.mapper.RestaurantMapper;
 import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
+import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
@@ -80,6 +81,31 @@ public class RestaurantService {
             .map(restaurantMapper::toResponse));
   }
 
+  /** Absent or null fields are left as they are. The name is the restaurant's and its user's. */
+  @Transactional
+  public RestaurantResponse updateRestaurant(
+      Long restaurantId, ActorRole role, Long callerRestaurantId, UpdateRestaurantRequest request) {
+    ensureMayManage(restaurantId, role, callerRestaurantId, "edit this restaurant");
+    Restaurant restaurant = findActiveRestaurant(restaurantId);
+    User user = restaurant.getUser();
+
+    if (request.getEmail() != null) {
+      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+      ensureEmailAvailableExcept(email, user.getId());
+      user.setUserEmail(email);
+    }
+    if (request.getName() != null) {
+      restaurant.setRestaurantName(request.getName());
+      user.setUserName(request.getName());
+    }
+    if (request.getDescription() != null) {
+      restaurant.setRestaurantDescription(request.getDescription());
+    }
+
+    // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
+    return restaurantMapper.toResponse(restaurant);
+  }
+
   public MenuItem findMenuItem(Long menuItemId) {
     return menuItemRepository
         .findById(menuItemId)
@@ -112,8 +138,23 @@ public class RestaurantService {
     }
   }
 
+  /** The admin, or the restaurant itself. A restaurant that does not say who it is is refused. */
+  private void ensureMayManage(
+      Long restaurantId, ActorRole role, Long callerRestaurantId, String action) {
+    boolean isItself = role == ActorRole.RESTAURANT && restaurantId.equals(callerRestaurantId);
+    if (role != ActorRole.ADMIN && !isItself) {
+      throw new RestaurantActionNotAllowedException("Role " + role + " may not " + action);
+    }
+  }
+
   private void ensureEmailAvailable(String email) {
     if (userService.isEmailTaken(email)) {
+      throw new RestaurantEmailInUseException("Email is already in use");
+    }
+  }
+
+  private void ensureEmailAvailableExcept(String email, Long userId) {
+    if (userService.isEmailTakenByOther(email, userId)) {
       throw new RestaurantEmailInUseException("Email is already in use");
     }
   }
