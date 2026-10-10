@@ -11,6 +11,11 @@ FUNCTION createOrder(request):
     IF address does not exist:
         THROW AddressNotFoundException
 
+    IF cart is empty:
+        THROW EmptyCartException
+    IF any item's quantity exceeds its stock:
+        THROW OrderQuantityIsNotAllowed
+
     restaurant = the restaurant of the cart's items
     IF restaurant is deleted:
         THROW RestaurantNotFoundException        (404, cart kept, nothing charged)
