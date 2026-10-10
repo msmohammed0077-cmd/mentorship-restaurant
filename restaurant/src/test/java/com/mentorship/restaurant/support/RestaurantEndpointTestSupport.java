@@ -38,6 +38,15 @@ public abstract class RestaurantEndpointTestSupport {
 
   /** Inserts a user and its restaurant, with no usable password. Returns the restaurant id. */
   protected long insertRestaurant(String name, String email, boolean isOpen) {
+    return insertRestaurant(jdbcTemplate, name, email, isOpen);
+  }
+
+  /**
+   * {@link #insertRestaurant(String, String, boolean)}, static and public so tests on another base
+   * (create-order's) can seed a restaurant. Its email must sit under that test's own prefix.
+   */
+  public static long insertRestaurant(
+      JdbcTemplate jdbcTemplate, String name, String email, boolean isOpen) {
     Long restaurantId =
         jdbcTemplate.queryForObject(
             """
@@ -60,6 +69,34 @@ public abstract class RestaurantEndpointTestSupport {
       throw new IllegalStateException("Restaurant not created for " + email);
     }
     return restaurantId;
+  }
+
+  /**
+   * Inserts a menu for the restaurant holding one item, stock 50 at 100.00. Returns the item id.
+   * The codes derive from the restaurant id, so call it once per restaurant.
+   */
+  public static long insertMenuItem(JdbcTemplate jdbcTemplate, long restaurantId) {
+    Long menuItemId =
+        jdbcTemplate.queryForObject(
+            """
+            WITH new_menu AS (
+              INSERT INTO menus (restaurant_id, menu_code, menu_category)
+              VALUES (?, ?, 'Main')
+              RETURNING menu_id
+            )
+            INSERT INTO menu_items
+              (menu_id, menu_item_code, menu_item_name, menu_item_price, menu_item_stock)
+            SELECT menu_id, ?, 'Test Dish', 100.00, 50 FROM new_menu
+            RETURNING menu_item_id
+            """,
+            Long.class,
+            restaurantId,
+            "TEST-MENU-" + restaurantId,
+            "TEST-ITEM-" + restaurantId);
+    if (menuItemId == null) {
+      throw new IllegalStateException("Menu item not created for restaurant " + restaurantId);
+    }
+    return menuItemId;
   }
 
   protected void softDeleteRestaurant(long restaurantId) {

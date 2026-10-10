@@ -3,12 +3,15 @@ package com.mentorship.restaurant.restaurant.service;
 import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantActionNotAllowedException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantEmailInUseException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantNotFoundException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.model.mapper.RestaurantMapper;
 import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
+import com.mentorship.restaurant.restaurant.model.request.SetRestaurantOpenRequest;
+import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
@@ -80,6 +83,48 @@ public class RestaurantService {
             .map(restaurantMapper::toResponse));
   }
 
+  /** Absent or null fields are left as they are. The name is the restaurant's and its user's. */
+  @Transactional
+  public RestaurantResponse updateRestaurant(
+      Long restaurantId, ActorRole role, Long callerRestaurantId, UpdateRestaurantRequest request) {
+    ensureMayManage(restaurantId, role, callerRestaurantId, "edit this restaurant");
+    Restaurant restaurant = findActiveRestaurant(restaurantId);
+    User user = restaurant.getUser();
+
+    if (request.getEmail() != null) {
+      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+      ensureEmailAvailableExcept(email, user.getId());
+      user.setUserEmail(email);
+    }
+    if (request.getName() != null) {
+      restaurant.setRestaurantName(request.getName());
+      user.setUserName(request.getName());
+    }
+    if (request.getDescription() != null) {
+      restaurant.setRestaurantDescription(request.getDescription());
+    }
+
+    // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
+    return restaurantMapper.toResponse(restaurant);
+  }
+
+  /**
+   * Idempotent. Closing stops new business (add-to-cart, checkout); orders already placed carry on.
+   */
+  @Transactional
+  public RestaurantResponse setRestaurantOpen(
+      Long restaurantId,
+      ActorRole role,
+      Long callerRestaurantId,
+      SetRestaurantOpenRequest request) {
+    ensureMayManage(restaurantId, role, callerRestaurantId, "open or close this restaurant");
+    Restaurant restaurant = findActiveRestaurant(restaurantId);
+
+    // Lombok strips "is" from the setter of boolean isOpen: setOpen, not setIsOpen.
+    restaurant.setOpen(request.getIsOpen());
+    return restaurantMapper.toResponse(restaurant);
+  }
+
   public MenuItem findMenuItem(Long menuItemId) {
     return menuItemRepository
         .findById(menuItemId)
@@ -100,6 +145,16 @@ public class RestaurantService {
     menuItemRepository.incrementStock(menuItemId, quantity);
   }
 
+  /**
+   * Checkout's guard: the cart's restaurant must exist and be open. A deleted one is 404, a closed
+   * one 409, as add-to-cart answers.
+   */
+  public void ensureOrderable(Long restaurantId) {
+    if (!findActiveRestaurant(restaurantId).isOpen()) {
+      throw new RestaurantClosedException("Restaurant is closed");
+    }
+  }
+
   private Restaurant findActiveRestaurant(Long restaurantId) {
     return restaurantRepository
         .findActiveById(restaurantId)
@@ -112,8 +167,23 @@ public class RestaurantService {
     }
   }
 
+  /** The admin, or the restaurant itself. A restaurant that does not say who it is is refused. */
+  private void ensureMayManage(
+      Long restaurantId, ActorRole role, Long callerRestaurantId, String action) {
+    boolean isItself = role == ActorRole.RESTAURANT && restaurantId.equals(callerRestaurantId);
+    if (role != ActorRole.ADMIN && !isItself) {
+      throw new RestaurantActionNotAllowedException("Role " + role + " may not " + action);
+    }
+  }
+
   private void ensureEmailAvailable(String email) {
     if (userService.isEmailTaken(email)) {
+      throw new RestaurantEmailInUseException("Email is already in use");
+    }
+  }
+
+  private void ensureEmailAvailableExcept(String email, Long userId) {
+    if (userService.isEmailTakenByOther(email, userId)) {
       throw new RestaurantEmailInUseException("Email is already in use");
     }
   }

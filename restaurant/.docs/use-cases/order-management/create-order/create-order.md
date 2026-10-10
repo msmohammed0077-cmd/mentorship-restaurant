@@ -11,6 +11,10 @@ FUNCTION createOrder(request):
     IF address does not exist:
         THROW AddressNotFoundException
 
+    restaurant = the restaurant of the cart's items
+    IF restaurant is closed:
+        THROW RestaurantClosedException          (409, cart kept, nothing charged)
+
     transaction = null
 
     IF payment method is CARD:
@@ -30,6 +34,15 @@ FUNCTION createOrder(request):
     TODO: Find and notify driver
 END FUNCTION
 ```
+
+### Exception Flows
+
+Only the flows added since this spec was written; `CreateOrderEndpointTest` pins the rest.
+
+- **Restaurant closed:** the cart holds items of a restaurant that has closed since they were added.
+  409, "Restaurant is closed" — the same answer as add-to-cart. `RestaurantValidatorHandler`
+  checks it after the items and before payment, so nothing is charged, and the cart is kept.
+
 ### Sequence Diagram
 
 ```text

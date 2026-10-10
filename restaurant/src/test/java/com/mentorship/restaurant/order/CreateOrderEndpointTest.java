@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.order;
 
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
@@ -298,6 +300,31 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
         .isNotFound();
 
     assertThat(orderCountFor(customerId)).isZero();
+  }
+
+  @Test
+  void refusesACartFromAClosedRestaurant() {
+    long restaurantId = insertRestaurant(jdbcTemplate, "Closed Grill", email("grill"), false);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, menuItemId, 1);
+
+    placeOrder(
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                customerId,
+                restaurantId,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant is closed");
+
+    assertThat(orderCountFor(customerId)).isZero();
+    assertThat(cartExists(cartId)).isTrue();
   }
 
   @ParameterizedTest
