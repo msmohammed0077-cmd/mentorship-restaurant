@@ -41,9 +41,11 @@ done
 
 **A `@Transactional` method called from the same class gets no transaction of its own.** The call skips Spring's proxy, so the annotation is ignored. When each item of a loop needs its own transaction, use `TransactionTemplate`: `OrderStatusService.autoRejectStaleOrders` rejects each stale order in its own, so one failure neither rolls back nor stops the rest.
 
+**Roles are declared, not authenticated, until #83.** Endpoints that check who the caller is take `?role=` (`ActorRole`, in `user/model/`: `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM`, `ADMIN`) and, where ownership matters, the caller's id (`?restaurantId=`, `?customerId=`). The service checks the role first, before any database read, so a refused caller cannot probe which ids or emails exist.
+
 **Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no hand-written factory methods, no queries. Do not put business rules on an entity.
 
-**An entity the application creates has a builder; setters change it.** It carries `@Builder`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` for Hibernate and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` for the builder, so nothing outside calls a constructor. **An initialised field needs `@Builder.Default`** (`private List<CartItem> items = new ArrayList<>();`): without it the builder sets the list to null, and the first `getItems().add(...)` throws. Updates keep using setters, which dirty checking turns into the `UPDATE`. An entity the application never creates (`Restaurant`, `Menu`, `MenuItem`) has only the protected no-args constructor. ADR 0005 records why.
+**An entity the application creates has a builder; setters change it.** It carries `@Builder`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` for Hibernate and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` for the builder, so nothing outside calls a constructor. **An initialised field needs `@Builder.Default`** (`private List<CartItem> items = new ArrayList<>();`): without it the builder sets the list to null, and the first `getItems().add(...)` throws. Updates keep using setters, which dirty checking turns into the `UPDATE`. An entity the application never creates (`Menu`, `MenuItem`) has only the protected no-args constructor. ADR 0005 records why.
 
 **Lombok and `boolean` fields:** `private boolean isOpen` generates `isOpen()` **and `setOpen()`** — it strips the `is` prefix from the setter but not the getter.
 

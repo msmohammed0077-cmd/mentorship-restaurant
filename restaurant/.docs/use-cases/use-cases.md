@@ -65,3 +65,4 @@ Tracked under [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/
 | --- | --- |
 | Get Restaurant | [get-restaurant](./restaurant-management/get-restaurant/get-restaurant.md) |
 | List Restaurants | [list-restaurants](./restaurant-management/list-restaurants/list-restaurants.md) |
+| Create Restaurant | [create-restaurant](./restaurant-management/create-restaurant/create-restaurant.md) |

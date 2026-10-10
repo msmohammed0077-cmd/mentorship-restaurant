@@ -362,7 +362,8 @@ OrderStatusController -> OrderStatusService        (@Service, @Transactional)
                       -> OrderStatusMapper         (@Component)
 ```
 
-`OrderTransition` and `ActorRole` live in `order/model/entity/` beside `OrderStatus`.
+`OrderTransition` lives in `order/model/entity/` beside `OrderStatus`; `ActorRole` lives in
+`user/model/`, since restaurant management checks roles too.
 
 Two frictions, noted rather than fixed here:
 
