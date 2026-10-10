@@ -86,6 +86,14 @@ public class OrderService {
     return orderRepository.existsByCustomer_IdAndStatusIn(customerId, OrderStatus.ACTIVE);
   }
 
+  /**
+   * Whether the restaurant has an order in a non-terminal status. For delete-restaurant; joins the
+   * caller's transaction.
+   */
+  public boolean hasActiveRestaurantOrders(Long restaurantId) {
+    return orderRepository.existsByRestaurant_IdAndStatusIn(restaurantId, OrderStatus.ACTIVE);
+  }
+
   /** Shared: the order's owner (customer or restaurant) must be the actor. */
   public void ensureOwnedBy(Long ownerId, Long actorId, String message) {
     if (!ownerId.equals(actorId)) {

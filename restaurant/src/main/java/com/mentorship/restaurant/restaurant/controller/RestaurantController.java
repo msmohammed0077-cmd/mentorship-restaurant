@@ -4,6 +4,7 @@ import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantReques
 import com.mentorship.restaurant.restaurant.model.request.SetRestaurantOpenRequest;
 import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
+import com.mentorship.restaurant.restaurant.service.RestaurantDeletionService;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import com.mentorship.restaurant.user.model.ActorRole;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +15,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RestaurantController {
 
   private final RestaurantService restaurantService;
+  private final RestaurantDeletionService restaurantDeletionService;
 
   @PostMapping
   public ResponseEntity<RestaurantResponse> createRestaurant(
@@ -69,5 +72,12 @@ public class RestaurantController {
       @Valid @RequestBody SetRestaurantOpenRequest request) {
     return ResponseEntity.ok(
         restaurantService.setRestaurantOpen(restaurantId, role, callerRestaurantId, request));
+  }
+
+  @DeleteMapping("/{restaurantId}")
+  public ResponseEntity<Void> deleteRestaurant(
+      @PathVariable Long restaurantId, @RequestParam ActorRole role) {
+    restaurantDeletionService.deleteRestaurant(restaurantId, role);
+    return ResponseEntity.noContent().build();
   }
 }

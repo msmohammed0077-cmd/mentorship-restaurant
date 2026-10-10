@@ -155,13 +155,18 @@ public class RestaurantService {
     }
   }
 
-  private Restaurant findActiveRestaurant(Long restaurantId) {
+  /**
+   * Shared with {@link RestaurantDeletionService}. Unknown and deleted are both 404; joins the
+   * caller's transaction.
+   */
+  public Restaurant findActiveRestaurant(Long restaurantId) {
     return restaurantRepository
         .findActiveById(restaurantId)
         .orElseThrow(() -> new RestaurantNotFoundException("Restaurant not found"));
   }
 
-  private void ensureAdmin(ActorRole role, String action) {
+  /** Shared with {@link RestaurantDeletionService}. Checked before any database read. */
+  public void ensureAdmin(ActorRole role, String action) {
     if (role != ActorRole.ADMIN) {
       throw new RestaurantActionNotAllowedException("Role " + role + " may not " + action);
     }

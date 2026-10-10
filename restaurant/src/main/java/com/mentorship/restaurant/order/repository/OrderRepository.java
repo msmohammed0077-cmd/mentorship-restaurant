@@ -19,6 +19,8 @@ import org.springframework.data.repository.query.Param;
 public interface OrderRepository extends JpaRepository<Order, Long> {
   boolean existsByCustomer_IdAndStatusIn(Long customerId, Collection<OrderStatus> statuses);
 
+  boolean existsByRestaurant_IdAndStatusIn(Long restaurantId, Collection<OrderStatus> statuses);
+
   @Modifying(flushAutomatically = true)
   @Query(
       """
