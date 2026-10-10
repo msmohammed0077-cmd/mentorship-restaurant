@@ -59,12 +59,15 @@ public class CartService {
         cartItemRepository
             .findByIdAndCart_Id(cartItemId, cartId)
             .orElseThrow(() -> new CartItemNotFoundException("Cart item not found"));
+    // As add-to-cart answers: a deleted restaurant's item is not found, a closed one's refused.
+    MenuItem menuItem = restaurantService.findMenuItem(cartItem.getMenuItem().getId());
+    ensureRestaurantOpen(menuItem.getMenu().getRestaurant());
 
-    ensureStockCovers(quantity, cartItem.getMenuItem().getStock());
+    ensureStockCovers(quantity, menuItem.getStock());
 
     cartItem.setQuantity(quantity);
     cartItem.setNote(note);
-    cartItem.setItemPrice(cartItem.getMenuItem().getItemPrice());
+    cartItem.setItemPrice(menuItem.getItemPrice());
 
     return cartMapper.toResponse(cartItem.getCart());
   }
