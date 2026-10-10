@@ -10,8 +10,8 @@ Four stacked PRs. Each branches from the previous one and targets it; PR 1 targe
 
 | PR | Branch | Issues | Endpoints | Est. size | Status |
 |---|---|---|---|---|---|
-| 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **In progress.** Design committed; next: the implementation plan |
-| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | Not started |
+| 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done.** Both reads, specs, ADR 0007; PR targets `main` |
+| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Next.** Branch from `feat/GH-89-read-restaurants` |
 | 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | Not started |
 | 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | Not started |
 
