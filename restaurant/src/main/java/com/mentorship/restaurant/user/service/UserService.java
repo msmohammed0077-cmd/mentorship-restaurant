@@ -35,4 +35,12 @@ public class UserService {
   public User create(User user) {
     return userRepository.save(user);
   }
+
+  /**
+   * Writes pending user changes now, so a unique-index violation surfaces in the caller's method,
+   * where it can be answered, rather than at commit.
+   */
+  public void flush() {
+    userRepository.flush();
+  }
 }

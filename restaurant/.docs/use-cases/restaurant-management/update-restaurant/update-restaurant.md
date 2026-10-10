@@ -183,7 +183,9 @@ Every email the test creates, including the new email of an edit, starts with
 # Notes
 
 1. **Two simultaneous edits to the same email** both pass the check; the second then hits
-   `uq_users_active_email` and answers 500. Create accepts the same race.
+   `uq_users_active_email`. The service flushes the email change inside the use-case, so the
+   violation is answered with the same 409 rather than a 500 at commit. `RestaurantEmailRaceTest`
+   covers it, as a unit test.
 2. **Surrounding whitespace in the email is a 400, not trimmed.** `@Email` refuses it before the
    service runs.
 3. **Opening and closing** is its own use-case, [set-restaurant-open](../set-restaurant-open/set-restaurant-open.md);

@@ -183,7 +183,9 @@ and their restaurants go with them by cascade.
 # Notes
 
 1. **Two simultaneous creates with the same email** both pass the check; the second then hits
-   `uq_users_active_email` and answers 500. Create-customer accepts the same race.
+   `uq_users_active_email`, which the service answers with the same 409. `RestaurantEmailRaceTest`
+   covers it, as a unit test, because the window cannot be hit on demand over HTTP. Create-customer
+   still answers that race with 500.
 2. **No phone, address or opening hours.** No client needs them yet.
 3. **The owner's first login** belongs to #83, which replaces the `NO_LOGIN_PASSWORD` marker with a
    real password.

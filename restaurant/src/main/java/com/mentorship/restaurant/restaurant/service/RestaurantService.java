@@ -20,6 +20,7 @@ import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -50,7 +51,7 @@ public class RestaurantService {
     ensureEmailAvailable(email);
 
     User user =
-        userService.create(
+        createUser(
             User.builder()
                 .userName(request.getName())
                 .userEmail(email)
@@ -108,6 +109,9 @@ public class RestaurantService {
     }
     if (request.getDescription() != null) {
       restaurant.setRestaurantDescription(request.getDescription());
+    }
+    if (request.getEmail() != null) {
+      flushEmailChange();
     }
 
     // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
@@ -189,6 +193,30 @@ public class RestaurantService {
 
   private void ensureEmailAvailable(String email) {
     if (userService.isEmailTaken(email)) {
+      throw new RestaurantEmailInUseException("Email is already in use");
+    }
+  }
+
+  /**
+   * The unique index is the backstop for two requests racing past {@link #ensureEmailAvailable}.
+   * The IDENTITY insert runs at once, so the violation surfaces here.
+   */
+  private User createUser(User user) {
+    try {
+      return userService.create(user);
+    } catch (DataIntegrityViolationException exception) {
+      throw new RestaurantEmailInUseException("Email is already in use");
+    }
+  }
+
+  /**
+   * As {@link #createUser}, for an edit: dirty checking would only write the email at commit, after
+   * this method returns, so flush now to answer the race with 409 rather than a 500.
+   */
+  private void flushEmailChange() {
+    try {
+      userService.flush();
+    } catch (DataIntegrityViolationException exception) {
       throw new RestaurantEmailInUseException("Email is already in use");
     }
   }
