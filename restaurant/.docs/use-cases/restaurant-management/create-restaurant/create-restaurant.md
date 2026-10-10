@@ -172,7 +172,7 @@ sequenceDiagram
 | `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM` | 403, nothing written |
 | `CUSTOMER` with a taken email | 403, not 409 |
 | No `role` / unknown `role` | 400 |
-| Blank name, name of 151, no email, malformed email, email over 255 | 400 naming the field |
+| Blank name, name of 151, no email, malformed email, email over 255, email with surrounding spaces | 400 naming the field |
 | Seeded restaurant's email, upper-cased | 409 |
 | Seeded customer's email | 409 |
 | Email of a soft-deleted restaurant | 201 |
@@ -190,4 +190,5 @@ and their restaurants go with them by cascade.
 3. **The owner's first login** belongs to #83, which replaces the `NO_LOGIN_PASSWORD` marker with a
    real password.
 4. **Surrounding whitespace in the email is a 400, not trimmed.** `@Email` refuses it before the
-   service runs; the service's `trim()` mirrors create-customer and never changes anything over HTTP.
+   service runs, so the service only lower-cases. (Create-customer still calls `trim()`, which
+   never changes anything over HTTP.)

@@ -47,7 +47,7 @@ public class RestaurantService {
   public RestaurantResponse createRestaurant(ActorRole role, CreateRestaurantRequest request) {
     ensureAdmin(role, "create a restaurant");
 
-    String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+    String email = request.getEmail().toLowerCase(Locale.ROOT);
     ensureEmailAvailable(email);
 
     User user =
@@ -99,7 +99,7 @@ public class RestaurantService {
     User user = restaurant.getUser();
 
     if (request.getEmail() != null) {
-      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+      String email = request.getEmail().toLowerCase(Locale.ROOT);
       ensureEmailAvailableExcept(email, user.getId());
       user.setUserEmail(email);
     }

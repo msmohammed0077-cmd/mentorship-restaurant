@@ -223,6 +223,12 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     rejectsBody(emailBody(""), "email");
   }
 
+  /** @Email refuses it before the service runs, so the service does not trim. */
+  @Test
+  void rejectsAnEmailWithSurroundingWhitespace() {
+    rejectsBody(emailBody(" " + email("koshary") + " "), "email");
+  }
+
   @Test
   void rejectsAMalformedEmail() {
     rejectsBody(emailBody("not-an-email"), "email");

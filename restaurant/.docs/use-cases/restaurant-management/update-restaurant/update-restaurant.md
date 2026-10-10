@@ -29,9 +29,10 @@ Adds `UpdateRestaurantRequest`, `RestaurantService.updateRestaurant` and the pri
 2. Every field is **optional**. An absent or `null` field is left as it is, so the description
    cannot be cleared here.
 3. The **name** is written to both the restaurant and its user, as at create.
-4. The **email** is trimmed and lower-cased, and must not be held by **another** active user —
+4. The **email** is lower-cased, and must not be held by **another** active user —
    409, "Email is already in use". Re-sending the restaurant's own email, in any case, is accepted.
-5. The changes are made on the loaded entities; dirty checking writes them at commit.
+5. The changes are made on the loaded entities; dirty checking writes them. An email change is
+   flushed within the use-case (note 1).
 
 ## Authorisation
 
@@ -175,7 +176,7 @@ sequenceDiagram
 | `CUSTOMER` on an unknown id | 403, not 404 |
 | Unknown id / soft-deleted restaurant | 404 |
 | No `role` | 400 |
-| Blank name, name of 151, blank email, malformed email | 400 naming the field |
+| Blank name, name of 151, blank email, malformed email, email with surrounding spaces | 400 naming the field |
 
 Every email the test creates, including the new email of an edit, starts with
 `update.restaurant.test.`; cleanup deletes only those users.

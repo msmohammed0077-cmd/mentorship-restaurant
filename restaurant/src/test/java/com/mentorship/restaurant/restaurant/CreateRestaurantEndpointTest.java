@@ -154,6 +154,12 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     rejectsBody(body("Koshary Corner", "not-an-email"), "email");
   }
 
+  /** @Email refuses it before the service runs, so the service does not trim. */
+  @Test
+  void rejectsAnEmailWithSurroundingWhitespace() {
+    rejectsBody(body("Koshary Corner", " " + email("koshary") + " "), "email");
+  }
+
   @Test
   void rejectsAnEmailOver255Characters() {
     rejectsBody(body("Koshary Corner", emailPrefix() + "x".repeat(250) + "@example.com"), "email");
