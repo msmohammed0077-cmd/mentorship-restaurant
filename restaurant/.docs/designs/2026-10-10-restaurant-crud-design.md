@@ -11,7 +11,7 @@ Four stacked PRs. Each branches from the previous one and targets it; PR 1 targe
 | PR | Branch | Issues | Endpoints | Est. size | Status |
 |---|---|---|---|---|---|
 | 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done** — #111. Both reads, specs, ADR 0007 |
-| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Done.** Create, spec, ADR 0005 amended, `ActorRole` in `user/` with `ADMIN` |
+| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Done** — #112. Create, spec, ADR 0005 amended, `ActorRole` in `user/` with `ADMIN` |
 | 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | **Next.** Branch from `feat/GH-86-create-restaurant` |
 | 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | Not started |
 
