@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.order.model.request;
 
 import com.mentorship.restaurant.order.model.OrderCursor;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
+import com.mentorship.restaurant.user.model.ActorRole;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

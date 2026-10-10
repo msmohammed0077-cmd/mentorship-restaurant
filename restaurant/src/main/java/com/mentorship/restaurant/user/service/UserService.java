@@ -6,12 +6,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The login account, for the domains that own one (customers today, restaurants later). Every
- * method joins the caller's transaction.
+ * The login account, for the domains that own one (customers and restaurants). Every method joins
+ * the caller's transaction.
  */
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+  /**
+   * The password of an account no one can log in to yet: a restaurant the admin created. It is not
+   * a BCrypt hash, so no password matches it. Real authentication (#83) gives these accounts a real
+   * password.
+   */
+  public static final String NO_LOGIN_PASSWORD = "!no-login";
 
   private final UserRepository userRepository;
 

@@ -11,8 +11,8 @@ Four stacked PRs. Each branches from the previous one and targets it; PR 1 targe
 | PR | Branch | Issues | Endpoints | Est. size | Status |
 |---|---|---|---|---|---|
 | 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done** — #111. Both reads, specs, ADR 0007 |
-| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Next.** Branch from `feat/GH-89-read-restaurants` |
-| 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | Not started |
+| 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Done** — #112. Create, spec, ADR 0005 amended, `ActorRole` in `user/` with `ADMIN` |
+| 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | **Next.** Branch from `feat/GH-86-create-restaurant` |
 | 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | Not started |
 
 Reads go first: they build what the others need (controller, response, mapper, test support) and carry no write rules. If PR 3 runs over budget, #91 moves to its own PR.
@@ -25,7 +25,7 @@ Trust-based, like the order endpoints, until #83 delivers real authentication. T
 
 - `ActorRole` gains `ADMIN` and moves from `order/model/entity/` to `user/model/` (PR 2, mechanical). It is no longer order-specific, and the restaurant domain should not import an enum from an order entity package.
 - Write endpoints take `?role=`, plus `?restaurantId=` for `RESTAURANT` (the caller's claimed identity, the same parameter the order endpoints use).
-- One private guard, `ensureMayManage(id, role, restaurantId)`:
+- One private guard, `ensureMayManage(id, role, restaurantId)`. PR 2 adds the `ADMIN`-only half, `ensureAdmin(role, action)`, for create; PR 3 adds `ensureMayManage` beside it, and PR 4 reuses `ensureAdmin` for delete:
 
 | Endpoint | Allowed |
 |---|---|

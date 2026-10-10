@@ -2,13 +2,20 @@ package com.mentorship.restaurant.restaurant.service;
 
 import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantActionNotAllowedException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantEmailInUseException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantNotFoundException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.model.mapper.RestaurantMapper;
+import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
+import com.mentorship.restaurant.user.model.ActorRole;
+import com.mentorship.restaurant.user.model.entity.User;
+import com.mentorship.restaurant.user.service.UserService;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +36,34 @@ public class RestaurantService {
   private final RestaurantRepository restaurantRepository;
   private final MenuItemRepository menuItemRepository;
   private final RestaurantMapper restaurantMapper;
+  private final UserService userService;
+
+  /** A new restaurant starts closed: it has no menu yet. Its account has no usable password. */
+  @Transactional
+  public RestaurantResponse createRestaurant(ActorRole role, CreateRestaurantRequest request) {
+    ensureAdmin(role, "create a restaurant");
+
+    String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+    ensureEmailAvailable(email);
+
+    User user =
+        userService.create(
+            User.builder()
+                .userName(request.getName())
+                .userEmail(email)
+                .userPassword(UserService.NO_LOGIN_PASSWORD)
+                .build());
+
+    Restaurant restaurant =
+        Restaurant.builder()
+            .user(user)
+            .restaurantName(request.getName())
+            .restaurantDescription(request.getDescription())
+            .isOpen(false)
+            .build();
+
+    return restaurantMapper.toResponse(restaurantRepository.save(restaurant));
+  }
 
   @Transactional(readOnly = true)
   public RestaurantResponse getRestaurant(Long restaurantId) {
@@ -69,5 +104,17 @@ public class RestaurantService {
     return restaurantRepository
         .findActiveById(restaurantId)
         .orElseThrow(() -> new RestaurantNotFoundException("Restaurant not found"));
+  }
+
+  private void ensureAdmin(ActorRole role, String action) {
+    if (role != ActorRole.ADMIN) {
+      throw new RestaurantActionNotAllowedException("Role " + role + " may not " + action);
+    }
+  }
+
+  private void ensureEmailAvailable(String email) {
+    if (userService.isEmailTaken(email)) {
+      throw new RestaurantEmailInUseException("Email is already in use");
+    }
   }
 }

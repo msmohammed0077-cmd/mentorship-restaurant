@@ -1,11 +1,11 @@
 package com.mentorship.restaurant.order.controller;
 
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.request.AcceptOrderRequest;
 import com.mentorship.restaurant.order.model.request.RejectOrderRequest;
 import com.mentorship.restaurant.order.model.response.OrderStatusResponse;
 import com.mentorship.restaurant.order.service.OrderStatusService;
+import com.mentorship.restaurant.user.model.ActorRole;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
