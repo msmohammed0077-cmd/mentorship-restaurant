@@ -154,15 +154,15 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     rejectsBody(body("Koshary Corner", "not-an-email"), "email");
   }
 
-  /** @Email refuses it before the service runs, so the service does not trim. */
+  /** {@code @Email} refuses it before the service runs, so the service does not trim. */
   @Test
   void rejectsAnEmailWithSurroundingWhitespace() {
     rejectsBody(body("Koshary Corner", " " + email("koshary") + " "), "email");
   }
 
   /**
-   * 256 characters that are otherwise a valid email, so only @Size refuses it: @Email caps the local
-   * part at 64 and each domain label at 63.
+   * 256 characters that are otherwise a valid email, so only {@code @Size} refuses it:
+   * {@code @Email} caps the local part at 64 and each domain label at 63.
    */
   @Test
   void rejectsAnEmailOver255Characters() {

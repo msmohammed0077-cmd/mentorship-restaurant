@@ -42,8 +42,7 @@ class RestaurantEmailRaceTest {
     request.setName("Koshary Corner");
     request.setEmail(EMAIL);
     when(userService.isEmailTaken(EMAIL)).thenReturn(false);
-    when(userService.create(any(User.class)))
-        .thenThrow(emailIndexViolation());
+    when(userService.create(any(User.class))).thenThrow(emailIndexViolation());
 
     assertThatThrownBy(() -> restaurantService.createRestaurant(ActorRole.ADMIN, request))
         .isInstanceOf(RestaurantEmailInUseException.class)
@@ -76,8 +75,7 @@ class RestaurantEmailRaceTest {
     when(userService.isEmailTakenByOther(EMAIL, 7L)).thenReturn(false);
     doThrow(emailIndexViolation()).when(userService).flush();
 
-    assertThatThrownBy(
-            () -> restaurantService.updateRestaurant(4L, ActorRole.ADMIN, null, request))
+    assertThatThrownBy(() -> restaurantService.updateRestaurant(4L, ActorRole.ADMIN, null, request))
         .isInstanceOf(RestaurantEmailInUseException.class)
         .hasMessage("Email is already in use");
   }
