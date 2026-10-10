@@ -30,8 +30,8 @@ gains a builder (ADR 0005). `ActorRole` moves to `user/model/` and gains `ADMIN`
 2. The **email** is lower-cased, and must not be held by an **active** user of either kind,
    compared case-insensitively — 409, "Email is already in use". A soft-deleted user's email
    is free. The partial unique index `uq_users_active_email` is the backstop.
-3. The **name** is stored twice: as the restaurant's name and as its user's name. It is capped at
-   150 characters, `user_name`'s limit.
+3. The **name** is trimmed, then stored twice: as the restaurant's name and as its user's name. It
+   is capped at 150 characters, `user_name`'s limit.
 4. The account has **no usable password**: `user_password` is `UserService.NO_LOGIN_PASSWORD`
    (`"!no-login"`), which is not a BCrypt hash, so no password matches it. The constant marks the
    accounts real authentication must give a password.
@@ -169,6 +169,7 @@ sequenceDiagram
 | --- | --- |
 | Admin, full body, mixed-case email, `is_open: true` in the body | 201, email normalised, `is_open: false`, no `password`; stored `user_name` = `restaurant_name`, `user_password` = `!no-login` |
 | No description | 201, no `description` |
+| Name with surrounding spaces | 201, name trimmed in both columns |
 | `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM` | 403, nothing written |
 | `CUSTOMER` with a taken email | 403, not 409 |
 | No `role` / unknown `role` | 400 |

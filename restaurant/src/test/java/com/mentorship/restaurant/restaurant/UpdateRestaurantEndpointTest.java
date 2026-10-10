@@ -224,6 +224,22 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
+  void trimsTheName() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
+
+    update(restaurantId, "role=ADMIN", nameBody("  Koshary Palace  "))
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.name")
+        .isEqualTo("Koshary Palace");
+
+    assertThat(storedRow(restaurantId))
+        .containsEntry("user_name", "Koshary Palace")
+        .containsEntry("restaurant_name", "Koshary Palace");
+  }
+
+  @Test
   void rejectsADescriptionOver1000Characters() {
     rejectsBody(
         """

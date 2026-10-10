@@ -28,7 +28,7 @@ Adds `UpdateRestaurantRequest`, `RestaurantService.updateRestaurant` and the pri
    is 403, "Role X may not edit this restaurant", **before** the database is read.
 2. Every field is **optional**. An absent or `null` field is left as it is, so the description
    cannot be cleared here.
-3. The **name** is written to both the restaurant and its user, as at create.
+3. The **name** is trimmed and written to both the restaurant and its user, as at create.
 4. The **email** is lower-cased, and must not be held by **another** active user —
    409, "Email is already in use". Re-sending the restaurant's own email, in any case, is accepted.
 5. The changes are made on the loaded entities; dirty checking writes them. An email change is
@@ -168,6 +168,7 @@ sequenceDiagram
 | Admin sends name, description, mixed-case email | 200, email lower-cased; stored `user_name` = `restaurant_name` |
 | Restaurant edits itself | 200 |
 | `{"name": null}` | 200, every field unchanged |
+| Name with surrounding spaces | 200, name trimmed in both columns |
 | Its own email, upper-cased | 200 |
 | Seeded restaurant's email, upper-cased | 409, email unchanged |
 | Seeded customer's email | 409 |

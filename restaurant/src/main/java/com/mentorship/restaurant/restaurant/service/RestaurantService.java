@@ -52,11 +52,13 @@ public class RestaurantService {
 
     String email = request.getEmail().toLowerCase(Locale.ROOT);
     ensureEmailAvailable(email);
+    // @NotBlank refuses an all-blank name, but not padding around a real one.
+    String name = request.getName().trim();
 
     User user =
         createUser(
             User.builder()
-                .userName(request.getName())
+                .userName(name)
                 .userEmail(email)
                 .userPassword(UserService.NO_LOGIN_PASSWORD)
                 .build());
@@ -64,7 +66,7 @@ public class RestaurantService {
     Restaurant restaurant =
         Restaurant.builder()
             .user(user)
-            .restaurantName(request.getName())
+            .restaurantName(name)
             .restaurantDescription(request.getDescription())
             .isOpen(false)
             .build();
@@ -107,8 +109,9 @@ public class RestaurantService {
       user.setUserEmail(email);
     }
     if (request.getName() != null) {
-      restaurant.setRestaurantName(request.getName());
-      user.setUserName(request.getName());
+      String name = request.getName().trim();
+      restaurant.setRestaurantName(name);
+      user.setUserName(name);
     }
     if (request.getDescription() != null) {
       restaurant.setRestaurantDescription(request.getDescription());
