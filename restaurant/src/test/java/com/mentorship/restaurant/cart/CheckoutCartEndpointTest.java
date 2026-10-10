@@ -1,5 +1,8 @@
 package com.mentorship.restaurant.cart;
 
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mentorship.restaurant.support.CartEndpointTestSupport;
@@ -41,6 +44,46 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Cart is empty");
+  }
+
+  @Test
+  void rejectsACartFromAClosedRestaurant() {
+    long cartId = insertCartWithItem(WINGS, 1);
+
+    client
+        .post()
+        .uri("/api/v1/cart/{cartId}/checkout", cartId)
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant is closed");
+
+    assertThat(stockFor(WINGS)).isEqualTo(30);
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
+  }
+
+  @Test
+  void rejectsACartFromADeletedRestaurant() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Deleted Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long cartId = insertCartWithItem(menuItemId, 1);
+    softDeleteRestaurant(jdbcTemplate, restaurantId);
+
+    client
+        .post()
+        .uri("/api/v1/cart/{cartId}/checkout", cartId)
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant not found");
+
+    assertThat(stockFor(menuItemId)).isEqualTo(50);
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
   }
 
   @Test

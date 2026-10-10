@@ -97,10 +97,14 @@ public class CartService {
   @Transactional
   public CheckoutCartResponse checkout(Long cartId) {
     // Take the lines out before the bulk delete below, which leaves a loaded cart stale.
-    List<Line> lines = linesOf(findCart(cartId));
+    Cart cart = findCart(cartId);
+    List<Line> lines = linesOf(cart);
     if (lines.isEmpty()) {
       throw new EmptyCartException("Cart is empty");
     }
+    // A cart holds one restaurant's items: refuse a closed or deleted one, as create-order does.
+    restaurantService.ensureOrderable(
+        cart.getItems().get(0).getMenuItem().getMenu().getRestaurant().getId());
 
     lines.forEach(line -> restaurantService.decrementStock(line.menuItemId(), line.quantity()));
     cartItemRepository.deleteAllByCart_Id(cartId);

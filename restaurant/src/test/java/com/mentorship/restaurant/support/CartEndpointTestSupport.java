@@ -63,6 +63,30 @@ public abstract class CartEndpointTestSupport {
         .isCreated();
   }
 
+  /**
+   * Seeds a cart for {@link #CUSTOMER_WITHOUT_CART} holding one line, straight into the database,
+   * so it can hold items add-to-cart would refuse. Returns the cart id.
+   */
+  protected long insertCartWithItem(long menuItemId, int quantity) {
+    Long cartId =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id",
+            Long.class,
+            CUSTOMER_WITHOUT_CART);
+    if (cartId == null) {
+      throw new IllegalStateException("Cart not created for customer " + CUSTOMER_WITHOUT_CART);
+    }
+    jdbcTemplate.update(
+        """
+        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
+        SELECT ?, menu_item_id, ?, menu_item_price FROM menu_items WHERE menu_item_id = ?
+        """,
+        cartId,
+        quantity,
+        menuItemId);
+    return cartId;
+  }
+
   protected long createCartWithItem(long menuItemId, int quantity) {
     addItem(menuItemId, quantity);
     return cartIdForCustomer(CUSTOMER_WITHOUT_CART);

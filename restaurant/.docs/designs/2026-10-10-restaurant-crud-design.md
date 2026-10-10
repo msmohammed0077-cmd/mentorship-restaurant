@@ -158,6 +158,8 @@ A new chain link, `RestaurantValidatorHandler`, runs after `ItemsValidatorHandle
 | closed | **409**, "Restaurant is closed" (the existing `RestaurantClosedException`, as add-to-cart answers) | PR 3 |
 | soft-deleted | **404**, "Restaurant not found" | PR 3 (code: `ensureOrderable` loads through `findActiveRestaurant`), PR 4 (test) |
 
+The older mock checkout, `POST /api/v1/cart/{cartId}/checkout` (`CartService.checkout`, no order, no spec), runs the same `ensureOrderable` check before it touches stock (PR 4, from review).
+
 The cart is kept; the customer sees the refusal and empties it. A restaurant closed for the night does not wipe the carts waiting on it.
 
 ## Testing
