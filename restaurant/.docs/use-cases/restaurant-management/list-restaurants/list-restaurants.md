@@ -30,7 +30,9 @@ Builds on [get-restaurant](../get-restaurant/get-restaurant.md) (`RestaurantCont
    request as `PageRequest.of(page, size, Sort.by("id"))`.
 4. **Paging is clamped, never rejected.** `size` defaults to 20 and is capped at 50
    (`spring.data.web.pageable.max-page-size`, matching order history's cap); `size=500` returns a
-   page of 50. A negative `page` is page 0. A page past the end is 200 with empty `content`.
+   page of 50. A negative `page` is page 0. A page past the end is 200 with empty `content`. A
+   `page` so large that page × size overflows an `int` is clamped to the last page that does not,
+   which `page.number` reports.
 5. The password is **never** in the response.
 
 ## Authorisation
@@ -132,6 +134,7 @@ sequenceDiagram
 | Two inserted (one open, one closed), `size=1`, the last two pages | each page holds one of them, `is_open` as inserted, totals counted |
 | `size=500` | `page.size` 50 |
 | `page=-1` | `page.number` 0 |
+| `page=50000000&size=50` | 200, empty `content`, `page.number` 42949672 |
 | `sort=name,asc` with a restaurant named to sort first | ids still ascending |
 | One inserted and one soft-deleted | the kept one listed, the deleted one not, total up by one |
 

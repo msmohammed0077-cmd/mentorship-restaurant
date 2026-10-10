@@ -73,10 +73,16 @@ public class RestaurantService {
     return restaurantMapper.toResponse(findActiveRestaurant(restaurantId));
   }
 
-  /** The client's page and size, always in id order: a client's {@code sort} is ignored. */
+  /**
+   * The client's page and size, always in id order: a client's {@code sort} is ignored. Spring
+   * clamps the size but not the page, and JPA's offset is an int, so a page that would overflow it
+   * is clamped to the last one that does not (past the end either way: an empty page).
+   */
   @Transactional(readOnly = true)
   public PagedModel<RestaurantResponse> listRestaurants(Pageable pageable) {
-    Pageable byId = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("id"));
+    int size = pageable.getPageSize();
+    int page = Math.min(pageable.getPageNumber(), Integer.MAX_VALUE / size);
+    Pageable byId = PageRequest.of(page, size, Sort.by("id"));
     return new PagedModel<>(
         restaurantRepository
             .findByUser_UserDeletedAtIsNull(byId)
