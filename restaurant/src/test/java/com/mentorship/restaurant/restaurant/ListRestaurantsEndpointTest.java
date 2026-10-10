@@ -118,6 +118,22 @@ class ListRestaurantsEndpointTest extends RestaurantEndpointTestSupport {
         .isEqualTo(0);
   }
 
+  /** 50,000,000 × 50 overflows the int offset JPA needs; the page is clamped to the last one. */
+  @Test
+  void clampsAPageWhoseOffsetWouldOverflow() {
+    client
+        .get()
+        .uri("/api/v1/restaurants?page=50000000&size=50")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.content.length()")
+        .isEqualTo(0)
+        .jsonPath("$.page.number")
+        .isEqualTo(Integer.MAX_VALUE / 50);
+  }
+
   @Test
   void ignoresTheClientsSort() {
     insertRestaurant("Aaa First By Name", email("aaa"), true);

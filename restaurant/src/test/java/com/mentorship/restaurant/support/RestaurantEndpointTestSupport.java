@@ -32,7 +32,17 @@ public abstract class RestaurantEndpointTestSupport {
   @BeforeEach
   @AfterEach
   protected void deleteCreatedUsers() {
-    // restaurants, and their menus and items, follow by ON DELETE CASCADE.
+    // Orders first: orders.restaurant_id has no cascade, so deleting a restaurant that still has
+    // orders fails the whole statement.
+    jdbcTemplate.update(
+        """
+        DELETE FROM orders WHERE restaurant_id IN (
+          SELECT restaurant_id FROM restaurants JOIN users USING (user_id) WHERE user_email LIKE ?
+        )
+        """,
+        emailPrefix() + "%");
+    // restaurants, and their menus and items, follow by ON DELETE CASCADE; so do the customers
+    // insertOrder created, and their addresses.
     jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", emailPrefix() + "%");
   }
 
@@ -99,7 +109,51 @@ public abstract class RestaurantEndpointTestSupport {
     return menuItemId;
   }
 
+  /**
+   * Inserts an order at the restaurant, placed by a new customer under this class's prefix with a
+   * default address. Returns the order id. Call it once per restaurant.
+   */
+  protected long insertOrder(long restaurantId, String status) {
+    Long orderId =
+        jdbcTemplate.queryForObject(
+            """
+            WITH new_user AS (
+              INSERT INTO users (user_name, user_email, user_password)
+              VALUES ('Sara Youssef', ?, '!no-login')
+              RETURNING user_id
+            ), new_customer AS (
+              INSERT INTO customers (user_id) SELECT user_id FROM new_user
+              RETURNING customer_id
+            ), new_address AS (
+              INSERT INTO addresses (
+                customer_id, address_label, address_line, address_city, address_area,
+                address_is_default
+              )
+              SELECT customer_id, 'Home', '12 Tahrir Street', 'Cairo', 'Dokki', TRUE
+              FROM new_customer
+              RETURNING customer_id, address_id
+            )
+            INSERT INTO orders
+              (customer_id, restaurant_id, address_id, order_status, order_total, order_created_at)
+            SELECT customer_id, ?, address_id, ?, 370.00, now() FROM new_address
+            RETURNING order_id
+            """,
+            Long.class,
+            email("customer." + restaurantId),
+            restaurantId,
+            status);
+    if (orderId == null) {
+      throw new IllegalStateException("Order not created for restaurant " + restaurantId);
+    }
+    return orderId;
+  }
+
   protected void softDeleteRestaurant(long restaurantId) {
+    softDeleteRestaurant(jdbcTemplate, restaurantId);
+  }
+
+  /** {@link #softDeleteRestaurant(long)}, static and public for tests on another base. */
+  public static void softDeleteRestaurant(JdbcTemplate jdbcTemplate, long restaurantId) {
     jdbcTemplate.update(
         """
         UPDATE users SET user_deleted_at = now()

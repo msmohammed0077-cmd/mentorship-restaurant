@@ -1,5 +1,9 @@
 package com.mentorship.restaurant.cart;
 
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
+
 import com.mentorship.restaurant.support.CartEndpointTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -135,6 +139,26 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
         .exchange()
         .expectStatus()
         .isNotFound();
+  }
+
+  @Test
+  void rejectsAnItemOfADeletedRestaurant() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Deleted Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    softDeleteRestaurant(jdbcTemplate, restaurantId);
+
+    client
+        .post()
+        .uri("/api/v1/cart/items")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(addItemBody(menuItemId, 1))
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item not found");
   }
 
   @Test

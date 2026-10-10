@@ -13,7 +13,7 @@ Four stacked PRs. Each branches from the previous one and targets it; PR 1 targe
 | 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done** — #111. Both reads, specs, ADR 0007 |
 | 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Done** — #112. Create, spec, ADR 0005 amended, `ActorRole` in `user/` with `ADMIN` |
 | 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | **Done** — #113. Edit, open/close, checkout guard, specs, glossary |
-| 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | **Next.** Branch from `feat/GH-87-edit-restaurant` |
+| 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | **Done** — #114. Delete, add-to-cart guard, spec. Last PR of the stack |
 
 Reads go first: they build what the others need (controller, response, mapper, test support) and carry no write rules. If PR 3 runs over budget, #91 moves to its own PR.
 
@@ -92,7 +92,7 @@ The System Admin creates the restaurant; it has no usable login.
 | Field | Rule |
 |---|---|
 | `name` | required, not blank, max 150 (`user_name`'s limit; stored in both `user_name` and `restaurant_name`) |
-| `description` | optional |
+| `description` | optional, max 1000 |
 | `email` | required, valid email, max 255 — the contact email |
 
 `RestaurantService.createRestaurant`, one transaction:
@@ -157,6 +157,8 @@ A new chain link, `RestaurantValidatorHandler`, runs after `ItemsValidatorHandle
 |---|---|---|
 | closed | **409**, "Restaurant is closed" (the existing `RestaurantClosedException`, as add-to-cart answers) | PR 3 |
 | soft-deleted | **404**, "Restaurant not found" | PR 3 (code: `ensureOrderable` loads through `findActiveRestaurant`), PR 4 (test) |
+
+The older mock checkout, `POST /api/v1/cart/{cartId}/checkout` (`CartService.checkout`, no order, no spec), runs the same `ensureOrderable` check before it touches stock (PR 4, from review).
 
 The cart is kept; the customer sees the refusal and empties it. A restaurant closed for the night does not wipe the carts waiting on it.
 

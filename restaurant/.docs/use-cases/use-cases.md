@@ -68,3 +68,4 @@ Tracked under [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/
 | Create Restaurant | [create-restaurant](./restaurant-management/create-restaurant/create-restaurant.md) |
 | Update Restaurant | [update-restaurant](./restaurant-management/update-restaurant/update-restaurant.md) |
 | Open / Close Restaurant | [set-restaurant-open](./restaurant-management/set-restaurant-open/set-restaurant-open.md) |
+| Delete Restaurant | [delete-restaurant](./restaurant-management/delete-restaurant/delete-restaurant.md) |

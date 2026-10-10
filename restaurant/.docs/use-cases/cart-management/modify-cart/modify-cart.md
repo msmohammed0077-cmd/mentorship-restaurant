@@ -40,6 +40,14 @@ PROCEDURE ModifyCart(cartId, action)
                 RAISE InvalidQuantityException("Quantity must be greater than zero")
             END IF
 
+            // As add-to-cart answers
+            IF the item's restaurant is deleted THEN
+                RAISE MenuItemNotFoundException("Item not found")            (404)
+            END IF
+            IF the item's restaurant is closed THEN
+                RAISE RestaurantClosedException("Restaurant is closed")      (409)
+            END IF
+
             stockAvailable ← CheckStock(cartItem.menuItemId, action.quantity)
 
             IF stockAvailable = false THEN

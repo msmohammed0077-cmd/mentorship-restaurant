@@ -69,6 +69,32 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
+  void trimsTheName() {
+    client
+        .post()
+        .uri("/api/v1/restaurants?role=ADMIN")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(body("  Koshary Corner  ", email("koshary")))
+        .exchange()
+        .expectStatus()
+        .isCreated()
+        .expectBody()
+        .jsonPath("$.name")
+        .isEqualTo("Koshary Corner");
+
+    assertThat(
+            jdbcTemplate.queryForMap(
+                """
+                SELECT u.user_name, r.restaurant_name
+                FROM restaurants r JOIN users u ON u.user_id = r.user_id
+                WHERE u.user_email = ?
+                """,
+                email("koshary")))
+        .containsEntry("user_name", "Koshary Corner")
+        .containsEntry("restaurant_name", "Koshary Corner");
+  }
+
+  @Test
   void createsARestaurantWithoutADescription() {
     client
         .post()
@@ -155,8 +181,49 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
+  void rejectsADescriptionOver1000Characters() {
+    rejectsBody(
+        """
+        { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+        """
+            .formatted(email("koshary"), "x".repeat(1001)),
+        "description");
+  }
+
+  @Test
+  void acceptsADescriptionOf1000Characters() {
+    client
+        .post()
+        .uri("/api/v1/restaurants?role=ADMIN")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(
+            """
+            { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+            """
+                .formatted(email("koshary"), "x".repeat(1000)))
+        .exchange()
+        .expectStatus()
+        .isCreated();
+  }
+
+  /** {@code @Email} refuses it before the service runs, so the service does not trim. */
+  @Test
+  void rejectsAnEmailWithSurroundingWhitespace() {
+    rejectsBody(body("Koshary Corner", " " + email("koshary") + " "), "email");
+  }
+
+  /**
+   * 256 characters that are otherwise a valid email, so only {@code @Size} refuses it:
+   * {@code @Email} caps the local part at 64 and each domain label at 63.
+   */
+  @Test
   void rejectsAnEmailOver255Characters() {
-    rejectsBody(body("Koshary Corner", emailPrefix() + "x".repeat(250) + "@example.com"), "email");
+    String local = emailPrefix() + "x".repeat(60 - emailPrefix().length());
+    String domain = "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + ".com";
+    String email = local + "@" + domain;
+    assertThat(email).hasSize(256);
+
+    rejectsBody(body("Koshary Corner", email), "email");
   }
 
   @Test

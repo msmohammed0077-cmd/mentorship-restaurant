@@ -30,8 +30,8 @@ gains a builder (ADR 0005). `ActorRole` moves to `user/model/` and gains `ADMIN`
 2. The **email** is lower-cased, and must not be held by an **active** user of either kind,
    compared case-insensitively — 409, "Email is already in use". A soft-deleted user's email
    is free. The partial unique index `uq_users_active_email` is the backstop.
-3. The **name** is stored twice: as the restaurant's name and as its user's name. It is capped at
-   150 characters, `user_name`'s limit.
+3. The **name** is trimmed, then stored twice: as the restaurant's name and as its user's name. It
+   is capped at 150 characters, `user_name`'s limit.
 4. The account has **no usable password**: `user_password` is `UserService.NO_LOGIN_PASSWORD`
    (`"!no-login"`), which is not a BCrypt hash, so no password matches it. The constant marks the
    accounts real authentication must give a password.
@@ -61,7 +61,7 @@ Content-Type: application/json
 | Field | Rule |
 | --- | --- |
 | `name` | required, not blank, max 150 |
-| `description` | optional |
+| `description` | optional, max 1000 |
 | `email` | required, valid email, max 255 |
 
 Response, **201**:
@@ -169,10 +169,11 @@ sequenceDiagram
 | --- | --- |
 | Admin, full body, mixed-case email, `is_open: true` in the body | 201, email normalised, `is_open: false`, no `password`; stored `user_name` = `restaurant_name`, `user_password` = `!no-login` |
 | No description | 201, no `description` |
+| Name with surrounding spaces | 201, name trimmed in both columns |
 | `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM` | 403, nothing written |
 | `CUSTOMER` with a taken email | 403, not 409 |
 | No `role` / unknown `role` | 400 |
-| Blank name, name of 151, no email, malformed email, email over 255 | 400 naming the field |
+| Blank name, name of 151, no email, malformed email, email over 255, email with surrounding spaces, description of 1001 | 400 naming the field |
 | Seeded restaurant's email, upper-cased | 409 |
 | Seeded customer's email | 409 |
 | Email of a soft-deleted restaurant | 201 |
@@ -183,9 +184,12 @@ and their restaurants go with them by cascade.
 # Notes
 
 1. **Two simultaneous creates with the same email** both pass the check; the second then hits
-   `uq_users_active_email` and answers 500. Create-customer accepts the same race.
+   `uq_users_active_email`, which the service answers with the same 409. `RestaurantEmailRaceTest`
+   covers it, as a unit test, because the window cannot be hit on demand over HTTP. Create-customer
+   still answers that race with 500.
 2. **No phone, address or opening hours.** No client needs them yet.
 3. **The owner's first login** belongs to #83, which replaces the `NO_LOGIN_PASSWORD` marker with a
    real password.
 4. **Surrounding whitespace in the email is a 400, not trimmed.** `@Email` refuses it before the
-   service runs; the service's `trim()` mirrors create-customer and never changes anything over HTTP.
+   service runs, so the service only lower-cases. (Create-customer still calls `trim()`, which
+   never changes anything over HTTP.)

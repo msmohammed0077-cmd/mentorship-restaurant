@@ -59,12 +59,15 @@ public class CartService {
         cartItemRepository
             .findByIdAndCart_Id(cartItemId, cartId)
             .orElseThrow(() -> new CartItemNotFoundException("Cart item not found"));
+    // As add-to-cart answers: a deleted restaurant's item is not found, a closed one's refused.
+    MenuItem menuItem = restaurantService.findMenuItem(cartItem.getMenuItem().getId());
+    ensureRestaurantOpen(menuItem.getMenu().getRestaurant());
 
-    ensureStockCovers(quantity, cartItem.getMenuItem().getStock());
+    ensureStockCovers(quantity, menuItem.getStock());
 
     cartItem.setQuantity(quantity);
     cartItem.setNote(note);
-    cartItem.setItemPrice(cartItem.getMenuItem().getItemPrice());
+    cartItem.setItemPrice(menuItem.getItemPrice());
 
     return cartMapper.toResponse(cartItem.getCart());
   }
@@ -97,10 +100,14 @@ public class CartService {
   @Transactional
   public CheckoutCartResponse checkout(Long cartId) {
     // Take the lines out before the bulk delete below, which leaves a loaded cart stale.
-    List<Line> lines = linesOf(findCart(cartId));
+    Cart cart = findCart(cartId);
+    List<Line> lines = linesOf(cart);
     if (lines.isEmpty()) {
       throw new EmptyCartException("Cart is empty");
     }
+    // A cart holds one restaurant's items: refuse a closed or deleted one, as create-order does.
+    restaurantService.ensureOrderable(
+        cart.getItems().get(0).getMenuItem().getMenu().getRestaurant().getId());
 
     lines.forEach(line -> restaurantService.decrementStock(line.menuItemId(), line.quantity()));
     cartItemRepository.deleteAllByCart_Id(cartId);

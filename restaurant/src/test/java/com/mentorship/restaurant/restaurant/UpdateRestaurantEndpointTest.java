@@ -224,6 +224,38 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
+  void trimsTheName() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
+
+    update(restaurantId, "role=ADMIN", nameBody("  Koshary Palace  "))
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.name")
+        .isEqualTo("Koshary Palace");
+
+    assertThat(storedRow(restaurantId))
+        .containsEntry("user_name", "Koshary Palace")
+        .containsEntry("restaurant_name", "Koshary Palace");
+  }
+
+  @Test
+  void rejectsADescriptionOver1000Characters() {
+    rejectsBody(
+        """
+        { "description": "%s" }
+        """
+            .formatted("x".repeat(1001)),
+        "description");
+  }
+
+  /** {@code @Email} refuses it before the service runs, so the service does not trim. */
+  @Test
+  void rejectsAnEmailWithSurroundingWhitespace() {
+    rejectsBody(emailBody(" " + email("koshary") + " "), "email");
+  }
+
+  @Test
   void rejectsAMalformedEmail() {
     rejectsBody(emailBody("not-an-email"), "email");
   }

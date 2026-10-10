@@ -20,6 +20,8 @@ import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -36,6 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RestaurantService {
 
+  private static final String ACTIVE_EMAIL_INDEX = "uq_users_active_email";
+
   private final RestaurantRepository restaurantRepository;
   private final MenuItemRepository menuItemRepository;
   private final RestaurantMapper restaurantMapper;
@@ -46,13 +50,15 @@ public class RestaurantService {
   public RestaurantResponse createRestaurant(ActorRole role, CreateRestaurantRequest request) {
     ensureAdmin(role, "create a restaurant");
 
-    String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+    String email = request.getEmail().toLowerCase(Locale.ROOT);
     ensureEmailAvailable(email);
+    // @NotBlank refuses an all-blank name, but not padding around a real one.
+    String name = request.getName().trim();
 
     User user =
-        userService.create(
+        createUser(
             User.builder()
-                .userName(request.getName())
+                .userName(name)
                 .userEmail(email)
                 .userPassword(UserService.NO_LOGIN_PASSWORD)
                 .build());
@@ -60,7 +66,7 @@ public class RestaurantService {
     Restaurant restaurant =
         Restaurant.builder()
             .user(user)
-            .restaurantName(request.getName())
+            .restaurantName(name)
             .restaurantDescription(request.getDescription())
             .isOpen(false)
             .build();
@@ -73,10 +79,16 @@ public class RestaurantService {
     return restaurantMapper.toResponse(findActiveRestaurant(restaurantId));
   }
 
-  /** The client's page and size, always in id order: a client's {@code sort} is ignored. */
+  /**
+   * The client's page and size, always in id order: a client's {@code sort} is ignored. Spring
+   * clamps the size but not the page, and JPA's offset is an int, so a page that would overflow it
+   * is clamped to the last one that does not (past the end either way: an empty page).
+   */
   @Transactional(readOnly = true)
   public PagedModel<RestaurantResponse> listRestaurants(Pageable pageable) {
-    Pageable byId = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("id"));
+    int size = pageable.getPageSize();
+    int page = Math.min(pageable.getPageNumber(), Integer.MAX_VALUE / size);
+    Pageable byId = PageRequest.of(page, size, Sort.by("id"));
     return new PagedModel<>(
         restaurantRepository
             .findByUser_UserDeletedAtIsNull(byId)
@@ -92,16 +104,20 @@ public class RestaurantService {
     User user = restaurant.getUser();
 
     if (request.getEmail() != null) {
-      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+      String email = request.getEmail().toLowerCase(Locale.ROOT);
       ensureEmailAvailableExcept(email, user.getId());
       user.setUserEmail(email);
     }
     if (request.getName() != null) {
-      restaurant.setRestaurantName(request.getName());
-      user.setUserName(request.getName());
+      String name = request.getName().trim();
+      restaurant.setRestaurantName(name);
+      user.setUserName(name);
     }
     if (request.getDescription() != null) {
       restaurant.setRestaurantDescription(request.getDescription());
+    }
+    if (request.getEmail() != null) {
+      flushEmailChange();
     }
 
     // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
@@ -127,7 +143,7 @@ public class RestaurantService {
 
   public MenuItem findMenuItem(Long menuItemId) {
     return menuItemRepository
-        .findById(menuItemId)
+        .findActiveById(menuItemId)
         .orElseThrow(() -> new MenuItemNotFoundException("Item not found"));
   }
 
@@ -155,13 +171,18 @@ public class RestaurantService {
     }
   }
 
-  private Restaurant findActiveRestaurant(Long restaurantId) {
+  /**
+   * Shared with {@link RestaurantDeletionService}. Unknown and deleted are both 404; joins the
+   * caller's transaction.
+   */
+  public Restaurant findActiveRestaurant(Long restaurantId) {
     return restaurantRepository
         .findActiveById(restaurantId)
         .orElseThrow(() -> new RestaurantNotFoundException("Restaurant not found"));
   }
 
-  private void ensureAdmin(ActorRole role, String action) {
+  /** Shared with {@link RestaurantDeletionService}. Checked before any database read. */
+  public void ensureAdmin(ActorRole role, String action) {
     if (role != ActorRole.ADMIN) {
       throw new RestaurantActionNotAllowedException("Role " + role + " may not " + action);
     }
@@ -180,6 +201,44 @@ public class RestaurantService {
     if (userService.isEmailTaken(email)) {
       throw new RestaurantEmailInUseException("Email is already in use");
     }
+  }
+
+  /**
+   * The unique index is the backstop for two requests racing past {@link #ensureEmailAvailable}.
+   * The IDENTITY insert runs at once, so the violation surfaces here.
+   */
+  private User createUser(User user) {
+    try {
+      return userService.create(user);
+    } catch (DataIntegrityViolationException exception) {
+      throw emailInUseOrRethrow(exception);
+    }
+  }
+
+  /**
+   * As {@link #createUser}, for an edit: dirty checking would only write the email at commit, after
+   * this method returns, so flush now to answer the race with 409 rather than a 500.
+   */
+  private void flushEmailChange() {
+    try {
+      userService.flush();
+    } catch (DataIntegrityViolationException exception) {
+      throw emailInUseOrRethrow(exception);
+    }
+  }
+
+  /**
+   * Only the active-email index means the email is taken. Any other violation (a column too long,
+   * say) is a bug, and is rethrown to stay a 500 rather than be reported as a taken email.
+   */
+  private static RuntimeException emailInUseOrRethrow(DataIntegrityViolationException exception) {
+    for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+      if (cause instanceof ConstraintViolationException violation
+          && ACTIVE_EMAIL_INDEX.equals(violation.getConstraintName())) {
+        return new RestaurantEmailInUseException("Email is already in use");
+      }
+    }
+    return exception;
   }
 
   private void ensureEmailAvailableExcept(String email, Long userId) {

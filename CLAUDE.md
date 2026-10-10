@@ -37,7 +37,7 @@ for d in cart customer order payment restaurant user; do
 done
 ```
 
-**A use-case whose dependencies would close a cycle gets its own service.** Delete-customer needs order, and order needs customer through cart and address, so `deleteCustomer` lives in `CustomerDeletionService`, not `CustomerService`; `CustomerController` injects both. Nothing points back at it, so there is no cycle. Reach for this before `@Lazy`, which hides a cycle instead of removing it.
+**A use-case whose dependencies would close a cycle gets its own service.** Delete-customer needs order, and order needs customer through cart and address, so `deleteCustomer` lives in `CustomerDeletionService`, not `CustomerService`; `CustomerController` injects both. Nothing points back at it, so there is no cycle. `RestaurantDeletionService` is the same shape: delete-restaurant needs order, and order and cart need `RestaurantService`, so `RestaurantController` injects both. Reach for this before `@Lazy`, which hides a cycle instead of removing it.
 
 **A `@Transactional` method called from the same class gets no transaction of its own.** The call skips Spring's proxy, so the annotation is ignored. When each item of a loop needs its own transaction, use `TransactionTemplate`: `OrderStatusService.autoRejectStaleOrders` rejects each stale order in its own, so one failure neither rolls back nor stops the rest.
 
