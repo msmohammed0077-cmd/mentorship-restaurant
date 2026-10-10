@@ -4,6 +4,9 @@ import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class RestaurantController {
 
   private final RestaurantService restaurantService;
+
+  @GetMapping
+  public ResponseEntity<PagedModel<RestaurantResponse>> listRestaurants(
+      @PageableDefault(size = 20) Pageable pageable) {
+    return ResponseEntity.ok(restaurantService.listRestaurants(pageable));
+  }
 
   @GetMapping("/{restaurantId}")
   public ResponseEntity<RestaurantResponse> getRestaurant(@PathVariable Long restaurantId) {

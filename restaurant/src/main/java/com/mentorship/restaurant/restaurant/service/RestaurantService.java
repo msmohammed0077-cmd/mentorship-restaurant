@@ -10,6 +10,10 @@ import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +33,16 @@ public class RestaurantService {
   @Transactional(readOnly = true)
   public RestaurantResponse getRestaurant(Long restaurantId) {
     return restaurantMapper.toResponse(findActiveRestaurant(restaurantId));
+  }
+
+  /** The client's page and size, always in id order: a client's {@code sort} is ignored. */
+  @Transactional(readOnly = true)
+  public PagedModel<RestaurantResponse> listRestaurants(Pageable pageable) {
+    Pageable byId = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("id"));
+    return new PagedModel<>(
+        restaurantRepository
+            .findByUser_UserDeletedAtIsNull(byId)
+            .map(restaurantMapper::toResponse));
   }
 
   public MenuItem findMenuItem(Long menuItemId) {
