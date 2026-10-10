@@ -13,7 +13,9 @@ import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
 import com.mentorship.restaurant.user.model.ActorRole;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
+import java.sql.SQLException;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -41,11 +43,27 @@ class RestaurantEmailRaceTest {
     request.setEmail(EMAIL);
     when(userService.isEmailTaken(EMAIL)).thenReturn(false);
     when(userService.create(any(User.class)))
-        .thenThrow(new DataIntegrityViolationException("uq_users_active_email"));
+        .thenThrow(emailIndexViolation());
 
     assertThatThrownBy(() -> restaurantService.createRestaurant(ActorRole.ADMIN, request))
         .isInstanceOf(RestaurantEmailInUseException.class)
         .hasMessage("Email is already in use");
+  }
+
+  @Test
+  void createRethrowsAnyOtherViolation() {
+    CreateRestaurantRequest request = new CreateRestaurantRequest();
+    request.setName("Koshary Corner");
+    request.setEmail(EMAIL);
+    DataIntegrityViolationException tooLong =
+        new DataIntegrityViolationException(
+            "value too long",
+            new ConstraintViolationException("value too long", new SQLException(), null));
+    when(userService.isEmailTaken(EMAIL)).thenReturn(false);
+    when(userService.create(any(User.class))).thenThrow(tooLong);
+
+    assertThatThrownBy(() -> restaurantService.createRestaurant(ActorRole.ADMIN, request))
+        .isSameAs(tooLong);
   }
 
   @Test
@@ -56,11 +74,19 @@ class RestaurantEmailRaceTest {
     request.setEmail(EMAIL);
     when(restaurantRepository.findActiveById(4L)).thenReturn(Optional.of(restaurant));
     when(userService.isEmailTakenByOther(EMAIL, 7L)).thenReturn(false);
-    doThrow(new DataIntegrityViolationException("uq_users_active_email")).when(userService).flush();
+    doThrow(emailIndexViolation()).when(userService).flush();
 
     assertThatThrownBy(
             () -> restaurantService.updateRestaurant(4L, ActorRole.ADMIN, null, request))
         .isInstanceOf(RestaurantEmailInUseException.class)
         .hasMessage("Email is already in use");
+  }
+
+  /** What Spring raises when Postgres refuses a second active user with the same email. */
+  private static DataIntegrityViolationException emailIndexViolation() {
+    return new DataIntegrityViolationException(
+        "duplicate key",
+        new ConstraintViolationException(
+            "duplicate key", new SQLException(), "uq_users_active_email"));
   }
 }

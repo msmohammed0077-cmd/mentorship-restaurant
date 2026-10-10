@@ -20,6 +20,7 @@ import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RestaurantService {
+
+  private static final String ACTIVE_EMAIL_INDEX = "uq_users_active_email";
 
   private final RestaurantRepository restaurantRepository;
   private final MenuItemRepository menuItemRepository;
@@ -205,7 +208,7 @@ public class RestaurantService {
     try {
       return userService.create(user);
     } catch (DataIntegrityViolationException exception) {
-      throw new RestaurantEmailInUseException("Email is already in use");
+      throw emailInUseOrRethrow(exception);
     }
   }
 
@@ -217,8 +220,22 @@ public class RestaurantService {
     try {
       userService.flush();
     } catch (DataIntegrityViolationException exception) {
-      throw new RestaurantEmailInUseException("Email is already in use");
+      throw emailInUseOrRethrow(exception);
     }
+  }
+
+  /**
+   * Only the active-email index means the email is taken. Any other violation (a column too long,
+   * say) is a bug, and is rethrown to stay a 500 rather than be reported as a taken email.
+   */
+  private static RuntimeException emailInUseOrRethrow(DataIntegrityViolationException exception) {
+    for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+      if (cause instanceof ConstraintViolationException violation
+          && ACTIVE_EMAIL_INDEX.equals(violation.getConstraintName())) {
+        return new RestaurantEmailInUseException("Email is already in use");
+      }
+    }
+    return exception;
   }
 
   private void ensureEmailAvailableExcept(String email, Long userId) {
