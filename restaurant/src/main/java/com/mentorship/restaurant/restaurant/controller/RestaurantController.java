@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.restaurant.controller;
 
 import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
+import com.mentorship.restaurant.restaurant.model.request.SetRestaurantOpenRequest;
 import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,5 +59,15 @@ public class RestaurantController {
       @Valid @RequestBody UpdateRestaurantRequest request) {
     return ResponseEntity.ok(
         restaurantService.updateRestaurant(restaurantId, role, callerRestaurantId, request));
+  }
+
+  @PutMapping("/{restaurantId}/open")
+  public ResponseEntity<RestaurantResponse> setRestaurantOpen(
+      @PathVariable Long restaurantId,
+      @RequestParam ActorRole role,
+      @RequestParam(name = "restaurantId", required = false) Long callerRestaurantId,
+      @Valid @RequestBody SetRestaurantOpenRequest request) {
+    return ResponseEntity.ok(
+        restaurantService.setRestaurantOpen(restaurantId, role, callerRestaurantId, request));
   }
 }

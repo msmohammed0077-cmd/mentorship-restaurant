@@ -9,6 +9,7 @@ import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.model.mapper.RestaurantMapper;
 import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
+import com.mentorship.restaurant.restaurant.model.request.SetRestaurantOpenRequest;
 import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
@@ -103,6 +104,23 @@ public class RestaurantService {
     }
 
     // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
+    return restaurantMapper.toResponse(restaurant);
+  }
+
+  /**
+   * Idempotent. Closing stops new business (add-to-cart, checkout); orders already placed carry on.
+   */
+  @Transactional
+  public RestaurantResponse setRestaurantOpen(
+      Long restaurantId,
+      ActorRole role,
+      Long callerRestaurantId,
+      SetRestaurantOpenRequest request) {
+    ensureMayManage(restaurantId, role, callerRestaurantId, "open or close this restaurant");
+    Restaurant restaurant = findActiveRestaurant(restaurantId);
+
+    // Lombok strips "is" from the setter of boolean isOpen: setOpen, not setIsOpen.
+    restaurant.setOpen(request.getIsOpen());
     return restaurantMapper.toResponse(restaurant);
   }
 
