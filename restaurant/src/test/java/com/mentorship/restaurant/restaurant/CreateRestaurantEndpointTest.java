@@ -160,9 +160,18 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     rejectsBody(body("Koshary Corner", " " + email("koshary") + " "), "email");
   }
 
+  /**
+   * 256 characters that are otherwise a valid email, so only @Size refuses it: @Email caps the local
+   * part at 64 and each domain label at 63.
+   */
   @Test
   void rejectsAnEmailOver255Characters() {
-    rejectsBody(body("Koshary Corner", emailPrefix() + "x".repeat(250) + "@example.com"), "email");
+    String local = emailPrefix() + "x".repeat(60 - emailPrefix().length());
+    String domain = "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + ".com";
+    String email = local + "@" + domain;
+    assertThat(email).hasSize(256);
+
+    rejectsBody(body("Koshary Corner", email), "email");
   }
 
   @Test
