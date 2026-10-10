@@ -21,6 +21,9 @@ public abstract class CartEndpointTestSupport {
   protected static final long CLASSIC_BURGER = 4L;
   protected static final long WINGS = 7L;
 
+  /** Every user a cart test creates has an email under this prefix, so cleanup is scoped. */
+  protected static final String EMAIL_PREFIX = "cart.test.";
+
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
 
@@ -38,6 +41,8 @@ public abstract class CartEndpointTestSupport {
     jdbcTemplate.update(
         "UPDATE menu_items SET menu_item_stock = 40 WHERE menu_item_id = ?", CLASSIC_BURGER);
     jdbcTemplate.update("UPDATE menu_items SET menu_item_stock = 30 WHERE menu_item_id = ?", WINGS);
+    // Restaurants a test seeded, with their menus and items, follow by ON DELETE CASCADE.
+    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", EMAIL_PREFIX + "%");
   }
 
   protected String addItemBody(long menuItemId, int quantity) {

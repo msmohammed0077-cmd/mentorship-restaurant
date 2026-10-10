@@ -127,7 +127,7 @@ public class RestaurantService {
 
   public MenuItem findMenuItem(Long menuItemId) {
     return menuItemRepository
-        .findById(menuItemId)
+        .findActiveById(menuItemId)
         .orElseThrow(() -> new MenuItemNotFoundException("Item not found"));
   }
 

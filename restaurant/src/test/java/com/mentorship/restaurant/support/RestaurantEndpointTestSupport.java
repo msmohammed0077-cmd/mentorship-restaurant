@@ -100,6 +100,11 @@ public abstract class RestaurantEndpointTestSupport {
   }
 
   protected void softDeleteRestaurant(long restaurantId) {
+    softDeleteRestaurant(jdbcTemplate, restaurantId);
+  }
+
+  /** {@link #softDeleteRestaurant(long)}, static and public for tests on another base. */
+  public static void softDeleteRestaurant(JdbcTemplate jdbcTemplate, long restaurantId) {
     jdbcTemplate.update(
         """
         UPDATE users SET user_deleted_at = now()
