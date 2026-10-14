@@ -13,10 +13,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +26,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.test.web.servlet.client.RestTestClient;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * The permission matrix (#83 part 4, ADR 0008). Every protected endpoint refuses a request without
@@ -39,6 +42,9 @@ class EndpointAuthorizationTest {
   private static final UUID USER = UUID.randomUUID();
   private static final String OF_CUSTOMER = "?customerId=" + NONE;
   private static final String AS_RESTAURANT = "?restaurantId=" + NONE + "&role=RESTAURANT";
+
+  /** Endpoints reachable without a token (SecurityConfig); Swagger and /error are not ours. */
+  private static final Set<String> PUBLIC = Set.of("GET /api/v1/health", "POST /api/v1/customers");
 
   private static final String PASSWORD =
       """
@@ -79,6 +85,10 @@ class EndpointAuthorizationTest {
 
   @Autowired private RestTestClient client;
   @Autowired private JwtTestSupport jwts;
+
+  @Autowired
+  @Qualifier("requestMappingHandlerMapping")
+  private RequestMappingHandlerMapping handlerMapping;
 
   /** One protected endpoint: its mapping, a valid request to it, and the permission it needs. */
   record Row(HttpMethod method, String pattern, String uri, String body, String permission) {
@@ -202,6 +212,41 @@ class EndpointAuthorizationTest {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Access denied");
+  }
+
+  /**
+   * An endpoint without a row would be open to any logged-in caller if it also lacked
+   * {@code @PreAuthorize}, since the fallback is only {@code authenticated()}.
+   */
+  @Test
+  void everyEndpointOfOursIsPublicOrInTheMatrix() {
+    Set<String> ours = new TreeSet<>();
+    handlerMapping
+        .getHandlerMethods()
+        .forEach(
+            (info, handler) -> {
+              if (handler.getBeanType().getPackageName().startsWith("com.mentorship.restaurant")) {
+                info.getMethodsCondition()
+                    .getMethods()
+                    .forEach(
+                        method ->
+                            info.getPathPatternsCondition()
+                                .getPatternValues()
+                                .forEach(pattern -> ours.add(method + " " + pattern)));
+              }
+            });
+    Set<String> covered =
+        rows().stream().map(Row::endpoint).collect(Collectors.toCollection(TreeSet::new));
+    covered.addAll(PUBLIC);
+
+    assertThat(covered).containsExactlyInAnyOrderElementsOf(ours);
+  }
+
+  @Test
+  void theMatrixAndTheRealmNameTheSamePermissions() {
+    Set<String> used = rows().stream().map(Row::permission).collect(Collectors.toSet());
+
+    assertThat(used).containsExactlyInAnyOrderElementsOf(RealmPermissions.all());
   }
 
   private RestTestClient.ResponseSpec send(Row row, String token) {
