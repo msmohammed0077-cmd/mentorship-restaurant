@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `payment-method.read` to list, `payment-method.write` otherwise (#83 part 4).
+
 Let a customer keep saved cards to pay with: add one, list them, pick a default, delete one.
 
 Issue [#70](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/70), under the
@@ -15,7 +17,7 @@ Any caller. There is no auth yet (see *Authorisation*).
 
 1. The customer exists and is not soft-deleted.
 2. The request supplies `customerId` as a request parameter, as addresses do. Ownership checks use
-   it in place of a logged-in principal.
+   it rather than the token's identity until #83 part 2.
 
 ## Scope
 

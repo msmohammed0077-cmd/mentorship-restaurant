@@ -1,5 +1,7 @@
 ### Pseudocode
 
+**Access:** a bearer token with `order.create` (#83 part 4).
+
 ```text
 FUNCTION createOrder(request):
 

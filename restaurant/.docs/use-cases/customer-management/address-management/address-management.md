@@ -1,5 +1,7 @@
 # Address Management Use Case
 
+**Access:** a bearer token with `address.read` to list, `address.write` otherwise (#83 part 4).
+
 Related documents: [Sequence diagrams](./sequence-diagrams.md) and [Pseudocode](./pseudocode.md).
 
 ## Goal
@@ -24,8 +26,8 @@ Customer
 
 1. Customer exists and is not soft-deleted (see
    [Delete Customer](../../use-cases/customer-management/delete-customer/delete-customer.md)).
-2. The request supplies `customerId` as a request parameter. The project has no authentication;
-   ownership checks use this parameter instead of a logged-in principal.
+2. The request supplies `customerId` as a request parameter. A token is required (#83 part 4), but
+   ownership checks still use this parameter rather than the token's identity until #83 part 2.
 
 ## Business Rules
 

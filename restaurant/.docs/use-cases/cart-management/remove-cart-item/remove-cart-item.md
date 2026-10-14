@@ -1,5 +1,7 @@
 # Remove Items from Cart - Technical Documentation
 
+**Access:** a bearer token with `cart.write` (#83 part 4).
+
 ## Overview
 This document describes the functionality for removing items from a shopping cart in the Good Delivery application. The operation allows users to remove individual items or multiple items from their cart.
 

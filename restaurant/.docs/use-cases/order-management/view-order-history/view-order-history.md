@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `order.read` (#83 part 4).
+
 Show a customer the orders they have placed, newest first.
 
 Issue [#37](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/37), under the
@@ -56,10 +58,10 @@ A role other than `CUSTOMER` is refused with 403.
 sees only the orders belonging to the `customerId` given — `showsNoOtherCustomersOrders` holds that
 line.
 
-What is missing is **authentication**, not authorisation: nothing stops a caller supplying someone
-else's `customerId` and reading their history. That is the textbook IDOR shape, it is #34's accepted
-trade, and it must be closed before this reaches a real environment — tracked against #23, not
-deferred silently.
+A token and `order.read` are now required (#83 part 4), but the caller's identity is not yet used:
+nothing stops a caller supplying someone else's `customerId` and reading their history. That is the
+textbook IDOR shape, it is #34's accepted trade, and it must be closed before this reaches a real
+environment; #83 part 2 closes it.
 
 ### The `PermissionResolver` that was here, and why it went
 

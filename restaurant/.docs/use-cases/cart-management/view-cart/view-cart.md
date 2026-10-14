@@ -1,5 +1,7 @@
 # Food Delivery System --- Cart Management
 
+**Access:** a bearer token with `cart.read` (#83 part 4).
+
 ## Use Case: View Cart
 
 ### 1. Overview

@@ -94,11 +94,11 @@ Everything else requires a valid token and a permission. Restaurant browsing doe
 **`JwtTestSupport` gains:**
 
 - `tokenFor(UUID sub, String realmRole)`: `resource_access.restaurant-api.roles` holds what the realm gives that role, as Keycloak would expand it;
-- `tokenWithPermissions(UUID sub, String... permissions)`, for the matrix test.
+- `tokenWithPermissions(UUID sub, Collection<String> permissions)`, for the matrix test.
 
 `tokenFor(UUID)` stays: a valid token with no permissions.
 
-**Existing tests** send the token of the actor they play, added by their support base: Customer, Address, PaymentMethod and Cart send a `CUSTOMER` token; Order sends `CUSTOMER` for create, view, history, cancel and rate, and `RESTAURANT_OWNER` for accept, reject, preparing and ready-for-pickup. `sub` is the seeded user's Keycloak id where the test has one, otherwise a random UUID. No assertion changes.
+**Existing tests** send the token of the actor they play, added by their support base: Customer, Address, PaymentMethod and Cart send a `CUSTOMER` token; Order sends `CUSTOMER` for create, view, history, cancel and rate, and `RESTAURANT_OWNER` for accept, reject, preparing and ready-for-pickup. `sub` is a random UUID; nothing reads it until part 2. A class that must send no token (create-customer) returns `null` from `realmRole()`. No assertion changes.
 
 **`EndpointAuthorizationTest`** (`RANDOM_PORT` + `RestTestClient`) holds one row per protected endpoint: method, path with sample ids, a **valid** request (parameters and body, so validation cannot answer first) and the permission. For each row:
 
@@ -115,9 +115,9 @@ Two coverage tests in the same class:
 - every handler in `RequestMappingHandlerMapping` is public or has a row, so an endpoint added without one fails the build. Without this, an endpoint missing `@PreAuthorize` would be open to any logged-in user;
 - every row's permission is a client role in the realm file, and every client role in the realm file is used by a row.
 
-Rows that would create something use seeded fixtures and delete what they create, scoped to those rows; the plan names each one. Others target ids that do not exist.
+Every row targets ids that do not exist, so a permitted request ends in a 404 and nothing needs cleaning up.
 
-**Public endpoints:** `BearerTokenEndpointTest` stays as it is. One test confirms `POST /api/v1/customers` still registers with no token.
+**Public endpoints:** `HealthEndpointTest`, `OpenApiDocsEndpointTest` and `BearerTokenEndpointTest` call without a token, and `CreateCustomerEndpointTest` registers without one.
 
 **Manual check, in the PR description:** after the Keycloak reset, log in to Swagger UI as `ahmed.ali@example.com`, decode the token and confirm `resource_access.restaurant-api.roles` lists the twelve customer permissions; call a customer endpoint (200) and `POST /orders/{id}/accept` (403).
 

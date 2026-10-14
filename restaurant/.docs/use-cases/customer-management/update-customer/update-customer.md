@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `customer.write` (#83 part 4).
+
 Let a customer edit their profile, and change their password as a separate, verified step.
 
 Issue [#71](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/71), under the
