@@ -16,7 +16,7 @@ import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
-import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
+import com.mentorship.restaurant.menu.model.entity.MenuItem;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import java.util.LinkedHashSet;

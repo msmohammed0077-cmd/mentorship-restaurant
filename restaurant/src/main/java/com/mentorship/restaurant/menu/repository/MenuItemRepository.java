@@ -1,11 +1,13 @@
-package com.mentorship.restaurant.restaurant.repository;
+package com.mentorship.restaurant.menu.repository;
 
-import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
+import com.mentorship.restaurant.menu.model.entity.MenuItem;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
 
@@ -38,4 +40,6 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
       where menuItem.id = :menuItemId
       """)
   int incrementStock(@Param("menuItemId") Long menuItemId, @Param("quantity") Integer quantity);
+
+    List<MenuItem> findAllByMenu_Id(Long menuId);
 }
