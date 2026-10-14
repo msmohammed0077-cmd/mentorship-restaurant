@@ -10,6 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
+  @Override
+  protected String realmRole() {
+    return "RESTAURANT_OWNER";
+  }
+
   @Autowired private com.mentorship.restaurant.order.service.OrderStatusService orderStatusService;
 
   private static final String ACCEPT =

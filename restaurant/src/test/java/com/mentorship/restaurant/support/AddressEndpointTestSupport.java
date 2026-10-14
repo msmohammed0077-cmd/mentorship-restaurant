@@ -18,6 +18,19 @@ public abstract class AddressEndpointTestSupport {
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected JwtTestSupport jwts;
+
+  /** The realm role this class's requests carry a token for; null sends none. */
+  protected String realmRole() {
+    return "CUSTOMER";
+  }
+
+  @BeforeEach
+  protected void sendToken() {
+    if (realmRole() != null) {
+      client = jwts.as(client, realmRole());
+    }
+  }
 
   @BeforeEach
   @AfterEach

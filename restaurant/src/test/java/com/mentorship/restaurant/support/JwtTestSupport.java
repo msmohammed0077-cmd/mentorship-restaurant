@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.support;
 
+import static com.mentorship.restaurant.config.KeycloakPermissionsConverter.PERMISSIONS_CLIENT;
+
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -7,15 +9,19 @@ import java.security.KeyPair;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
  * Signs Keycloak-shaped access tokens with the test key from {@link TestJwtConfig}. A test that
@@ -41,6 +47,29 @@ public class JwtTestSupport {
   /** A valid access token for the Keycloak user {@code keycloakId}. */
   public String tokenFor(UUID keycloakId) {
     return sign(validClaims(keycloakId));
+  }
+
+  /** A valid token holding what the realm file gives {@code realmRole}, as Keycloak expands it. */
+  public String tokenFor(UUID keycloakId, String realmRole) {
+    return tokenWithPermissions(keycloakId, RealmPermissions.of(realmRole));
+  }
+
+  /** A valid token whose {@code resource_access.restaurant-api.roles} is {@code permissions}. */
+  public String tokenWithPermissions(UUID keycloakId, Collection<String> permissions) {
+    return sign(
+        validClaims(keycloakId)
+            .claim(
+                "resource_access",
+                Map.of(PERMISSIONS_CLIENT, Map.of("roles", List.copyOf(permissions)))));
+  }
+
+  /**
+   * {@code client}, sending a {@code realmRole} token on every request. The subject is random:
+   * nothing reads it until #83 part 2.
+   */
+  public RestTestClient as(RestTestClient client, String realmRole) {
+    String token = tokenFor(UUID.randomUUID(), realmRole);
+    return client.mutate().defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token).build();
   }
 
   /** The claims of a valid token, expiring in five minutes. */
