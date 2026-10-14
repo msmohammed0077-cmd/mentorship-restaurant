@@ -31,8 +31,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 /**
  * The permission matrix (#83 part 4, ADR 0008). Every protected endpoint refuses a request without
  * a token (401) or without its permission (403), and lets one holding it through. Requests are
- * valid, because validation runs before the permission check and would answer 400 first; ids do
- * not exist, so a permitted request ends in a 404 and changes nothing.
+ * valid, because validation runs before the permission check and would answer 400 first; ids do not
+ * exist, so a permitted request ends in a 404 and changes nothing.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
