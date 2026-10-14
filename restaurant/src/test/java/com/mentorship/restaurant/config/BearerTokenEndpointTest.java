@@ -13,8 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Bearer tokens are validated but not yet required (#83 part 1). The endpoint is irrelevant; health
- * needs no seeded data.
+ * Bearer-token validation (#83 part 1), against health, which is public: a bad token is refused
+ * even where none is required, and no token is fine.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient

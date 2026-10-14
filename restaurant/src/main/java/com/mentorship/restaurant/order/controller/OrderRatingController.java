@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderRatingController {
   private final OrderRatingService orderRatingService;
 
+  @PreAuthorize("hasAuthority('order.rate')")
   @PostMapping("/{orderId}/rating")
   public ResponseEntity<OrderRatingResponse> rateOrder(
       @PathVariable Long orderId, @Valid @RequestBody RateOrderRequest request) {

@@ -14,6 +14,7 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -107,6 +108,16 @@ public class GlobalExceptionHandler {
         exception.getClass().getSimpleName());
     return buildResponse(
         HttpStatus.BAD_REQUEST, "Request body is malformed", request.getRequestURI());
+  }
+
+  /**
+   * {@code @PreAuthorize} refused: the caller lacks the endpoint's permission. Without this the
+   * catch-all below would make it a 500. The message never names the permission.
+   */
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+      AccessDeniedException exception, HttpServletRequest request) {
+    return buildResponse(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI());
   }
 
   @ExceptionHandler(Exception.class)

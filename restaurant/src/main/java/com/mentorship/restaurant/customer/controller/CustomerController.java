@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/customers")
@@ -36,17 +37,20 @@ public class CustomerController {
     return ResponseEntity.status(HttpStatus.CREATED).body(customerService.createCustomer(request));
   }
 
+  @PreAuthorize("hasAuthority('customer.read')")
   @GetMapping("/{customerId}")
   public ResponseEntity<CustomerResponse> getCustomer(@PathVariable Long customerId) {
     return ResponseEntity.ok(customerService.getCustomer(customerId));
   }
 
+  @PreAuthorize("hasAuthority('customer.write')")
   @PatchMapping("/{customerId}")
   public ResponseEntity<CustomerResponse> updateCustomer(
       @PathVariable Long customerId, @Valid @RequestBody UpdateCustomerRequest request) {
     return ResponseEntity.ok(customerService.updateCustomer(customerId, request));
   }
 
+  @PreAuthorize("hasAuthority('customer.write')")
   @PutMapping("/{customerId}/password")
   public ResponseEntity<Void> changePassword(
       @PathVariable Long customerId, @Valid @RequestBody ChangePasswordRequest request) {
@@ -54,6 +58,7 @@ public class CustomerController {
     return ResponseEntity.noContent().build();
   }
 
+  @PreAuthorize("hasAuthority('customer.write')")
   @DeleteMapping("/{customerId}")
   public ResponseEntity<Void> deleteCustomer(@PathVariable Long customerId) {
     customerDeletionService.deleteCustomer(customerId);

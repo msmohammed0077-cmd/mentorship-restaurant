@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/payment-methods")
@@ -27,6 +28,7 @@ public class PaymentMethodController {
 
   private final PaymentMethodService paymentMethodService;
 
+  @PreAuthorize("hasAuthority('payment-method.write')")
   @PostMapping
   public ResponseEntity<PaymentMethodResponse> addPaymentMethod(
       @RequestParam Long customerId, @Valid @RequestBody AddPaymentMethodRequest request) {
@@ -34,12 +36,14 @@ public class PaymentMethodController {
         .body(paymentMethodService.addPaymentMethod(customerId, request));
   }
 
+  @PreAuthorize("hasAuthority('payment-method.read')")
   @GetMapping
   public ResponseEntity<List<PaymentMethodResponse>> viewPaymentMethods(
       @RequestParam Long customerId) {
     return ResponseEntity.ok(paymentMethodService.viewPaymentMethods(customerId));
   }
 
+  @PreAuthorize("hasAuthority('payment-method.write')")
   @PutMapping("/{paymentMethodId}/default")
   public ResponseEntity<PaymentMethodResponse> setDefaultPaymentMethod(
       @RequestParam Long customerId, @PathVariable Long paymentMethodId) {
@@ -47,6 +51,7 @@ public class PaymentMethodController {
         paymentMethodService.setDefaultPaymentMethod(customerId, paymentMethodId));
   }
 
+  @PreAuthorize("hasAuthority('payment-method.write')")
   @DeleteMapping("/{paymentMethodId}")
   public ResponseEntity<Void> deletePaymentMethod(
       @RequestParam Long customerId, @PathVariable Long paymentMethodId) {

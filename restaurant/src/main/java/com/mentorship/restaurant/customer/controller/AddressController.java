@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/addresses")
@@ -28,6 +29,7 @@ public class AddressController {
 
   private final AddressService addressService;
 
+  @PreAuthorize("hasAuthority('address.write')")
   @PostMapping
   public ResponseEntity<AddressResponse> addAddress(
       @RequestParam Long customerId, @Valid @RequestBody AddAddressRequest request) {
@@ -35,11 +37,13 @@ public class AddressController {
         .body(addressService.addAddress(customerId, request));
   }
 
+  @PreAuthorize("hasAuthority('address.read')")
   @GetMapping
   public ResponseEntity<List<AddressResponse>> viewAddresses(@RequestParam Long customerId) {
     return ResponseEntity.ok(addressService.viewAddresses(customerId));
   }
 
+  @PreAuthorize("hasAuthority('address.write')")
   @PutMapping("/{addressId}")
   public ResponseEntity<AddressResponse> updateAddress(
       @RequestParam Long customerId,
@@ -48,6 +52,7 @@ public class AddressController {
     return ResponseEntity.ok(addressService.updateAddress(customerId, addressId, request));
   }
 
+  @PreAuthorize("hasAuthority('address.write')")
   @DeleteMapping("/{addressId}")
   public ResponseEntity<Void> deleteAddress(
       @RequestParam Long customerId, @PathVariable Long addressId) {
@@ -55,6 +60,7 @@ public class AddressController {
     return ResponseEntity.noContent().build();
   }
 
+  @PreAuthorize("hasAuthority('address.write')")
   @PutMapping("/{addressId}/default")
   public ResponseEntity<AddressResponse> setDefaultAddress(
       @RequestParam Long customerId, @PathVariable Long addressId) {

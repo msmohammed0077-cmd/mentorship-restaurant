@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderHistoryController {
   private final OrderHistoryService orderHistoryService;
 
+  @PreAuthorize("hasAuthority('order.read')")
   @GetMapping
   public ResponseEntity<OrderHistoryResponse> viewOrderHistory(
       @Valid @ModelAttribute ViewOrderHistoryRequest request) {
