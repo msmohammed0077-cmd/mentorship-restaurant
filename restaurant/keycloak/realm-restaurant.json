@@ -1,0 +1,148 @@
+{
+  "realm": "restaurant",
+  "enabled": true,
+  "sslRequired": "external",
+  "clients": [
+    {
+      "clientId": "restaurant-api",
+      "name": "Restaurant API",
+      "description": "The audience the API checks. No login flow of its own.",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "restaurant-swagger",
+      "name": "Swagger UI",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/swagger-ui/oauth2-redirect.html"
+      ],
+      "webOrigins": [
+        "http://localhost:8080"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "restaurant-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "restaurant-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "username": "ahmed.ali@example.com",
+      "email": "ahmed.ali@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ahmed",
+      "lastName": "Ali",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "username": "mona.hassan@example.com",
+      "email": "mona.hassan@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Mona",
+      "lastName": "Hassan",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "username": "contact@nilekitchen.example.com",
+      "email": "contact@nilekitchen.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Nile",
+      "lastName": "Kitchen",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "username": "contact@burgeryard.example.com",
+      "email": "contact@burgeryard.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Burger",
+      "lastName": "Yard",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "username": "sara.nabil@example.com",
+      "email": "sara.nabil@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sara",
+      "lastName": "Nabil",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "username": "contact@latenight.example.com",
+      "email": "contact@latenight.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Late Night",
+      "lastName": "Grill",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
