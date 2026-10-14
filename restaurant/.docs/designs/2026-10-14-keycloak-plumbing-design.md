@@ -15,9 +15,9 @@ Part 1 of `2026-10-14-auth-roadmap.md`. It runs Keycloak locally, makes the API 
   - `depends_on` postgres healthy, and a healthcheck so `docker compose up --wait` works;
   - `./keycloak/realm-restaurant.json` mounted into `/opt/keycloak/data/import`.
 
-**Init scripts run only on an empty volume.** An existing checkout needs `docker compose down -v` once.
+**Init scripts run only on an empty volume.** An existing volume gets the role and schema by piping the same script into `psql`; no data is lost. (`docker compose down -v` also works, but wipes the application's local data.)
 
-**`--import-realm` skips a realm that already exists.** Keycloak keeps the realm in Postgres, so an edit to the realm file takes effect only after `docker compose down -v`. `CLAUDE.md` gets this note.
+**`--import-realm` skips a realm that already exists.** Keycloak keeps the realm in Postgres, so an edit to the realm file takes effect only after Keycloak's schema is dropped and recreated and Keycloak restarted. That resets Keycloak alone; `CLAUDE.md` has the commands.
 
 ### The realm (`restaurant/keycloak/realm-restaurant.json`)
 
@@ -29,7 +29,7 @@ Part 1 of `2026-10-14-auth-roadmap.md`. It runs Keycloak locally, makes the API 
 
 ## The API as a resource server
 
-**Dependency:** `spring-boot-starter-oauth2-resource-server`. Reason, recorded in the pom: it validates Keycloak-issued JWTs, and it brings `spring-security-oauth2-jose`, whose `NimbusJwtEncoder` the tests use to sign tokens.
+**Dependency:** `spring-boot-starter-security-oauth2-resource-server` (Spring Boot 4's name for it). Reason, recorded in the pom: it validates Keycloak-issued JWTs, and it brings `spring-security-oauth2-jose`, whose `NimbusJwtEncoder` the tests use to sign tokens.
 
 **Configuration:**
 
@@ -38,10 +38,9 @@ Part 1 of `2026-10-14-auth-roadmap.md`. It runs Keycloak locally, makes the API 
 spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8180/realms/restaurant
 spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:8180/realms/restaurant/protocol/openid-connect/certs
 spring.security.oauth2.resourceserver.jwt.audiences=restaurant-api
-
-# application-docker.properties (the app inside compose cannot reach localhost:8180)
-spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://keycloak:8080/realms/restaurant/protocol/openid-connect/certs
 ```
+
+The compose `app` service cannot reach `localhost:8180`, so it sets `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI=http://keycloak:8080/realms/restaurant/protocol/openid-connect/certs`. An environment variable rather than `application-docker.properties`, because that service activates no profile; it overrides the datasource the same way.
 
 - With `jwk-set-uri` set, Spring Boot does not contact Keycloak at startup; it fetches the keys when the first token arrives. **The application starts even when Keycloak is down.**
 - `issuer-uri` and `audiences` still add their validators: `iss` must be `http://localhost:8180/realms/restaurant` and `aud` must contain `restaurant-api`.
@@ -64,6 +63,8 @@ spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://keycloak:8080/realm
 
 A bad token is rejected even on a `permitAll` endpoint: the bearer-token filter runs before authorization.
 
+Spring Security 7's 401 also carries `resource_metadata="http://localhost:8080/.well-known/oauth-protected-resource"` (OAuth 2.0 Protected Resource Metadata, RFC 9728). Harmless; part 4 can decide whether to publish or switch off that document.
+
 **Swagger:** an OAuth2 security scheme with the authorization code flow and Keycloak's authorization and token URLs; `springdoc.swagger-ui.oauth.client-id=restaurant-swagger` and `springdoc.swagger-ui.oauth.use-pkce-with-authorization-code-grant=true`. Swagger UI shows **Authorize**, logs in through Keycloak's page and sends the token on every call.
 
 ## Linking users
@@ -77,11 +78,11 @@ Migration `V15__add_user_keycloak_id.sql` (check `main` for the number before me
 
 ## Testing
 
-**Key pair.** `src/test/resources/jwt/test-private.pem` and `test-public.pem` are committed; a comment beside them says they are test-only and sign nothing real.
+**Key pair.** Generated once per test run by `support/TestJwtConfig`; nothing is committed, so there is nothing secret-looking in the repository and nothing to rotate.
 
-**A test `JwtDecoder` replaces Spring Boot's.** Tests run with the `local` and `test` profiles together, so the `jwk-set-uri` from `application.properties` reaches them, and a property cannot unset it: Boot's condition treats an empty value as set. Instead, a test configuration imported by the endpoint-test support classes declares a `JwtDecoder` bean, and Boot's own backs off (it is `@ConditionalOnMissingBean`). The bean is `NimbusJwtDecoder.withPublicKey(test public key)` with the same validators Boot adds: the default timestamp check, the issuer from `issuer-uri` and the audience from `audiences`, read from the same properties, so the values have one source. Nothing in the test context ever contacts Keycloak.
+**A test `JwtDecoder` replaces Spring Boot's.** Tests run with the `local` and `test` profiles together, so the `jwk-set-uri` from `application.properties` reaches them, and a property cannot unset it: Boot's condition treats an empty value as set. Instead, `support/TestJwtConfig`, a plain `@Configuration` in `src/test` under the application's package, declares a `JwtDecoder` bean. Component scanning adds it to every test context, including those that extend no support class, so all contexts stay one cached context, and Boot's own backs off (it is `@ConditionalOnMissingBean`). The bean is `NimbusJwtDecoder.withPublicKey(test public key)` with the same validators Boot adds: the default timestamp check, the issuer from `issuer-uri` and the audience from `audiences`, read from the same properties, so the values have one source. Nothing in the test context ever contacts Keycloak.
 
-**`support/JwtTestSupport`** signs with the test private key through `NimbusJwtEncoder`:
+**`support/JwtTestSupport`** signs with the test key pair's private key through `NimbusJwtEncoder`:
 
 - `tokenFor(UUID keycloakId)`: a valid, Keycloak-shaped token (`iss`, `aud=restaurant-api`, `sub`, five-minute expiry);
 - a builder for the broken variants: expired, wrong issuer, wrong audience, signed with a throwaway key.
@@ -104,12 +105,12 @@ Every 401 also asserts that `WWW-Authenticate` starts with `Bearer`. The 401s ar
 
 **Unchanged:** every existing test, since nothing requires a token. CI runs neither Keycloak nor the init script; the tests do not need the `keycloak` schema.
 
-**Manual check, in the PR description:** `docker compose down -v && docker compose up --wait`, open Swagger UI, **Authorize** as `ahmed.ali@example.com` / `password`, and call `/api/v1/health` with the token.
+**Manual check, in the PR description:** `docker compose up -d --wait postgres keycloak`, run the application, open Swagger UI, **Authorize** as `ahmed.ali@example.com` / `password`, and call `/api/v1/health` with the token.
 
 ## Documentation
 
 - ADR `0007-keycloak-as-identity-provider.md`, committed with this design.
-- The implementation PR updates `CLAUDE.md`: the Keycloak service and port, the one-time `docker compose down -v`, realm edits needing a reset, and `JwtTestSupport` for tests that send tokens.
+- The implementation PR updates `CLAUDE.md`: the Keycloak service and port, applying the init script to an existing volume, resetting Keycloak after a realm edit, and `JwtTestSupport` for tests that send tokens.
 
 ## Rejected alternatives
 

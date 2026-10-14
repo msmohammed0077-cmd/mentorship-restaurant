@@ -54,7 +54,9 @@ public class User {
   @Column(name = "user_deleted_at")
   private OffsetDateTime userDeletedAt;
 
-  /** The Keycloak user's id, the access token's {@code sub}. Null until the account exists there. */
+  /**
+   * The Keycloak user's id, the access token's {@code sub}. Null until the account exists there.
+   */
   @Column(name = "user_keycloak_id", unique = true)
   private UUID userKeycloakId;
 }

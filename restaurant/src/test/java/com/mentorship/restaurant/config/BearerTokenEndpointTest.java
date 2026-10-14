@@ -13,8 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Bearer tokens are validated but not yet required (#83 part 1). The endpoint is irrelevant;
- * health needs no seeded data.
+ * Bearer tokens are validated but not yet required (#83 part 1). The endpoint is irrelevant; health
+ * needs no seeded data.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -66,11 +66,7 @@ class BearerTokenEndpointTest {
   }
 
   private RestTestClient.ResponseSpec withToken(String token) {
-    return client
-        .get()
-        .uri(HEALTH)
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-        .exchange();
+    return client.get().uri(HEALTH).header(HttpHeaders.AUTHORIZATION, "Bearer " + token).exchange();
   }
 
   private void assertRejected(String token) {

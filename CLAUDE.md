@@ -2,7 +2,7 @@
 
 Spring Boot food-delivery backend. The Maven project lives in `restaurant/`; the repository root holds CI and top-level docs.
 
-**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, Spotless.
+**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, Keycloak 26, Spotless.
 
 ## Commands
 
@@ -12,8 +12,8 @@ Run everything from `restaurant/`.
 ./mvnw -B verify            # compile + test + package (what CI runs)
 ./mvnw -B test -Dtest=Foo   # a single test class
 ./mvnw spotless:apply       # format before committing (see the JDK note below)
-docker compose up -d --wait postgres   # database only
-docker compose --profile app up        # database + application
+docker compose up -d --wait postgres keycloak   # database + Keycloak (http://localhost:8180, admin/admin)
+docker compose up                               # database + Keycloak + application
 ```
 
 ## Architecture
@@ -133,6 +133,16 @@ ERROR:  duplicate key value violates unique constraint "carts_pkey"
 **Migration numbers are claimed at merge time, not branch time.** Two branches each added a `V12`; once both were merged, Flyway refused to start (`Found more than one migration with version 12`) and every Spring test errored (#82). Before merging, check `main` for your version number and renumber if it is taken. After renaming a migration, build with `clean` — Maven leaves the old file in `target/classes`, where Flyway still finds it — and reset any local database that already applied it with `docker compose down -v`.
 
 **Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart and restaurant 3 closed, both reserved as add-to-cart fixtures. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
+
+## Authentication
+
+Keycloak is the identity provider (ADR 0007; roadmap `restaurant/.docs/designs/2026-10-14-auth-roadmap.md`). The API is an OAuth2 resource server: a bearer token is validated (signature, expiry, issuer `http://localhost:8180/realms/restaurant`, audience `restaurant-api`) but **not yet required**; that is #83 part 4.
+
+- **Keycloak lives in a `keycloak` schema of the `restaurant` database**, owned by a `keycloak` role, created by `docker/postgres/init/01-keycloak.sql`. Postgres runs init scripts on an empty volume only. On an older volume, apply it once without losing data: `docker exec -i restaurant-postgres psql -U postgres -d restaurant < docker/postgres/init/01-keycloak.sql`.
+- **The realm is `keycloak/realm-restaurant.json`**, imported only when the realm does not exist yet. An edit takes effect after `docker exec restaurant-postgres psql -U postgres -d restaurant -c 'DROP SCHEMA keycloak CASCADE; CREATE SCHEMA keycloak AUTHORIZATION keycloak;'` and `docker compose restart keycloak`, which resets Keycloak alone.
+- **Seeded users log in as their seeded email with password `password`** (Swagger UI → Authorize). `users.user_keycloak_id` links them: `00000000-0000-4000-8000-00000000000N` for `user_id` N.
+- **The application starts without Keycloak**: it fetches Keycloak's keys when the first token arrives.
+- **Tests never talk to Keycloak.** `support/TestJwtConfig` replaces the `JwtDecoder` with one trusting a key pair generated per run, with the same issuer and audience checks. Inject `JwtTestSupport` and send `jwts.tokenFor(keycloakId)` as `Authorization: Bearer …`; for an invalid token, start from `jwts.validClaims(id)` and change one thing.
 
 ## Testing
 

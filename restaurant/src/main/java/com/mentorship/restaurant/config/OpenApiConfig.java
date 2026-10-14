@@ -12,9 +12,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Swagger UI's Authorize button: Keycloak's login page, authorization code with PKCE, client
- * {@code restaurant-swagger} (set in application.properties). Endpoints are derived from the
- * issuer the API trusts, so the two cannot drift apart.
+ * Swagger UI's Authorize button: Keycloak's login page, authorization code with PKCE, client {@code
+ * restaurant-swagger} (set in application.properties). Endpoints are derived from the issuer the
+ * API trusts, so the two cannot drift apart.
  */
 @Configuration
 public class OpenApiConfig {

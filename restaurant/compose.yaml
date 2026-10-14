@@ -22,7 +22,7 @@ services:
     image: quay.io/keycloak/keycloak:26.5.2
     container_name: restaurant-keycloak
     # Imports keycloak/realm-restaurant.json only when the realm does not exist yet:
-    # after editing the file, reset with `docker compose down -v`.
+    # after editing the file, reset Keycloak's schema (CLAUDE.md, Authentication).
     command: ["start-dev", "--import-realm"]
     depends_on:
       postgres:

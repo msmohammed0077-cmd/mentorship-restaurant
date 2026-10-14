@@ -15,7 +15,7 @@ Umbrella for issue #83 ("Authentication & Authorization"). The issue listed open
 - **The API is an OAuth2 resource server that validates JWTs locally**, against Keycloak's published keys, with no call to Keycloak per request.
 - **A Keycloak user maps to our `users` row through `users.user_keycloak_id`**, matched against the token's `sub`. Our primary keys stay `BIGINT`.
 - **Ownership stays ours.** Keycloak roles are global ("is a restaurant owner"); which restaurant, cart or order belongs to whom stays in Postgres and in the services' guards.
-- **Tests sign their own tokens** with a committed test key pair, so no test and no CI job needs a running Keycloak.
+- **Tests sign their own tokens** with a key pair generated per test run, so no test and no CI job needs a running Keycloak.
 
 ## Parts
 
@@ -23,7 +23,7 @@ Order: 1 → 4 → 2 → 3. It closes the "anyone can act as anyone" hole as ear
 
 | # | What | Status | Design | Branch / PR |
 |---|---|---|---|---|
-| 1 | Plumbing: Keycloak in compose (its tables in a `keycloak` schema of our database), the realm as a committed file, the API validating JWTs without requiring them yet, `users.user_keycloak_id`, test token signing, Swagger login | Designed | `2026-10-14-keycloak-plumbing-design.md` | `feat/GH-83-keycloak-plumbing` |
+| 1 | Plumbing: Keycloak in compose (its tables in a `keycloak` schema of our database), the realm as a committed file, the API validating JWTs without requiring them yet, `users.user_keycloak_id`, test token signing, Swagger login | Implemented; PR not opened yet | `2026-10-14-keycloak-plumbing-design.md` | `feat/GH-83-keycloak-plumbing` |
 | 4 | Roles: realm roles (`CUSTOMER`, `RESTAURANT_OWNER`, `ADMIN`, …) and, if needed, client roles as permissions; a converter from `realm_access.roles` to `ROLE_*`; endpoints start requiring a token and a role | Not started | | |
 | 2 | The authenticated caller: replace the `customerId`, `restaurantId` and `role` parameters with the identity from the token (`sub` → `users` → customer or restaurant), endpoint by endpoint | Not started | | |
 | 3 | Sign-up and login: passwordless email OTP through Keycloak; how a new Keycloak user gets its `users` row; what happens to `POST /customers`, the change-password endpoint and `user_password`. Phone OTP only if still wanted then. | Not started | | |
