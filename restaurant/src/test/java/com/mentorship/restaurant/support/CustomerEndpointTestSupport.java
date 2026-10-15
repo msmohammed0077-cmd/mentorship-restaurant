@@ -29,18 +29,6 @@ public abstract class CustomerEndpointTestSupport {
   @Autowired protected PasswordEncoder passwordEncoder;
   @Autowired protected JwtTestSupport jwts;
 
-  /** The realm role this class's requests carry a token for; null sends none. */
-  protected String realmRole() {
-    return "CUSTOMER";
-  }
-
-  @BeforeEach
-  protected void sendToken() {
-    if (realmRole() != null) {
-      client = jwts.as(client, realmRole());
-    }
-  }
-
   /** {@link #client}, acting as the customer. */
   protected RestTestClient asCustomer(long customerId) {
     return jwts.asCustomer(client, customerId);

@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -24,18 +23,6 @@ public abstract class CartEndpointTestSupport {
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
   @Autowired protected JwtTestSupport jwts;
-
-  /** The realm role this class's requests carry a token for; null sends none. */
-  protected String realmRole() {
-    return "CUSTOMER";
-  }
-
-  @BeforeEach
-  protected void sendToken() {
-    if (realmRole() != null) {
-      client = jwts.as(client, realmRole());
-    }
-  }
 
   @BeforeEach
   @AfterEach

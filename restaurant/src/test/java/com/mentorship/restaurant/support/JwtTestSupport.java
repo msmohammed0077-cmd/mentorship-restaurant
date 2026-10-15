@@ -70,15 +70,6 @@ public class JwtTestSupport {
                 Map.of(PERMISSIONS_CLIENT, Map.of("roles", List.copyOf(permissions)))));
   }
 
-  /**
-   * {@code client}, sending a {@code realmRole} token as the admin. Temporary: the domains still
-   * name their actor in parameters until #83 part 2 moves each to {@link #asCustomer} or {@link
-   * #asRestaurantOwner}; the admin's sub is one the API resolves.
-   */
-  public RestTestClient as(RestTestClient client, String realmRole) {
-    return asUser(client, ADMIN, realmRole);
-  }
-
   /** {@code client}, sending a {@code realmRole} token for the Keycloak user {@code keycloakId}. */
   public RestTestClient asUser(RestTestClient client, UUID keycloakId, String realmRole) {
     String token = tokenFor(keycloakId, realmRole);

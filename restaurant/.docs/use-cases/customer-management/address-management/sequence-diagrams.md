@@ -2,6 +2,10 @@
 
 Related documents: [Use case](./address-management.md) and [Pseudocode](./pseudocode.md).
 
+The controller takes the customer from the token (`caller.customerId`, #83 part 2); a caller who is
+not a customer is refused with 403 before the service runs. Soft-delete checks are left out here; the
+use case lists them.
+
 ## Add Address
 
 ```mermaid
@@ -13,8 +17,8 @@ sequenceDiagram
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
-    Customer->>C: POST /api/v1/addresses?customerId={customerId}
-    C->>H: addAddress(customerId, request)
+    Customer->>C: POST /api/v1/addresses
+    C->>H: addAddress(caller.customerId, request)
     H->>Customers: findById(customerId)
     alt customer not found
         H-->>C: CustomerNotFoundException
@@ -44,8 +48,8 @@ sequenceDiagram
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
-    Customer->>C: GET /api/v1/addresses?customerId={customerId}
-    C->>H: viewAddresses(customerId)
+    Customer->>C: GET /api/v1/addresses
+    C->>H: viewAddresses(caller.customerId)
     H->>Customers: existsById(customerId)
     alt customer not found
         H-->>C: CustomerNotFoundException
@@ -70,14 +74,12 @@ sequenceDiagram
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
-    Customer->>C: PUT /api/v1/addresses/{addressId}?customerId={customerId}
-    C->>H: updateAddress(customerId, addressId, request)
-    H->>Addresses: findById(addressId)
-    alt address not found
-        H-->>C: AddressNotFoundException
-    else address belongs to another customer
-        H-->>C: AddressAccessDeniedException
-    else address belongs to customer
+    Customer->>C: PUT /api/v1/addresses/{addressId}
+    C->>H: updateAddress(caller.customerId, addressId, request)
+    H->>Addresses: findByIdAndCustomerIdWithOwner(addressId, customerId)
+    alt not found, or another customer's
+        H-->>C: AddressNotFoundException (404)
+    else the caller's address
         H->>H: replace label, line, city, area, note
         H->>M: toResponse(address)
         M-->>H: AddressResponse
@@ -96,14 +98,12 @@ sequenceDiagram
     participant Addresses as AddressRepository
     participant M as AddressMapper
 
-    Customer->>C: PUT /api/v1/addresses/{addressId}/default?customerId={customerId}
-    C->>H: setDefaultAddress(customerId, addressId)
-    H->>Addresses: findById(addressId)
-    alt address not found
-        H-->>C: AddressNotFoundException
-    else address belongs to another customer
-        H-->>C: AddressAccessDeniedException
-    else address belongs to customer
+    Customer->>C: PUT /api/v1/addresses/{addressId}/default
+    C->>H: setDefaultAddress(caller.customerId, addressId)
+    H->>Addresses: findByIdAndCustomerIdWithOwner(addressId, customerId)
+    alt not found, or another customer's
+        H-->>C: AddressNotFoundException (404)
+    else the caller's address
         alt selected address is not default
             H->>Addresses: clearDefaultForCustomer(customerId)
             H->>H: address.isDefault = true
@@ -124,14 +124,12 @@ sequenceDiagram
     participant H as AddressService
     participant Addresses as AddressRepository
 
-    Customer->>C: DELETE /api/v1/addresses/{addressId}?customerId={customerId}
-    C->>H: deleteAddress(customerId, addressId)
-    H->>Addresses: findById(addressId)
-    alt address not found
-        H-->>C: AddressNotFoundException
-    else address belongs to another customer
-        H-->>C: AddressAccessDeniedException
-    else address belongs to customer
+    Customer->>C: DELETE /api/v1/addresses/{addressId}
+    C->>H: deleteAddress(caller.customerId, addressId)
+    H->>Addresses: findByIdAndCustomerIdWithOwner(addressId, customerId)
+    alt not found, or another customer's
+        H-->>C: AddressNotFoundException (404)
+    else the caller's address
         H->>Addresses: delete(address)
         H-->>C: void
         C-->>Customer: 204 No Content

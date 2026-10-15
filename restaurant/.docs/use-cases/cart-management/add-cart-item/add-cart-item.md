@@ -14,6 +14,12 @@ Customer
 2. Restaurant exists.
 3. Item exists.
 
+## Authorisation
+
+A token and `cart.write` are required (#83 part 4). The customer is the caller, taken from the token
+(#83 part 2, ADR 0009): the request body is `{"menu_item_id", "quantity", "note"}` with no customer
+id. A caller who is not a customer gets 403 "Caller is not a customer".
+
 ## Business Rules
 
 1. A `CartItem` is unique by **item**. Adding an item the cart already holds is rejected;

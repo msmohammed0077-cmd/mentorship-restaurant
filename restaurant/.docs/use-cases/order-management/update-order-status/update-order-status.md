@@ -148,20 +148,20 @@ something that did not happen.
 
 ## Authorization
 
-There is no auth in this project and this ticket does not add any. The controller takes the caller's
-role as a parameter and the service checks it against the transition's owner.
+A token and `order.prepare` are required (#83 part 4); the caller comes from the token (#83 part 2,
+ADR 0009). Each endpoint passes its own fixed role — `RESTAURANT` here — and the service checks it
+against the transition's owner. `restaurantId` names the restaurant the caller acts for.
 
 ```http
-POST /api/v1/orders/42/preparing?restaurantId=1&role=RESTAURANT
+POST /api/v1/orders/42/preparing?restaurantId=1
 ```
 
-> `restaurantId` and `role` are **scoping, not authorisation**. Any caller may pass any value. This
-> is a known, accepted gap, recorded rather than implied.
+Three checks, all 403:
 
-Two checks, and they fail differently:
-
-- The role does not own this transition → **403**.
-- The role owns it, but the restaurant does not own this order → **403**.
+- The role does not own this transition. Unreachable over HTTP now that each endpoint fixes its
+  role; it guards the service against a wrong call.
+- `restaurantId` is not the caller's restaurant — "Restaurant belongs to another owner".
+- The restaurant does not own this order — "Order belongs to another restaurant".
 
 ## Data Model
 
@@ -232,8 +232,8 @@ each of them:
 
 | Role | Compared against |
 | --- | --- |
-| `RESTAURANT` | `orders.restaurant_id` |
-| `CUSTOMER` | `orders.customer_id`, then that the customer is not soft-deleted |
+| `RESTAURANT` | the caller owns `restaurantId`, then `orders.restaurant_id` |
+| `CUSTOMER` | `orders.customer_id` in the lookup itself, then that the customer is not soft-deleted |
 | `COURIER` | **Nothing yet** — no courier is assignable, so the check fails explicitly |
 | `SYSTEM` | Existence only; it acts on the restaurant's behalf and belongs to none |
 
@@ -243,20 +243,20 @@ column that has nothing to do with them.
 
 A soft-deleted customer does not exist to the API (#68), but their orders are kept for history, so
 comparing `orders.customer_id` alone would still let them act on those orders. The `CUSTOMER` branch
-therefore reads the owner with **one** projection query, `OrderRepository.findOwnerById`, which joins
-the order's customer and user and returns the customer id and `userDeletedAt`
-([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The service checks,
-in Java: order found (else 404 "Order not found"), owned by the caller (else 403 "Order belongs to
-another customer"), owner not soft-deleted (else 404 "Customer not found"). Because ownership is
-checked first, the owner is the caller, so the last check is about the caller. It all runs after the
+therefore reads the owner with **one** projection query, `OrderRepository.findOwnerByIdAndCustomerId`,
+which joins the order's customer and user, is scoped to the caller's customer, and returns
+`userDeletedAt` ([#78](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/78)). The
+service checks: order found for this caller (else 404 "Order not found" — a missing order and
+another customer's order look the same, #83 part 2), owner not soft-deleted (else 404 "Customer not
+found"). Because the lookup is scoped, the owner is the caller, so the last check is about the
+caller. It all runs after the
 role check, so the role-before-existence rule below still holds. For an active customer the answers
 are unchanged. Cancel is the only customer-owned transition, so this is where cancel gets the guard.
 The restaurant, system and courier branches keep their own `findRestaurantIdById` lookup, with no
 extra join.
 
-The customer-level answer is only given for an order the caller owns. A soft-deleted or unknown
-`customerId` asking about a missing order gets 404 "Order not found", and about another customer's
-order gets 403 — the same answers an active caller gets. An earlier version ran a separate
+The customer-level answer is only given for an order the caller owns. Any other order gets 404
+"Order not found", whether the caller is active or not. An earlier version ran a separate
 `existsActiveById` check first and answered "Customer not found" in those cases; folding it into
 the one lookup moved them.
 
@@ -266,8 +266,8 @@ seam they will land on.
 
 ## Main Success Scenario
 
-1. Caller requests a transition on an order, passing their role.
-2. System verifies the transition's owning role matches the caller's.
+1. Caller requests a transition on an order; the endpoint fixes the caller's role.
+2. System verifies the transition's owning role matches it.
 3. System verifies the caller owns the order.
 4. System updates the status **conditionally on the expected current status**.
 5. System writes an `order_status_history` row.
@@ -277,11 +277,14 @@ seam they will land on.
 
 Each branch is labelled by the Main Flow step it extends.
 
-- **1a. Missing or unparseable role, or an unknown order id format:** reject with 400.
+- **1a. Missing `restaurantId`, or an unparseable id:** reject with 400.
 - **2a. The role does not own this transition:** reject with 403 — "Role RESTAURANT may not perform
-  this transition" for the mismatched case.
-- **3a. The order exists but belongs to another restaurant (or customer):** reject with 403.
-- **3b. Role `CUSTOMER`, the caller owns the order, and is soft-deleted:** reject with 404 —
+  this transition". Unreachable over HTTP; a guard against a wrong call.
+- **3a. `restaurantId` is not the caller's restaurant:** reject with 403 — "Restaurant belongs to
+  another owner".
+- **3b. The order exists but belongs to another restaurant:** reject with 403. Another customer's
+  order, on cancel, is a 404 (4a): the lookup is scoped to the caller.
+- **3c. Role `CUSTOMER`, the caller owns the order, and is soft-deleted:** reject with 404 —
   "Customer not found". Checked after ownership, from the same query.
 - **4a. The order does not exist:** reject with 404 — "Order not found".
 - **4b. The conditional update matches no row:** reject with 409 — "Order is not in status
@@ -322,14 +325,20 @@ sequenceDiagram
     actor Restaurant
     participant C as OrderStatusController
     participant H as OrderStatusService
+    participant RS as RestaurantService
     participant OR as OrderRepository
     participant HR as OrderStatusHistoryRepository
 
-    Restaurant->>C: POST /api/v1/orders/42/preparing?restaurantId&role
-    C->>H: startPreparing(orderId, restaurantId, role)
+    Restaurant->>C: POST /api/v1/orders/42/preparing?restaurantId
+    C->>H: startPreparing(orderId, restaurantId, caller.userId(), RESTAURANT)
 
     alt role does not own the transition
         H-->>C: TransitionNotAllowedForRoleException (403)
+    end
+
+    H->>RS: ensureOwnedBy(restaurantId, userId)
+    alt not the caller's restaurant
+        RS-->>C: RestaurantAccessDeniedException (403)
     end
 
     H->>OR: findRestaurantIdById(orderId)
@@ -434,7 +443,8 @@ meant to protect. The `local` profile stays active because it supplies the datas
    rejected there. Do not reintroduce them in a sub-issue.
 2. **`picked_up` and `delivered` have no endpoint** because courier assignment is not ticketed. The
    transition table is complete; the HTTP surface is not.
-3. **Role and `restaurantId` are scoping, not authorisation.** Any caller may pass any value.
+3. **The role is the endpoint's, and `restaurantId` is checked against the caller** (#83 part 2).
+   Before that, both were caller-supplied scoping that anyone could set.
 4. **A 409 is the answer to four different situations** — illegal transition, repeat, terminal
    order, concurrent move. They are indistinguishable at the database and the client's next step is
    the same in all four: re-read the order.

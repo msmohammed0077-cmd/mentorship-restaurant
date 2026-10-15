@@ -118,14 +118,14 @@ Fifteen minutes matches #35's payment timeout.
 ## API
 
 ```http
-POST /api/v1/orders/{orderId}/accept?restaurantId=1&role=RESTAURANT
+POST /api/v1/orders/{orderId}/accept?restaurantId=1
 Content-Type: application/json
 
 { "prep_time_minutes": 25 }
 ```
 
 ```http
-POST /api/v1/orders/{orderId}/reject?restaurantId=1&role=RESTAURANT
+POST /api/v1/orders/{orderId}/reject?restaurantId=1
 Content-Type: application/json
 
 { "reason": "TOO_BUSY", "note": "Kitchen is backed up" }
@@ -139,19 +139,16 @@ Both return the new status:
 
 The body is optional on accept and required on reject.
 
-`restaurantId` and `role` are **untrusted, caller-supplied inputs**, because `SecurityConfig` is
-`permitAll` and there is no principal to derive them from. They are still *checked*, and a request
-that fails a check is refused:
+A token and `order.accept` or `order.reject` are required (#83 part 4). The caller comes from the
+token (#83 part 2, ADR 0009); `restaurantId` names the restaurant they act for, because an owner may
+come to run several. Both are checked:
 
-- `role` must be `RESTAURANT`; anything else is 403.
-- `role=SYSTEM` is **refused outright** — it is the scheduler's identity and skips the ownership
-  check, so a caller may never supply it.
-- The order must belong to the `restaurantId` given, or 403.
+- The restaurant must be the caller's (`RestaurantService.ensureOwnedBy`), or 403 "Restaurant
+  belongs to another owner".
+- The order must belong to that restaurant, or 403 "Order belongs to another restaurant".
 
-A token and `order.accept` or `order.reject` are now required (#83 part 4), but the caller's
-identity is not yet used: nothing stops a caller supplying someone else's `restaurantId` and passing
-every check above. That is #34's accepted trade, and it must be closed before this reaches a real
-environment; #83 part 2 closes it.
+There is no `role` parameter: the controller passes `RESTAURANT`. Only the scheduler acts as
+`SYSTEM`, so no caller can claim it.
 
 ## Data Model
 
@@ -193,8 +190,8 @@ the transition itself, since status and reason are written by two different stat
 - **`prep_time_minutes` not positive:** 400.
 - **Order not found:** 404.
 - **Order not in `PLACED`** (already accepted, already rejected, cancelled): 409.
+- **`restaurantId` is not the caller's restaurant:** 403.
 - **Order belongs to another restaurant:** 403.
-- **Role is not RESTAURANT:** 403.
 
 ## Postconditions
 
@@ -233,8 +230,8 @@ deleted while it was running.
 That skip made `role` dangerous the moment it was bindable from a query parameter. Code review
 verified the hole live: `POST /orders/{id}/reject?restaurantId=999&role=SYSTEM` returned **200** and
 rejected an order owned by another restaurant, defeating the 403 ownership check and the 400
-reserved-reason guard at once. **Every endpoint now refuses `SYSTEM` at the controller boundary**, so
-it can only ever arrive from the scheduler, and two regression tests hold that line.
+reserved-reason guard at once. The controllers first refused `SYSTEM` at the boundary; #83 part 2
+removed the `role` parameter altogether, so `SYSTEM` can only ever arrive from the scheduler.
 
 **A malformed body was a 500 before this ticket.** `GlobalExceptionHandler` had no
 `HttpMessageNotReadableException` handler, so a reason outside the set — or any unparseable JSON on
@@ -275,12 +272,10 @@ creates them until #35.
 | A restaurant supplying `NO_RESPONSE` | 400 |
 | `prep_time_minutes` of 0 | 400 |
 | Another restaurant's order | 403 |
-| Role `CUSTOMER` | 403 |
+| A `restaurantId` the caller does not own | 403, order untouched |
 | Unknown order | 404 |
 | Auto-reject sweep past 15 minutes | `REJECTED`, `NO_RESPONSE`, actor `SYSTEM`, stock restored |
 | Auto-reject sweep inside 15 minutes | untouched |
-| A caller supplying `role=SYSTEM` on reject | 403, order untouched |
-| A caller supplying `role=SYSTEM` on accept | 403, order untouched |
 
 **The scheduled timer is disabled under test** (`app.orders.auto-reject.enabled=false`). A background
 sweep and a suite that seeds `PLACED` orders with past timestamps are in a race the suite would

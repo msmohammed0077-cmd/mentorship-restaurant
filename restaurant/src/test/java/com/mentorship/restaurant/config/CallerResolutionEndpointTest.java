@@ -7,11 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
  * The caller behind a token (#83 part 2, ADR 0009): a token whose {@code sub} has no {@code users}
- * row is refused; a linked one resolves.
+ * row is refused; a linked one resolves, and a non-customer or deleted customer is answered by the
+ * customer endpoints' own rules.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -21,14 +23,14 @@ class CallerResolutionEndpointTest {
 
   @Autowired private RestTestClient client;
   @Autowired private JwtTestSupport jwts;
+  @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
   void refusesATokenWhoseUserHasNoAccount() {
     client
         .get()
         .uri("/api/v1/orders/{orderId}", NONE)
-        .header(
-            HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(UUID.randomUUID(), "CUSTOMER"))
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(UUID.randomUUID(), "CUSTOMER"))
         .exchange()
         .expectStatus()
         .isUnauthorized()
@@ -59,5 +61,32 @@ class CallerResolutionEndpointTest {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Caller is not a customer");
+  }
+
+  @Test
+  void answersASoftDeletedCustomersOwnTokenWithNotFound() {
+    UUID keycloakId = UUID.randomUUID();
+    jdbcTemplate.update(
+        """
+        WITH new_user AS (
+          INSERT INTO users (user_name, user_email, user_password, user_keycloak_id, user_deleted_at)
+          VALUES ('Gone', 'caller.resolution.test.gone@example.com', 'x', ?, now())
+          RETURNING user_id
+        )
+        INSERT INTO customers (user_id) SELECT user_id FROM new_user
+        """,
+        keycloakId);
+    try {
+      client
+          .get()
+          .uri("/api/v1/customers/me")
+          .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(keycloakId, "CUSTOMER"))
+          .exchange()
+          .expectStatus()
+          .isNotFound();
+    } finally {
+      jdbcTemplate.update(
+          "DELETE FROM users WHERE user_email = 'caller.resolution.test.gone@example.com'");
+    }
   }
 }

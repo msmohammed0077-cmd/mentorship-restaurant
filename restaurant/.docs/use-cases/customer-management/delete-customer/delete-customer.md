@@ -17,7 +17,7 @@ The customer exists, is not soft-deleted, and has no order in flight.
 
 ## Scope
 
-`DELETE /api/v1/customers/{customerId}` — **204**, no body. A **soft** delete.
+`DELETE /api/v1/customers/me` — **204**, no body. A **soft** delete of the caller.
 
 Builds on #73, #69 and #71 (`CustomerController`, `CustomerService`,
 `CustomerRepository.findActiveById`). Adds `CustomerDeletionService.deleteCustomer`,
@@ -30,8 +30,9 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
 
 ## Business Rules
 
-1. An **unknown or already soft-deleted** customer is refused with 404, "Customer not found"
-   (`findActiveById`). Deleting twice is therefore a 404 the second time, not a silent 204.
+1. An **already soft-deleted** customer is refused with 404, "Customer not found"
+   (`findActiveById`). Deleting twice with a still-valid token is therefore a 404 the second time,
+   not a silent 204.
 2. A customer with an order in a **non-terminal** status — `PLACED`, `ACCEPTED`, `PREPARING`,
    `READY_FOR_PICKUP`, `PICKED_UP` — is refused with **409**, "Customer has active orders"
    (`CustomerHasActiveOrdersException`). A restaurant must never lose the customer of an order in
@@ -49,8 +50,10 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
 
 ## Authorisation
 
-None, per #34's trade. This is an **IDOR**: anyone can delete any customer's account by id.
-Closing it belongs to auth, not to this umbrella.
+A token and `customer.write` are required (#83 part 4). The customer is the caller (#83 part 2, ADR 0009):
+the path is `/me`, the service takes the customer id from the token, and a caller who is not a
+customer gets 403 "Caller is not a customer". Before part 2 the path carried the customer's id, and
+this was an **IDOR**: anyone could delete the account of any customer's account by id.
 
 ## API
 
@@ -88,12 +91,13 @@ makes that lookup fetch the owner's user in the same query (a join fetch, or for
 in the `CUSTOMER` ownership branch of `OrderStatusService`) and checks `userDeletedAt` in
 Java, after the not-found and ownership checks. A soft-deleted customer acting on their own address
 or order gets 404 "Customer not found"; on a missing or another customer's row they get the same
-address- or order-level answer as anyone else. A deleted customer's cart is kept, and the cart-by-id
-endpoints do not check its owner, so they still reach it: #104.
+address- or order-level answer as anyone else. A deleted customer's cart is kept; the cart endpoints
+check that it is the caller's but not whether the caller is deleted, so a still-valid token still
+reaches it: #104.
 
 ## Main Success Scenario
 
-1. The caller asks to delete a customer by id.
+1. The caller asks to delete their own account.
 2. The system loads the active customer and its user.
 3. The system checks the customer has no order in a non-terminal status.
 4. The system sets `user_deleted_at` on the user.
@@ -101,8 +105,8 @@ endpoints do not check its owner, so they still reach it: #104.
 
 ## Exception Flows
 
-- **1a. Id is not a number:** 400 (type mismatch, before the service runs).
-- **2a. No active customer with that id** (unknown, or already deleted): 404, "Customer not found".
+- **1a. The caller is not a customer:** 403, "Caller is not a customer".
+- **2a. The caller's customer is already deleted:** 404, "Customer not found".
 - **3a. An order is still in flight:** 409, "Customer has active orders". Nothing changes.
 
 ## Postconditions
@@ -122,11 +126,11 @@ sequenceDiagram
     participant CS as CustomerService
     participant OS as OrderService
 
-    Caller->>C: DELETE /api/v1/customers/{customerId}
-    C->>D: deleteCustomer(customerId)
+    Caller->>C: DELETE /api/v1/customers/me
+    C->>D: deleteCustomer(caller.customerId)
     D->>CS: findActiveCustomer(customerId)
     CS-->>D: Customer (user join-fetched)
-    alt unknown or soft-deleted
+    alt already soft-deleted
         CS-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
@@ -159,7 +163,6 @@ CustomerController -> CustomerDeletionService  (@Service, @Transactional; its ow
 | Delete a new customer | 204; then `GET` → 404; a second `DELETE` → 404, "Customer not found" |
 | Customer with a cart (seeded via SQL) | 204; the cart is still there (#104) |
 | Customer with a `PLACED` order (seeded via SQL) | 409, "Customer has active orders"; `GET` still 200 |
-| Unknown id `999999` | 404, "Customer not found" |
 | Address list for a deleted customer | 404, "Customer not found" |
 
 Every email the test creates starts with `delete.customer.test.`, and cleanup deletes only those
