@@ -46,4 +46,18 @@ class CallerResolutionEndpointTest {
         .expectStatus()
         .isNotFound();
   }
+
+  @Test
+  void refusesANonCustomerOnACustomerEndpoint() {
+    client
+        .get()
+        .uri("/api/v1/customers/me")
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(JwtTestSupport.ADMIN, "ADMIN"))
+        .exchange()
+        .expectStatus()
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Caller is not a customer");
+  }
 }

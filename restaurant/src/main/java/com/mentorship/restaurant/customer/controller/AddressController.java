@@ -10,7 +10,9 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.mentorship.restaurant.user.model.Caller;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,38 +33,38 @@ public class AddressController {
   @PreAuthorize("hasAuthority('address.write')")
   @PostMapping
   public ResponseEntity<AddressResponse> addAddress(
-      @RequestParam Long customerId, @Valid @RequestBody AddAddressRequest request) {
+      @AuthenticationPrincipal Caller caller, @Valid @RequestBody AddAddressRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(addressService.addAddress(customerId, request));
+        .body(addressService.addAddress(caller.requireCustomerId(), request));
   }
 
   @PreAuthorize("hasAuthority('address.read')")
   @GetMapping
-  public ResponseEntity<List<AddressResponse>> viewAddresses(@RequestParam Long customerId) {
-    return ResponseEntity.ok(addressService.viewAddresses(customerId));
+  public ResponseEntity<List<AddressResponse>> viewAddresses(@AuthenticationPrincipal Caller caller) {
+    return ResponseEntity.ok(addressService.viewAddresses(caller.requireCustomerId()));
   }
 
   @PreAuthorize("hasAuthority('address.write')")
   @PutMapping("/{addressId}")
   public ResponseEntity<AddressResponse> updateAddress(
-      @RequestParam Long customerId,
+      @AuthenticationPrincipal Caller caller,
       @PathVariable Long addressId,
       @Valid @RequestBody UpdateAddressRequest request) {
-    return ResponseEntity.ok(addressService.updateAddress(customerId, addressId, request));
+    return ResponseEntity.ok(addressService.updateAddress(caller.requireCustomerId(), addressId, request));
   }
 
   @PreAuthorize("hasAuthority('address.write')")
   @DeleteMapping("/{addressId}")
   public ResponseEntity<Void> deleteAddress(
-      @RequestParam Long customerId, @PathVariable Long addressId) {
-    addressService.deleteAddress(customerId, addressId);
+      @AuthenticationPrincipal Caller caller, @PathVariable Long addressId) {
+    addressService.deleteAddress(caller.requireCustomerId(), addressId);
     return ResponseEntity.noContent().build();
   }
 
   @PreAuthorize("hasAuthority('address.write')")
   @PutMapping("/{addressId}/default")
   public ResponseEntity<AddressResponse> setDefaultAddress(
-      @RequestParam Long customerId, @PathVariable Long addressId) {
-    return ResponseEntity.ok(addressService.setDefaultAddress(customerId, addressId));
+      @AuthenticationPrincipal Caller caller, @PathVariable Long addressId) {
+    return ResponseEntity.ok(addressService.setDefaultAddress(caller.requireCustomerId(), addressId));
   }
 }

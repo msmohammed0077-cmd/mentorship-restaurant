@@ -40,9 +40,9 @@ class ChangePasswordEndpointTest extends CustomerEndpointTestSupport {
 
   private RestTestClient.ResponseSpec changePassword(
       long customerId, String currentPassword, String newPassword) {
-    return client
+    return asCustomer(customerId)
         .put()
-        .uri("/api/v1/customers/{customerId}/password", customerId)
+        .uri("/api/v1/customers/me/password")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """

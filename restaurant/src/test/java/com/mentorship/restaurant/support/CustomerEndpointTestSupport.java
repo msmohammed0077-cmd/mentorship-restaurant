@@ -41,6 +41,11 @@ public abstract class CustomerEndpointTestSupport {
     }
   }
 
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
+  }
+
   /**
    * Every user a test class creates has an email under this prefix, so cleanup can never reach a
    * seeded user. Must be unique per class.

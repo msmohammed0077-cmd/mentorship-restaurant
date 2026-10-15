@@ -17,9 +17,9 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
   void updatesNameAndPhoneAndLeavesTheRestUnchanged() {
     long customerId = insertCustomer(email("sara"));
 
-    client
+    asCustomer(customerId)
         .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
+        .uri("/api/v1/customers/me")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -50,9 +50,9 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
   void rejectsAnEmailUsedByAnotherActiveUser() {
     long customerId = insertCustomer(email("sara"));
 
-    client
+    asCustomer(customerId)
         .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
+        .uri("/api/v1/customers/me")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -68,30 +68,12 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .patch()
-        .uri("/api/v1/customers/999999")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            { "name": "Sara Hassan" }
-            """)
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
   void rejectsAnInvalidEmail() {
     long customerId = insertCustomer(email("sara"));
 
-    client
+    asCustomer(customerId)
         .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
+        .uri("/api/v1/customers/me")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """

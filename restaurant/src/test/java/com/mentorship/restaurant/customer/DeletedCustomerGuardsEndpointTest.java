@@ -34,9 +34,9 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
-        client
+        asCustomer(customerId)
             .put()
-            .uri("/api/v1/addresses/{addressId}?customerId={customerId}", addressId, customerId)
+            .uri("/api/v1/addresses/{addressId}", addressId)
             .contentType(MediaType.APPLICATION_JSON)
             .body(ADDRESS_BODY)
             .exchange());
@@ -49,12 +49,9 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
-        client
+        asCustomer(customerId)
             .put()
-            .uri(
-                "/api/v1/addresses/{addressId}/default?customerId={customerId}",
-                addressId,
-                customerId)
+            .uri("/api/v1/addresses/{addressId}/default", addressId)
             .exchange());
   }
 
@@ -65,9 +62,9 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
-        client
+        asCustomer(customerId)
             .delete()
-            .uri("/api/v1/addresses/{addressId}?customerId={customerId}", addressId, customerId)
+            .uri("/api/v1/addresses/{addressId}", addressId)
             .exchange());
   }
 

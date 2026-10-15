@@ -27,20 +27,6 @@ public interface AddressRepository extends JpaRepository<Address, Long> {
   Optional<Address> findByIdAndCustomerIdWithOwner(
       @Param("addressId") Long addressId, @Param("customerId") Long customerId);
 
-  /**
-   * Any customer's address with its owner and the owner's user, in one query, so a handler can
-   * check ownership and the owner's soft delete without a second round trip. Soft-deleted owners
-   * are not filtered.
-   */
-  @Query(
-      """
-      select address from Address address
-      join fetch address.customer customer
-      join fetch customer.user
-      where address.id = :addressId
-      """)
-  Optional<Address> findByIdWithOwner(@Param("addressId") Long addressId);
-
   @Query(
       """
       select address from Address address

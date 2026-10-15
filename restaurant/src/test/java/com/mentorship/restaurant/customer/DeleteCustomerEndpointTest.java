@@ -58,23 +58,13 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    deleteCustomer(999999L)
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
   void hidesADeletedCustomersAddresses() {
     long customerId = insertCustomer(email("sara"));
     softDeleteCustomer(customerId);
 
-    client
+    asCustomer(customerId)
         .get()
-        .uri("/api/v1/addresses?customerId={customerId}", customerId)
+        .uri("/api/v1/addresses")
         .exchange()
         .expectStatus()
         .isNotFound()
@@ -84,7 +74,7 @@ class DeleteCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   private RestTestClient.ResponseSpec deleteCustomer(long customerId) {
-    return client.delete().uri("/api/v1/customers/{customerId}", customerId).exchange();
+    return asCustomer(customerId).delete().uri("/api/v1/customers/me").exchange();
   }
 
   private boolean isSoftDeleted(long customerId) {

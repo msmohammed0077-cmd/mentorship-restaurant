@@ -104,15 +104,15 @@ class EndpointAuthorizationTest {
 
   static List<Row> rows() {
     return List.of(
-        row(GET, "/api/v1/customers/{customerId}", "", null, "customer.read"),
-        row(PATCH, "/api/v1/customers/{customerId}", "", "{}", "customer.write"),
-        row(PUT, "/api/v1/customers/{customerId}/password", "", PASSWORD, "customer.write"),
-        row(DELETE, "/api/v1/customers/{customerId}", "", null, "customer.write"),
-        row(POST, "/api/v1/addresses", OF_CUSTOMER, ADDRESS, "address.write"),
-        row(GET, "/api/v1/addresses", OF_CUSTOMER, null, "address.read"),
-        row(PUT, "/api/v1/addresses/{addressId}", OF_CUSTOMER, ADDRESS, "address.write"),
-        row(DELETE, "/api/v1/addresses/{addressId}", OF_CUSTOMER, null, "address.write"),
-        row(PUT, "/api/v1/addresses/{addressId}/default", OF_CUSTOMER, null, "address.write"),
+        row(GET, "/api/v1/customers/me", "", null, "customer.read"),
+        row(PATCH, "/api/v1/customers/me", "", "{}", "customer.write"),
+        row(PUT, "/api/v1/customers/me/password", "", PASSWORD, "customer.write"),
+        row(DELETE, "/api/v1/customers/me", "", null, "customer.write"),
+        row(POST, "/api/v1/addresses", "", ADDRESS, "address.write"),
+        row(GET, "/api/v1/addresses", "", null, "address.read"),
+        row(PUT, "/api/v1/addresses/{addressId}", "", ADDRESS, "address.write"),
+        row(DELETE, "/api/v1/addresses/{addressId}", "", null, "address.write"),
+        row(PUT, "/api/v1/addresses/{addressId}/default", "", null, "address.write"),
         row(POST, "/api/v1/payment-methods", OF_CUSTOMER, CARD, "payment-method.write"),
         row(GET, "/api/v1/payment-methods", OF_CUSTOMER, null, "payment-method.read"),
         row(
@@ -204,7 +204,7 @@ class EndpointAuthorizationTest {
   void aTokenWithoutPermissionsIsForbidden() {
     client
         .get()
-        .uri("/api/v1/customers/{id}", NONE)
+        .uri("/api/v1/customers/me")
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(USER))
         .exchange()
         .expectStatus()

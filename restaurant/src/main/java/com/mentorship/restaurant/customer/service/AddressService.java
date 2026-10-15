@@ -1,6 +1,5 @@
 package com.mentorship.restaurant.customer.service;
 
-import com.mentorship.restaurant.customer.exception.AddressAccessDeniedException;
 import com.mentorship.restaurant.customer.exception.AddressNotFoundException;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
@@ -71,12 +70,8 @@ public class AddressService {
 
   @Transactional
   public void deleteAddress(Long customerId, Long addressId) {
-    Address address =
-        addressRepository
-            .findByIdWithOwner(addressId)
-            .orElseThrow(() -> new AddressNotFoundException("Address not found"));
-    ensureAddressBelongsToCustomer(address, customerId);
-    // Runs after the ownership check, so the owner is the caller: a soft-deleted caller is a 404.
+    Address address = findCustomersAddress(addressId, customerId);
+    // The lookup is scoped to the caller, so the owner is the caller: a soft-deleted one is a 404.
     customerService.ensureActive(address.getCustomer());
 
     addressRepository.delete(address);
@@ -110,11 +105,5 @@ public class AddressService {
     return addressRepository
         .findByIdAndCustomerIdWithOwner(addressId, customerId)
         .orElseThrow(() -> new AddressNotFoundException("Address not found"));
-  }
-
-  private void ensureAddressBelongsToCustomer(Address address, Long customerId) {
-    if (!address.getCustomer().getId().equals(customerId)) {
-      throw new AddressAccessDeniedException("Address belongs to another customer");
-    }
   }
 }
