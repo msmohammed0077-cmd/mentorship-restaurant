@@ -1,5 +1,7 @@
 package com.mentorship.restaurant.cart;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.mentorship.restaurant.support.CartEndpointTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -11,7 +13,7 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 2);
     long cartItemId = cartItemIdFor(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .put()
         .uri("/api/v1/cart/{cartId}/items/{cartItemId}", cartId, cartItemId)
         .contentType(MediaType.APPLICATION_JSON)
@@ -35,5 +37,22 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
         .isEqualTo("extra sauce")
         .jsonPath("$.total")
         .isEqualTo(740.00);
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .put()
+        .uri("/api/v1/cart/{cartId}/items/{cartItemId}", cartId, cartItemIdFor(cartId))
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{\"quantity\": 2}")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(quantityOf(cartItemIdFor(cartId))).isEqualTo(1);
   }
 }

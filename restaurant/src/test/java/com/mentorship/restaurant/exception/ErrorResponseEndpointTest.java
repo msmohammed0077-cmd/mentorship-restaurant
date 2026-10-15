@@ -8,7 +8,7 @@ class ErrorResponseEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void reportsEveryInvalidField() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -22,14 +22,13 @@ class ErrorResponseEndpointTest extends CartEndpointTestSupport {
             String.class,
             message ->
                 org.assertj.core.api.Assertions.assertThat(message)
-                    .contains("customerId")
                     .contains("menuItemId")
                     .contains("quantity"));
   }
 
   @Test
   void rejectsAMalformedCartId() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .get()
         .uri("/api/v1/cart/{cartId}", "not-a-number")
         .exchange()
@@ -44,7 +43,7 @@ class ErrorResponseEndpointTest extends CartEndpointTestSupport {
   void rejectsAMissingCartItemIdsParameter() {
     long cartId = createCartWithItem(KOFTA, 1);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}/items", cartId)
         .exchange()

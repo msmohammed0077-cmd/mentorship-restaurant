@@ -11,7 +11,7 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
   void acknowledgesSuccessfulPaymentAndUpdatesStock() {
     long cartId = createCartWithItem(KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/{cartId}/checkout", cartId)
         .exchange()
@@ -30,9 +30,9 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
   @Test
   void rejectsAnEmptyCart() {
     long cartId = createCartWithItem(KOFTA, 2);
-    client.delete().uri("/api/v1/cart/{cartId}", cartId).exchange().expectStatus().isOk();
+    emptyCart(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/{cartId}/checkout", cartId)
         .exchange()
@@ -45,7 +45,7 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownCart() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/{cartId}/checkout", 999999L)
         .exchange()
@@ -62,7 +62,7 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
     addItem(FALAFEL, 2);
     setStock(KOFTA, 0);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/{cartId}/checkout", cartId)
         .exchange()
@@ -72,5 +72,21 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
     assertThat(stockFor(KOFTA)).isZero();
     assertThat(stockFor(FALAFEL)).isEqualTo(75);
     assertThat(cartItemCountFor(cartId)).isEqualTo(2);
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .post()
+        .uri("/api/v1/cart/{cartId}/checkout", cartId)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
+    assertThat(stockFor(KOFTA)).isEqualTo(50);
   }
 }

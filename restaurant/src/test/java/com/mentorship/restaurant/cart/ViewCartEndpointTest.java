@@ -9,7 +9,7 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
   void viewsACart() {
     long cartId = createCartWithItem(KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .get()
         .uri("/api/v1/cart/{cartId}", cartId)
         .exchange()
@@ -35,7 +35,7 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 40);
     setStock(KOFTA, 1);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .get()
         .uri("/api/v1/cart/{cartId}", cartId)
         .exchange()
@@ -49,9 +49,9 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
   @Test
   void viewsAnEmptyCart() {
     long cartId = createCartWithItem(KOFTA, 2);
-    client.delete().uri("/api/v1/cart/{cartId}", cartId).exchange().expectStatus().isOk();
+    emptyCart(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .get()
         .uri("/api/v1/cart/{cartId}", cartId)
         .exchange()
@@ -66,7 +66,7 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownCart() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .get()
         .uri("/api/v1/cart/{cartId}", 999999L)
         .exchange()
@@ -75,5 +75,18 @@ class ViewCartEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Cart not found");
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .get()
+        .uri("/api/v1/cart/{cartId}", cartId)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 }

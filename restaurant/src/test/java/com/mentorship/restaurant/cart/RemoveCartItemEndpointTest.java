@@ -15,7 +15,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     addItem(FALAFEL, 1);
     long falafelItemId = cartItemIdFor(cartId, FALAFEL);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}/items?cartItemIds={id}", cartId, falafelItemId)
         .exchange()
@@ -35,7 +35,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 2);
     long cartItemId = cartItemIdFor(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}/items?cartItemIds={id}", cartId, cartItemId)
         .exchange()
@@ -59,7 +59,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 1);
     long cartItemId = cartItemIdFor(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri(
             "/api/v1/cart/{cartId}/items?cartItemIds={known}&cartItemIds={unknown}",
@@ -79,7 +79,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     long otherCartsItemId = cartItemIdFor(SEEDED_CART);
     int otherCartItemCount = cartItemCountFor(SEEDED_CART);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}/items?cartItemIds={id}", cartId, otherCartsItemId)
         .exchange()
@@ -92,7 +92,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownCart() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}/items?cartItemIds={id}", 999999L, 1L)
         .exchange()
@@ -108,7 +108,7 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 1);
     long cartItemId = cartItemIdFor(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri(
             "/api/v1/cart/{cartId}/items?cartItemIds={id}&cartItemIds={id}",
@@ -123,5 +123,20 @@ class RemoveCartItemEndpointTest extends CartEndpointTestSupport {
         .isEqualTo(0);
 
     assertThat(cartItemCountFor(cartId)).isZero();
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .delete()
+        .uri("/api/v1/cart/{cartId}/items?cartItemIds={id}", cartId, cartItemIdFor(cartId))
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
   }
 }

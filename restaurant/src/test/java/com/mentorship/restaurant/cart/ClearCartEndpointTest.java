@@ -13,7 +13,7 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
   void clearsACart() {
     long cartId = createCartWithItem(KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}", cartId)
         .exchange()
@@ -38,7 +38,7 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 2);
     int otherCartItemCount = cartItemCountFor(SEEDED_CART);
 
-    client.delete().uri("/api/v1/cart/{cartId}", cartId).exchange().expectStatus().isOk();
+    emptyCart(cartId);
 
     assertThat(cartItemCountFor(SEEDED_CART)).isEqualTo(otherCartItemCount);
   }
@@ -46,9 +46,9 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
   @Test
   void clearsAnAlreadyEmptyCart() {
     long cartId = createCartWithItem(KOFTA, 2);
-    client.delete().uri("/api/v1/cart/{cartId}", cartId).exchange().expectStatus().isOk();
+    emptyCart(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}", cartId)
         .exchange()
@@ -61,7 +61,7 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownCart() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .delete()
         .uri("/api/v1/cart/{cartId}", 999999L)
         .exchange()
@@ -70,5 +70,20 @@ class ClearCartEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Cart not found");
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .delete()
+        .uri("/api/v1/cart/{cartId}", cartId)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
   }
 }

@@ -11,7 +11,9 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.mentorship.restaurant.user.model.Caller;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,10 +34,11 @@ public class CartController {
 
   @PreAuthorize("hasAuthority('cart.write')")
   @PostMapping("/items")
-  public ResponseEntity<CartResponse> addItem(@Valid @RequestBody AddCartItemRequest request) {
+  public ResponseEntity<CartResponse> addItem(
+      @AuthenticationPrincipal Caller caller, @Valid @RequestBody AddCartItemRequest request) {
     CartResponse response =
         cartService.addItem(
-            request.getCustomerId(),
+            caller.requireCustomerId(),
             request.getMenuItemId(),
             request.getQuantity(),
             request.getNote());
@@ -45,35 +48,47 @@ public class CartController {
   @PreAuthorize("hasAuthority('cart.write')")
   @PutMapping("/{cartId}/items/{cartItemId}")
   public ResponseEntity<CartResponse> modifyItem(
+      @AuthenticationPrincipal Caller caller,
       @PathVariable Long cartId,
       @PathVariable Long cartItemId,
       @Valid @RequestBody UpdateCartItemRequest request) {
     return ResponseEntity.ok(
-        cartService.modifyItem(cartId, cartItemId, request.getQuantity(), request.getNote()));
+        cartService.modifyItem(
+            caller.requireCustomerId(),
+            cartId,
+            cartItemId,
+            request.getQuantity(),
+            request.getNote()));
   }
 
   @PreAuthorize("hasAuthority('cart.read')")
   @GetMapping("/{cartId}")
-  public ResponseEntity<CartResponse> viewCart(@PathVariable Long cartId) {
-    return ResponseEntity.ok(cartService.viewCart(cartId));
+  public ResponseEntity<CartResponse> viewCart(
+      @AuthenticationPrincipal Caller caller, @PathVariable Long cartId) {
+    return ResponseEntity.ok(cartService.viewCart(caller.requireCustomerId(), cartId));
   }
 
   @PreAuthorize("hasAuthority('cart.write')")
   @DeleteMapping("/{cartId}")
-  public ResponseEntity<CartResponse> clearCart(@PathVariable Long cartId) {
-    return ResponseEntity.ok(cartService.clearCart(cartId));
+  public ResponseEntity<CartResponse> clearCart(
+      @AuthenticationPrincipal Caller caller, @PathVariable Long cartId) {
+    return ResponseEntity.ok(cartService.clearCart(caller.requireCustomerId(), cartId));
   }
 
   @PreAuthorize("hasAuthority('cart.write')")
   @DeleteMapping("/{cartId}/items")
   public ResponseEntity<CartResponse> removeCartItems(
-      @PathVariable Long cartId, @RequestParam List<Long> cartItemIds) {
-    return ResponseEntity.ok(cartService.removeCartItems(cartId, cartItemIds));
+      @AuthenticationPrincipal Caller caller,
+      @PathVariable Long cartId,
+      @RequestParam List<Long> cartItemIds) {
+    return ResponseEntity.ok(
+        cartService.removeCartItems(caller.requireCustomerId(), cartId, cartItemIds));
   }
 
   @PreAuthorize("hasAuthority('cart.write')")
   @PostMapping("/{cartId}/checkout")
-  public ResponseEntity<CheckoutCartResponse> checkout(@PathVariable Long cartId) {
-    return ResponseEntity.ok(cartService.checkout(cartId));
+  public ResponseEntity<CheckoutCartResponse> checkout(
+      @AuthenticationPrincipal Caller caller, @PathVariable Long cartId) {
+    return ResponseEntity.ok(cartService.checkout(caller.requireCustomerId(), cartId));
   }
 }

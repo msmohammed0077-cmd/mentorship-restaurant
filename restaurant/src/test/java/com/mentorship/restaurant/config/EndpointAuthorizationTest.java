@@ -61,9 +61,8 @@ class EndpointAuthorizationTest {
       """;
   private static final String CART_ITEM =
       """
-      {"customer_id": %d, "menu_item_id": 1, "quantity": 1}
-      """
-          .formatted(NONE);
+      {"menu_item_id": 1, "quantity": 1}
+      """;
   private static final String QUANTITY =
       """
       {"quantity": 1}

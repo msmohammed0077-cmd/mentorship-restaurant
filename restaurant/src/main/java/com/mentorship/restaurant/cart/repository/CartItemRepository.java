@@ -11,7 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
 
-  Optional<CartItem> findByIdAndCart_Id(Long id, Long cartId);
+  Optional<CartItem> findByIdAndCart_IdAndCart_Customer_Id(
+      Long cartItemId, Long cartId, Long customerId);
 
   Optional<CartItem> findByCart_IdAndMenuItem_Id(Long cartId, Long menuItemId);
 
