@@ -1,13 +1,13 @@
 package com.mentorship.restaurant.user.service;
 
+import com.mentorship.restaurant.user.model.Caller;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.repository.UserRepository;
-import com.mentorship.restaurant.user.model.Caller;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The login account, for the domains that own one (customers today, restaurants later). Every

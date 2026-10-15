@@ -13,8 +13,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk()
@@ -33,8 +32,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk();
@@ -59,8 +57,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/ready-for-pickup?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/ready-for-pickup?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk()
@@ -75,8 +72,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409)
@@ -93,8 +89,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -106,8 +101,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -121,8 +115,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
 
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -165,8 +158,7 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void refusesAnUnknownOrder() {
     asRestaurantOwner(NILE_KITCHEN)
         .post()
-        .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}", 999999L, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", 999999L, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isNotFound()

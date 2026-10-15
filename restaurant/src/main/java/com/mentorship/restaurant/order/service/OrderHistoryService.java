@@ -33,8 +33,7 @@ public class OrderHistoryService {
   private final OrderMapper orderMapper;
 
   @Transactional(readOnly = true)
-  public OrderHistoryResponse viewOrderHistory(
-      Long customerId, Integer limit, OrderCursor cursor) {
+  public OrderHistoryResponse viewOrderHistory(Long customerId, Integer limit, OrderCursor cursor) {
     customerService.ensureActiveCustomerExists(customerId);
     ensureCursorIsUsable(cursor);
 

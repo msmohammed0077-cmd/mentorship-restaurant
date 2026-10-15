@@ -1,7 +1,7 @@
 package com.mentorship.restaurant.user.repository;
 
-import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.model.Caller;
+import com.mentorship.restaurant.user.model.entity.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -118,12 +118,7 @@ class EndpointAuthorizationTest {
             "",
             null,
             "payment-method.write"),
-        row(
-            DELETE,
-            "/api/v1/payment-methods/{paymentMethodId}",
-            "",
-            null,
-            "payment-method.write"),
+        row(DELETE, "/api/v1/payment-methods/{paymentMethodId}", "", null, "payment-method.write"),
         row(POST, "/api/v1/cart/items", "", CART_ITEM, "cart.write"),
         row(PUT, "/api/v1/cart/{cartId}/items/{cartItemId}", "", QUANTITY, "cart.write"),
         row(GET, "/api/v1/cart/{cartId}", "", null, "cart.read"),

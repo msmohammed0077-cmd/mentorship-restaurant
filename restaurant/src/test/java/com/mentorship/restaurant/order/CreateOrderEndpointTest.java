@@ -163,11 +163,7 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
 
     placeOrder(
             customerId,
-            fieldsFor(
-                cartId,
-                addressIdForCustomer(jdbcTemplate, customerId),
-                NILE_KITCHEN,
-                null))
+            fieldsFor(cartId, addressIdForCustomer(jdbcTemplate, customerId), NILE_KITCHEN, null))
         // #82 §2: should be 400, currently 201 with no transaction
         .expectStatus()
         .isCreated()

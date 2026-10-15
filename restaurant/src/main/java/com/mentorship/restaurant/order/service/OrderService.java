@@ -26,8 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creating and viewing orders, plus the guard the other order services share. Those services
- * inject this one; this one never injects them, so Spring cannot meet a cycle.
+ * Creating and viewing orders, plus the guard the other order services share. Those services inject
+ * this one; this one never injects them, so Spring cannot meet a cycle.
  */
 @Service
 @RequiredArgsConstructor

@@ -90,8 +90,7 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?limit=2"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
+            "/api/v1/orders?limit=2" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -128,8 +127,7 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?limit=1"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
+            "/api/v1/orders?limit=1" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -165,8 +163,7 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?limit=1"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
+            "/api/v1/orders?limit=1" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -208,9 +205,7 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   void rejectsACursorWhoseTimestampIsOutOfRange() {
     asCustomer(CUSTOMER)
         .get()
-        .uri(
-            "/api/v1/orders"
-                + "?cursor.createdAt=999999999-01-01T00:00:00Z&cursor.orderId=1")
+        .uri("/api/v1/orders" + "?cursor.createdAt=999999999-01-01T00:00:00Z&cursor.orderId=1")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -253,9 +248,7 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   void rejectsAnUnparseableCursorTimestamp() {
     asCustomer(CUSTOMER)
         .get()
-        .uri(
-            "/api/v1/orders"
-                + "?cursor.createdAt=not-a-date&cursor.orderId=1")
+        .uri("/api/v1/orders" + "?cursor.createdAt=not-a-date&cursor.orderId=1")
         .exchange()
         .expectStatus()
         .isBadRequest();

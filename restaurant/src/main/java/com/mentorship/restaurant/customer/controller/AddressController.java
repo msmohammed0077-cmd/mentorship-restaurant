@@ -4,13 +4,13 @@ import com.mentorship.restaurant.customer.model.request.AddAddressRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateAddressRequest;
 import com.mentorship.restaurant.customer.model.response.AddressResponse;
 import com.mentorship.restaurant.customer.service.AddressService;
+import com.mentorship.restaurant.user.model.Caller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import com.mentorship.restaurant.user.model.Caller;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,7 +40,8 @@ public class AddressController {
 
   @PreAuthorize("hasAuthority('address.read')")
   @GetMapping
-  public ResponseEntity<List<AddressResponse>> viewAddresses(@AuthenticationPrincipal Caller caller) {
+  public ResponseEntity<List<AddressResponse>> viewAddresses(
+      @AuthenticationPrincipal Caller caller) {
     return ResponseEntity.ok(addressService.viewAddresses(caller.requireCustomerId()));
   }
 
@@ -50,7 +51,8 @@ public class AddressController {
       @AuthenticationPrincipal Caller caller,
       @PathVariable Long addressId,
       @Valid @RequestBody UpdateAddressRequest request) {
-    return ResponseEntity.ok(addressService.updateAddress(caller.requireCustomerId(), addressId, request));
+    return ResponseEntity.ok(
+        addressService.updateAddress(caller.requireCustomerId(), addressId, request));
   }
 
   @PreAuthorize("hasAuthority('address.write')")
@@ -65,6 +67,7 @@ public class AddressController {
   @PutMapping("/{addressId}/default")
   public ResponseEntity<AddressResponse> setDefaultAddress(
       @AuthenticationPrincipal Caller caller, @PathVariable Long addressId) {
-    return ResponseEntity.ok(addressService.setDefaultAddress(caller.requireCustomerId(), addressId));
+    return ResponseEntity.ok(
+        addressService.setDefaultAddress(caller.requireCustomerId(), addressId));
   }
 }

@@ -56,7 +56,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void acceptsWithoutABody() {
     long orderId = seedOrder("PLACED");
 
-    asRestaurantOwner(NILE_KITCHEN).post().uri(ACCEPT, orderId, NILE_KITCHEN).exchange().expectStatus().isOk();
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, orderId, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isOk();
 
     assertThat(orderRow(orderId).get("order_prep_time_minutes")).isNull();
   }
@@ -100,7 +105,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     seedOrderLine(orderId, KOFTA, 2);
     int stockBefore = stockFor(KOFTA);
 
-    asRestaurantOwner(NILE_KITCHEN).post().uri(ACCEPT, orderId, NILE_KITCHEN).exchange().expectStatus().isEqualTo(409);
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, orderId, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409);
 
     assertThat(stockFor(KOFTA)).isEqualTo(stockBefore);
   }
@@ -203,7 +213,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAnotherRestaurantsOrder() {
     long orderId = seedOrder("PLACED", NILE_KITCHEN);
 
-    asRestaurantOwner(BURGER_YARD).post().uri(ACCEPT, orderId, BURGER_YARD).exchange().expectStatus().isForbidden();
+    asRestaurantOwner(BURGER_YARD)
+        .post()
+        .uri(ACCEPT, orderId, BURGER_YARD)
+        .exchange()
+        .expectStatus()
+        .isForbidden();
   }
 
   @Test
@@ -225,7 +240,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void refusesAnUnknownOrder() {
-    asRestaurantOwner(NILE_KITCHEN).post().uri(ACCEPT, 999999L, NILE_KITCHEN).exchange().expectStatus().isNotFound();
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, 999999L, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 
   @Test

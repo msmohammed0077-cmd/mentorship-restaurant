@@ -55,11 +55,7 @@ public class OrderStatusService {
 
   @Transactional
   public OrderStatusResponse accept(
-      Long orderId,
-      Long restaurantId,
-      Long callerUserId,
-      ActorRole role,
-      Integer prepTimeMinutes) {
+      Long orderId, Long restaurantId, Long callerUserId, ActorRole role, Integer prepTimeMinutes) {
     OrderStatusResponse response =
         transition(orderId, OrderTransition.ACCEPT, restaurantId, callerUserId, role);
 
@@ -142,8 +138,7 @@ public class OrderStatusService {
     }
   }
 
-  private void ensureActorOwnsOrder(
-      Long orderId, Long actorId, Long callerUserId, ActorRole role) {
+  private void ensureActorOwnsOrder(Long orderId, Long actorId, Long callerUserId, ActorRole role) {
     switch (role) {
       case SYSTEM -> ensureOrderExists(orderId);
       case RESTAURANT -> {
