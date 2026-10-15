@@ -7,19 +7,14 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
-  @Override
-  protected String realmRole() {
-    return "RESTAURANT_OWNER";
-  }
-
   @Test
   void movesAnAcceptedOrderToPreparing() {
     long orderId = seedOrder("ACCEPTED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk()
@@ -36,10 +31,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void recordsTheTransitionInHistory() {
     long orderId = seedOrder("ACCEPTED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk();
@@ -62,12 +57,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void movesAPreparingOrderToReadyForPickup() {
     long orderId = seedOrder("PREPARING");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/ready-for-pickup?restaurantId={r}&role=RESTAURANT",
-            orderId,
-            NILE_KITCHEN)
+            "/api/v1/orders/{id}/ready-for-pickup?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isOk()
@@ -80,10 +73,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void refusesToSkipAStep() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409)
@@ -98,10 +91,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void refusesARepeatOfTheCurrentStatus() {
     long orderId = seedOrder("PREPARING");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -111,10 +104,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void refusesToMoveATerminalOrder() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -126,10 +119,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   void writesNoHistoryRowForARefusedTransition() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isEqualTo(409);
@@ -138,12 +131,12 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void refusesARoleThatDoesNotOwnTheTransition() {
-    long orderId = seedOrder("ACCEPTED");
+  void refusesAnotherRestaurantsOrder() {
+    long orderId = seedOrder("ACCEPTED", NILE_KITCHEN);
 
-    client
+    asRestaurantOwner(BURGER_YARD)
         .post()
-        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}&role=CUSTOMER", orderId, NILE_KITCHEN)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, BURGER_YARD)
         .exchange()
         .expectStatus()
         .isForbidden();
@@ -152,54 +145,33 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void refusesAnotherRestaurantsOrder() {
-    long orderId = seedOrder("ACCEPTED", NILE_KITCHEN);
+  void refusesARestaurantTheCallerDoesNotOwn() {
+    long orderId = seedOrder("ACCEPTED");
 
-    client
+    asRestaurantOwner(BURGER_YARD)
         .post()
-        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", orderId, BURGER_YARD)
+        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
-        .isForbidden();
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant belongs to another owner");
 
     assertThat(statusOf(orderId)).isEqualTo("ACCEPTED");
   }
 
   @Test
   void refusesAnUnknownOrder() {
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(
-            "/api/v1/orders/{id}/preparing?restaurantId={r}&role=RESTAURANT", 999999L, NILE_KITCHEN)
+            "/api/v1/orders/{id}/preparing?restaurantId={r}", 999999L, NILE_KITCHEN)
         .exchange()
         .expectStatus()
         .isNotFound()
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Order not found");
-  }
-
-  @Test
-  void refusesAMissingRole() {
-    long orderId = seedOrder("ACCEPTED");
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, NILE_KITCHEN)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
-  }
-
-  @Test
-  void refusesAnUnknownRole() {
-    long orderId = seedOrder("ACCEPTED");
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/preparing?restaurantId={r}&role=WIZARD", orderId, NILE_KITCHEN)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
   }
 }

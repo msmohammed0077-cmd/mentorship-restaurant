@@ -10,14 +10,14 @@ import lombok.AllArgsConstructor;
 public class CartValidatorHandler extends OrderHandler {
 
   private final Cart cart;
+  private final Long customerId;
 
   @Override
   public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
 
-    Long requestCustomerId = request.getCustomerId();
     Long cartCustomerId = cart.getCustomer().getId();
 
-    if (!cartCustomerId.equals(requestCustomerId)) {
+    if (!cartCustomerId.equals(customerId)) {
       throw new CartNotFoundException("cart does not belong to customer");
     }
 

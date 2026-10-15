@@ -75,12 +75,9 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
-        client
+        asCustomer(customerId)
             .post()
-            .uri(
-                "/api/v1/orders/{orderId}/cancel?customerId={customerId}&role=CUSTOMER",
-                orderId,
-                customerId)
+            .uri("/api/v1/orders/{orderId}/cancel", orderId)
             .exchange());
   }
 
@@ -91,11 +88,11 @@ class DeletedCustomerGuardsEndpointTest extends CustomerEndpointTestSupport {
     softDeleteCustomer(customerId);
 
     expectCustomerNotFound(
-        client
+        asCustomer(customerId)
             .post()
             .uri("/api/v1/orders/{orderId}/rating", orderId)
             .contentType(MediaType.APPLICATION_JSON)
-            .body("{\"customer_id\": %d, \"score\": 5}".formatted(customerId))
+            .body("{\"score\": 5}")
             .exchange());
   }
 

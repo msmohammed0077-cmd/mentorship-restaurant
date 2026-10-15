@@ -41,6 +41,16 @@ public abstract class OrderEndpointTestSupport {
     }
   }
 
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
+  }
+
+  /** {@link #client}, acting as the restaurant's owner. */
+  protected RestTestClient asRestaurantOwner(long restaurantId) {
+    return jwts.asRestaurantOwner(client, restaurantId);
+  }
+
   private final List<Long> seededOrderIds = new ArrayList<>();
 
   @BeforeEach

@@ -2,9 +2,7 @@ package com.mentorship.restaurant.order.service;
 
 import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.order.exception.InvalidCursorException;
-import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.OrderCursor;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
@@ -36,8 +34,7 @@ public class OrderHistoryService {
 
   @Transactional(readOnly = true)
   public OrderHistoryResponse viewOrderHistory(
-      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
-    ensureCustomerRole(role);
+      Long customerId, Integer limit, OrderCursor cursor) {
     customerService.ensureActiveCustomerExists(customerId);
     ensureCursorIsUsable(cursor);
 
@@ -51,13 +48,6 @@ public class OrderHistoryService {
             .map(order -> orderMapper.toSummary(order, itemCounts.getOrDefault(order.getId(), 0L)))
             .toList();
     return new OrderHistoryResponse(rows, nextCursor(window));
-  }
-
-  private void ensureCustomerRole(ActorRole role) {
-    if (role != ActorRole.CUSTOMER) {
-      throw new TransitionNotAllowedForRoleException(
-          "Role " + role + " may not read order history");
-    }
   }
 
   private void ensureCursorIsUsable(OrderCursor cursor) {

@@ -6,7 +6,6 @@ import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.service.AddressService;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
-import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
@@ -27,7 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creating and viewing orders, plus the guards the other order services share. Those services
+ * Creating and viewing orders, plus the guard the other order services share. Those services
  * inject this one; this one never injects them, so Spring cannot meet a cycle.
  */
 @Service
@@ -42,14 +41,14 @@ public class OrderService {
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
   @Transactional
-  public OrderResponse createOrder(CreateOrderRequest request) {
+  public OrderResponse createOrder(Long customerId, CreateOrderRequest request) {
     Cart cart = cartService.findCart(request.getCartId());
     Address address = addressService.findAddress(request.getAddressId());
 
     OrderHandler orderHandler =
         OrderHandler.processOrder(
-            new CartValidatorHandler(cart),
-            new AddressValidatorHandler(address),
+            new CartValidatorHandler(cart, customerId),
+            new AddressValidatorHandler(address, customerId),
             new ItemsValidatorHandler(cart),
             new ProcessPaymentHandler(paymentProcessor),
             new OrderFinalizer(cart, address, orderMapper, orderRepository, cartService),
@@ -57,18 +56,19 @@ public class OrderService {
 
     OrderResponse response =
         OrderResponse.builder()
-            .customerId(request.getCustomerId())
+            .customerId(customerId)
             .restaurantId(request.getRestaurantId())
             .build();
 
     return orderHandler.handle(request, response);
   }
 
+  /** The caller's order: placed by their customer, or with their restaurant; else a 404. */
   @Transactional(readOnly = true)
-  public OrderResponse viewOrderDetails(Long orderId) {
+  public OrderResponse viewOrderDetails(Long orderId, Long customerId, Long userId) {
     Order order =
         orderRepository
-            .findById(orderId)
+            .findByIdForCaller(orderId, customerId, userId)
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
     return orderMapper.toResponse(order);
@@ -80,13 +80,6 @@ public class OrderService {
    */
   public boolean hasActiveOrders(Long customerId) {
     return orderRepository.existsByCustomer_IdAndStatusIn(customerId, OrderStatus.ACTIVE);
-  }
-
-  /** Shared: the order's owner (customer or restaurant) must be the actor. */
-  public void ensureOwnedBy(Long ownerId, Long actorId, String message) {
-    if (!ownerId.equals(actorId)) {
-      throw new OrderNotOwnedException(message);
-    }
   }
 
   /**

@@ -19,7 +19,6 @@ import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,19 +42,26 @@ public class OrderStatusService {
   private final TransactionTemplate transactionTemplate;
 
   @Transactional
-  public OrderStatusResponse startPreparing(Long orderId, Long restaurantId, ActorRole role) {
-    return transition(orderId, OrderTransition.START_PREPARING, restaurantId, role);
+  public OrderStatusResponse startPreparing(
+      Long orderId, Long restaurantId, Long callerUserId, ActorRole role) {
+    return transition(orderId, OrderTransition.START_PREPARING, restaurantId, callerUserId, role);
   }
 
   @Transactional
-  public OrderStatusResponse readyForPickup(Long orderId, Long restaurantId, ActorRole role) {
-    return transition(orderId, OrderTransition.READY, restaurantId, role);
+  public OrderStatusResponse readyForPickup(
+      Long orderId, Long restaurantId, Long callerUserId, ActorRole role) {
+    return transition(orderId, OrderTransition.READY, restaurantId, callerUserId, role);
   }
 
   @Transactional
   public OrderStatusResponse accept(
-      Long orderId, Long restaurantId, ActorRole role, Integer prepTimeMinutes) {
-    OrderStatusResponse response = transition(orderId, OrderTransition.ACCEPT, restaurantId, role);
+      Long orderId,
+      Long restaurantId,
+      Long callerUserId,
+      ActorRole role,
+      Integer prepTimeMinutes) {
+    OrderStatusResponse response =
+        transition(orderId, OrderTransition.ACCEPT, restaurantId, callerUserId, role);
 
     if (prepTimeMinutes != null) {
       orderRepository.updatePrepTime(orderId, prepTimeMinutes);
@@ -66,10 +72,16 @@ public class OrderStatusService {
 
   @Transactional
   public OrderStatusResponse reject(
-      Long orderId, Long restaurantId, ActorRole role, RejectionReason reason, String note) {
+      Long orderId,
+      Long restaurantId,
+      Long callerUserId,
+      ActorRole role,
+      RejectionReason reason,
+      String note) {
     ensureReasonIsAvailableTo(role, reason);
 
-    OrderStatusResponse response = transition(orderId, OrderTransition.REJECT, restaurantId, role);
+    OrderStatusResponse response =
+        transition(orderId, OrderTransition.REJECT, restaurantId, callerUserId, role);
     orderRepository.updateRejectionReason(orderId, reason, note);
     restoreStock(orderId);
 
@@ -78,7 +90,8 @@ public class OrderStatusService {
 
   @Transactional
   public OrderStatusResponse cancel(Long orderId, Long customerId, ActorRole role) {
-    OrderStatusResponse response = transition(orderId, OrderTransition.CANCEL, customerId, role);
+    OrderStatusResponse response =
+        transition(orderId, OrderTransition.CANCEL, customerId, null, role);
 
     restoreStock(orderId);
 
@@ -97,7 +110,8 @@ public class OrderStatusService {
     for (Long orderId : staleOrderIds) {
       try {
         transactionTemplate.executeWithoutResult(
-            status -> reject(orderId, null, ActorRole.SYSTEM, RejectionReason.NO_RESPONSE, null));
+            status ->
+                reject(orderId, null, null, ActorRole.SYSTEM, RejectionReason.NO_RESPONSE, null));
       } catch (RuntimeException exception) {
         log.warn("Auto-reject skipped order {}", orderId, exception);
       }
@@ -105,9 +119,9 @@ public class OrderStatusService {
   }
 
   private OrderStatusResponse transition(
-      Long orderId, OrderTransition transition, Long actorId, ActorRole role) {
+      Long orderId, OrderTransition transition, Long actorId, Long callerUserId, ActorRole role) {
     ensureRoleOwnsTransition(transition, role);
-    ensureActorOwnsOrder(orderId, actorId, role);
+    ensureActorOwnsOrder(orderId, actorId, callerUserId, role);
 
     applyTransition(orderId, transition);
     recordHistory(orderId, transition, role);
@@ -128,22 +142,25 @@ public class OrderStatusService {
     }
   }
 
-  private void ensureActorOwnsOrder(Long orderId, Long actorId, ActorRole role) {
+  private void ensureActorOwnsOrder(
+      Long orderId, Long actorId, Long callerUserId, ActorRole role) {
     switch (role) {
       case SYSTEM -> ensureOrderExists(orderId);
-      case RESTAURANT ->
-          ensureOwnerMatches(
-              orderRepository.findRestaurantIdById(orderId),
-              actorId,
-              "Order belongs to another restaurant");
+      case RESTAURANT -> {
+        restaurantService.ensureOwnedBy(actorId, callerUserId);
+        Long restaurantId =
+            orderRepository
+                .findRestaurantIdById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found"));
+        ensureOwnedBy(restaurantId, actorId, "Order belongs to another restaurant");
+      }
       case CUSTOMER -> {
-        Optional<OrderOwnerProjection> owner = orderRepository.findOwnerById(orderId);
-        ensureOwnerMatches(
-            owner.map(OrderOwnerProjection::getCustomerId),
-            actorId,
-            "Order belongs to another customer");
-        // Runs after the ownership check, so the owner is the caller.
-        owner.ifPresent(o -> orderService.ensureOwnerActive(o.getCustomerDeletedAt()));
+        OrderOwnerProjection owner =
+            orderRepository
+                .findOwnerByIdAndCustomerId(orderId, actorId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found"));
+        // The lookup is scoped to the caller, so the owner is the caller.
+        orderService.ensureOwnerActive(owner.getCustomerDeletedAt());
       }
       case COURIER -> {
         ensureOrderExists(orderId);
@@ -158,9 +175,11 @@ public class OrderStatusService {
     }
   }
 
-  private void ensureOwnerMatches(Optional<Long> owner, Long actorId, String message) {
-    Long ownerId = owner.orElseThrow(() -> new OrderNotFoundException("Order not found"));
-    orderService.ensureOwnedBy(ownerId, actorId, message);
+  /** The order's restaurant must be the one the caller acts for. */
+  private void ensureOwnedBy(Long ownerId, Long actorId, String message) {
+    if (!ownerId.equals(actorId)) {
+      throw new OrderNotOwnedException(message);
+    }
   }
 
   private void applyTransition(Long orderId, OrderTransition transition) {

@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.mentorship.restaurant.user.model.Caller;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,10 +27,12 @@ public class OrderRatingController {
   @PreAuthorize("hasAuthority('order.rate')")
   @PostMapping("/{orderId}/rating")
   public ResponseEntity<OrderRatingResponse> rateOrder(
-      @PathVariable Long orderId, @Valid @RequestBody RateOrderRequest request) {
+      @AuthenticationPrincipal Caller caller,
+      @PathVariable Long orderId,
+      @Valid @RequestBody RateOrderRequest request) {
     OrderRatingResponse response =
         orderRatingService.rateOrder(
-            orderId, request.getCustomerId(), request.getScore(), request.getComment());
+            orderId, caller.requireCustomerId(), request.getScore(), request.getComment());
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 }

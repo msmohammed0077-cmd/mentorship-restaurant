@@ -1,6 +1,5 @@
 package com.mentorship.restaurant.order.controller;
 
-import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.request.AcceptOrderRequest;
 import com.mentorship.restaurant.order.model.request.RejectOrderRequest;
@@ -10,7 +9,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import com.mentorship.restaurant.user.model.Caller;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,59 +26,63 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderStatusController {
   private final OrderStatusService orderStatusService;
 
-  private void refuseSystemRole(ActorRole role) {
-    if (role == ActorRole.SYSTEM) {
-      throw new TransitionNotAllowedForRoleException("Role SYSTEM may not be supplied by a caller");
-    }
-  }
-
   @PreAuthorize("hasAuthority('order.accept')")
   @PostMapping("/{orderId}/accept")
   public ResponseEntity<OrderStatusResponse> accept(
+      @AuthenticationPrincipal Caller caller,
       @PathVariable Long orderId,
       @RequestParam Long restaurantId,
-      @RequestParam ActorRole role,
       @Valid @RequestBody(required = false) AcceptOrderRequest request) {
-    refuseSystemRole(role);
     Integer prepTimeMinutes = request == null ? null : request.getPrepTimeMinutes();
     return ResponseEntity.ok(
-        orderStatusService.accept(orderId, restaurantId, role, prepTimeMinutes));
+        orderStatusService.accept(
+            orderId, restaurantId, caller.userId(), ActorRole.RESTAURANT, prepTimeMinutes));
   }
 
   @PreAuthorize("hasAuthority('order.reject')")
   @PostMapping("/{orderId}/reject")
   public ResponseEntity<OrderStatusResponse> reject(
+      @AuthenticationPrincipal Caller caller,
       @PathVariable Long orderId,
       @RequestParam Long restaurantId,
-      @RequestParam ActorRole role,
       @Valid @RequestBody RejectOrderRequest request) {
-    refuseSystemRole(role);
     return ResponseEntity.ok(
         orderStatusService.reject(
-            orderId, restaurantId, role, request.getReason(), request.getNote()));
+            orderId,
+            restaurantId,
+            caller.userId(),
+            ActorRole.RESTAURANT,
+            request.getReason(),
+            request.getNote()));
   }
 
   @PreAuthorize("hasAuthority('order.cancel')")
   @PostMapping("/{orderId}/cancel")
   public ResponseEntity<OrderStatusResponse> cancel(
-      @PathVariable Long orderId, @RequestParam Long customerId, @RequestParam ActorRole role) {
-    refuseSystemRole(role);
-    return ResponseEntity.ok(orderStatusService.cancel(orderId, customerId, role));
+      @AuthenticationPrincipal Caller caller, @PathVariable Long orderId) {
+    return ResponseEntity.ok(
+        orderStatusService.cancel(orderId, caller.requireCustomerId(), ActorRole.CUSTOMER));
   }
 
   @PreAuthorize("hasAuthority('order.prepare')")
   @PostMapping("/{orderId}/preparing")
   public ResponseEntity<OrderStatusResponse> startPreparing(
-      @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
-    refuseSystemRole(role);
-    return ResponseEntity.ok(orderStatusService.startPreparing(orderId, restaurantId, role));
+      @AuthenticationPrincipal Caller caller,
+      @PathVariable Long orderId,
+      @RequestParam Long restaurantId) {
+    return ResponseEntity.ok(
+        orderStatusService.startPreparing(
+            orderId, restaurantId, caller.userId(), ActorRole.RESTAURANT));
   }
 
   @PreAuthorize("hasAuthority('order.prepare')")
   @PostMapping("/{orderId}/ready-for-pickup")
   public ResponseEntity<OrderStatusResponse> readyForPickup(
-      @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
-    refuseSystemRole(role);
-    return ResponseEntity.ok(orderStatusService.readyForPickup(orderId, restaurantId, role));
+      @AuthenticationPrincipal Caller caller,
+      @PathVariable Long orderId,
+      @RequestParam Long restaurantId) {
+    return ResponseEntity.ok(
+        orderStatusService.readyForPickup(
+            orderId, restaurantId, caller.userId(), ActorRole.RESTAURANT));
   }
 }

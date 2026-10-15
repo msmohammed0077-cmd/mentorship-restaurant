@@ -40,8 +40,7 @@ class EndpointAuthorizationTest {
 
   private static final long NONE = 999_999L;
   private static final UUID USER = JwtTestSupport.ADMIN;
-  private static final String OF_CUSTOMER = "?customerId=" + NONE;
-  private static final String AS_RESTAURANT = "?restaurantId=" + NONE + "&role=RESTAURANT";
+  private static final String AS_RESTAURANT = "?restaurantId=" + NONE;
 
   /** Endpoints reachable without a token (SecurityConfig); Swagger and /error are not ours. */
   private static final Set<String> PUBLIC = Set.of("GET /api/v1/health", "POST /api/v1/customers");
@@ -69,14 +68,13 @@ class EndpointAuthorizationTest {
       """;
   private static final String ORDER =
       """
-      {"cart_id": %d, "address_id": %d, "customer_id": %d, "restaurant_id": 1}
+      {"cart_id": %d, "address_id": %d, "restaurant_id": 1}
       """
-          .formatted(NONE, NONE, NONE);
+          .formatted(NONE, NONE);
   private static final String RATING =
       """
-      {"customer_id": %d, "score": 5}
-      """
-          .formatted(NONE);
+      {"score": 5}
+      """;
   private static final String REJECTION =
       """
       {"reason": "TOO_BUSY"}
@@ -134,13 +132,8 @@ class EndpointAuthorizationTest {
         row(POST, "/api/v1/cart/{cartId}/checkout", "", null, "cart.write"),
         row(POST, "/api/v1/orders", "", ORDER, "order.create"),
         row(GET, "/api/v1/orders/{orderId}", "", null, "order.read"),
-        row(GET, "/api/v1/orders", OF_CUSTOMER + "&role=CUSTOMER", null, "order.read"),
-        row(
-            POST,
-            "/api/v1/orders/{orderId}/cancel",
-            OF_CUSTOMER + "&role=CUSTOMER",
-            null,
-            "order.cancel"),
+        row(GET, "/api/v1/orders", "", null, "order.read"),
+        row(POST, "/api/v1/orders/{orderId}/cancel", "", null, "order.cancel"),
         row(POST, "/api/v1/orders/{orderId}/rating", "", RATING, "order.rate"),
         row(POST, "/api/v1/orders/{orderId}/accept", AS_RESTAURANT, null, "order.accept"),
         row(POST, "/api/v1/orders/{orderId}/reject", AS_RESTAURANT, REJECTION, "order.reject"),
