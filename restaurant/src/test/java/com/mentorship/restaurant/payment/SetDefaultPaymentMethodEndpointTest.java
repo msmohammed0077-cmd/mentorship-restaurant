@@ -40,10 +40,11 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
 
     setDefault(other, paymentMethodId)
         .expectStatus()
-        .isForbidden()
+        // Scoped to the caller, someone else's card is not found (#83 part 2).
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Payment method belongs to another customer");
+        .isEqualTo("Payment method not found");
   }
 
   @Test
@@ -75,12 +76,9 @@ class SetDefaultPaymentMethodEndpointTest extends PaymentMethodEndpointTestSuppo
   }
 
   private RestTestClient.ResponseSpec setDefault(long customerId, long paymentMethodId) {
-    return client
+    return asCustomer(customerId)
         .put()
-        .uri(
-            "/api/v1/payment-methods/{paymentMethodId}/default?customerId={customerId}",
-            paymentMethodId,
-            customerId)
+        .uri("/api/v1/payment-methods/{paymentMethodId}/default", paymentMethodId)
         .exchange();
   }
 }

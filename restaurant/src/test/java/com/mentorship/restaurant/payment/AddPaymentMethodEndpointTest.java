@@ -71,16 +71,6 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
         .isBadRequest();
   }
 
-  @Test
-  void rejectsAnUnknownCustomer() {
-    postPaymentMethod(999999L, paymentMethodBody("4242", VALID_EXPIRY))
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
   private String paymentMethodBody(String last4, YearMonth expiry) {
     return """
         {
@@ -95,9 +85,9 @@ class AddPaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
   }
 
   private RestTestClient.ResponseSpec postPaymentMethod(long customerId, String body) {
-    return client
+    return asCustomer(customerId)
         .post()
-        .uri("/api/v1/payment-methods?customerId={customerId}", customerId)
+        .uri("/api/v1/payment-methods")
         .contentType(MediaType.APPLICATION_JSON)
         .body(body)
         .exchange();

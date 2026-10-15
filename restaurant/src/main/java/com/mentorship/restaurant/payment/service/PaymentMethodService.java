@@ -2,7 +2,6 @@ package com.mentorship.restaurant.payment.service;
 
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.service.CustomerService;
-import com.mentorship.restaurant.payment.exception.PaymentMethodAccessDeniedException;
 import com.mentorship.restaurant.payment.exception.PaymentMethodNotFoundException;
 import com.mentorship.restaurant.payment.model.entity.PaymentMethod;
 import com.mentorship.restaurant.payment.model.mapper.PaymentMethodMapper;
@@ -70,16 +69,13 @@ public class PaymentMethodService {
     paymentMethodRepository.delete(findCustomersPaymentMethod(paymentMethodId, customerId));
   }
 
-  /** Loads the payment method, then checks the caller owns it and is not soft-deleted. */
+  /** The caller's card, else a 404; a soft-deleted caller is a 404 too. */
   private PaymentMethod findCustomersPaymentMethod(Long paymentMethodId, Long customerId) {
     PaymentMethod paymentMethod =
         paymentMethodRepository
-            .findByIdWithOwner(paymentMethodId)
+            .findByIdAndCustomerIdWithOwner(paymentMethodId, customerId)
             .orElseThrow(() -> new PaymentMethodNotFoundException("Payment method not found"));
-    if (!paymentMethod.getCustomer().getId().equals(customerId)) {
-      throw new PaymentMethodAccessDeniedException("Payment method belongs to another customer");
-    }
-    // Runs after the ownership check, so the owner is the caller: a soft-deleted caller is a 404.
+    // The lookup is scoped to the caller, so the owner is the caller: a soft-deleted one is a 404.
     customerService.ensureActive(paymentMethod.getCustomer());
     return paymentMethod;
   }

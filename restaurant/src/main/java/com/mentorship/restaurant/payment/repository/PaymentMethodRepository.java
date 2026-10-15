@@ -12,18 +12,18 @@ public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, Lo
   boolean existsByCustomer_Id(Long customerId);
 
   /**
-   * Loads the card with its owner and the owner's user in one query, so a handler can check
-   * ownership and the owner's soft delete without a second round trip. It does not filter
-   * soft-deleted owners: the handler decides what that means for the caller.
+   * The caller's card with its owner and the owner's user, in one query. Another customer's card is
+   * simply not found. Soft-deleted owners are not filtered: the service decides.
    */
   @Query(
       """
       select paymentMethod from PaymentMethod paymentMethod
       join fetch paymentMethod.customer customer
       join fetch customer.user
-      where paymentMethod.id = :paymentMethodId
+      where paymentMethod.id = :paymentMethodId and customer.id = :customerId
       """)
-  Optional<PaymentMethod> findByIdWithOwner(@Param("paymentMethodId") Long paymentMethodId);
+  Optional<PaymentMethod> findByIdAndCustomerIdWithOwner(
+      @Param("paymentMethodId") Long paymentMethodId, @Param("customerId") Long customerId);
 
   @Modifying(flushAutomatically = true)
   @Query(

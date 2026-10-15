@@ -58,9 +58,6 @@ class ViewPaymentMethodsEndpointTest extends PaymentMethodEndpointTestSupport {
   }
 
   private RestTestClient.ResponseSpec listPaymentMethods(long customerId) {
-    return client
-        .get()
-        .uri("/api/v1/payment-methods?customerId={customerId}", customerId)
-        .exchange();
+    return asCustomer(customerId).get().uri("/api/v1/payment-methods").exchange();
   }
 }
