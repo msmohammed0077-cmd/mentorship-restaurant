@@ -39,7 +39,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 class EndpointAuthorizationTest {
 
   private static final long NONE = 999_999L;
-  private static final UUID USER = UUID.randomUUID();
+  private static final UUID USER = JwtTestSupport.ADMIN;
   private static final String OF_CUSTOMER = "?customerId=" + NONE;
   private static final String AS_RESTAURANT = "?restaurantId=" + NONE + "&role=RESTAURANT";
 

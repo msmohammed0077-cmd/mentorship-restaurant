@@ -65,9 +65,12 @@ public abstract class CustomerEndpointTestSupport {
             """
             WITH new_user AS (
               INSERT INTO users (
-                user_name, user_email, user_password, user_phone, user_date_of_birth, user_gender
+                user_name, user_email, user_password, user_phone, user_date_of_birth, user_gender,
+                user_keycloak_id
               )
-              VALUES ('Sara Youssef', ?, ?, '+201001234567', DATE '1995-04-12', 'FEMALE')
+              VALUES (
+                'Sara Youssef', ?, ?, '+201001234567', DATE '1995-04-12', 'FEMALE', gen_random_uuid()
+              )
               RETURNING user_id
             )
             INSERT INTO customers (user_id) SELECT user_id FROM new_user

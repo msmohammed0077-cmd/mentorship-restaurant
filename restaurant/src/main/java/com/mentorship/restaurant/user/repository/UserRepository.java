@@ -1,11 +1,26 @@
 package com.mentorship.restaurant.user.repository;
 
 import com.mentorship.restaurant.user.model.entity.User;
+import com.mentorship.restaurant.user.model.Caller;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+
+  /**
+   * The user linked to a Keycloak id and, if they are one, their customer. Soft-deleted users are
+   * not filtered: the use-cases' own soft-delete rules answer them with 404.
+   */
+  @Query(
+      """
+      select new com.mentorship.restaurant.user.model.Caller(user.id, customer.id)
+      from User user left join Customer customer on customer.user = user
+      where user.userKeycloakId = :keycloakId
+      """)
+  Optional<Caller> findCallerByKeycloakId(@Param("keycloakId") UUID keycloakId);
 
   /**
    * Case-insensitive and blind to soft-deleted users, matching the partial unique index {@code

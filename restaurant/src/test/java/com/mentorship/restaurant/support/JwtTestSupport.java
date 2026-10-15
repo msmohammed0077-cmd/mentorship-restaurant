@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -30,18 +31,24 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @Component
 public class JwtTestSupport {
 
+  /** The realm's admin@example.com; V16 gives it a users row with no customer or restaurant. */
+  public static final UUID ADMIN = UUID.fromString("00000000-0000-4000-a000-000000000001");
+
   private final KeyPair keyPair;
   private final String issuer;
   private final List<String> audiences;
+  private final JdbcTemplate jdbcTemplate;
 
   // Hand-written: Lombok drops @Value from generated constructor parameters.
   public JwtTestSupport(
       KeyPair testJwtKeyPair,
       @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-      @Value("${spring.security.oauth2.resourceserver.jwt.audiences}") List<String> audiences) {
+      @Value("${spring.security.oauth2.resourceserver.jwt.audiences}") List<String> audiences,
+      JdbcTemplate jdbcTemplate) {
     this.keyPair = testJwtKeyPair;
     this.issuer = issuer;
     this.audiences = audiences;
+    this.jdbcTemplate = jdbcTemplate;
   }
 
   /** A valid access token for the Keycloak user {@code keycloakId}. */
@@ -64,12 +71,52 @@ public class JwtTestSupport {
   }
 
   /**
-   * {@code client}, sending a {@code realmRole} token on every request. The subject is random:
-   * nothing reads it until #83 part 2.
+   * {@code client}, sending a {@code realmRole} token as the admin. Temporary: the domains still
+   * name their actor in parameters until #83 part 2 moves each to {@link #asCustomer} or {@link
+   * #asRestaurantOwner}; the admin's sub is one the API resolves.
    */
   public RestTestClient as(RestTestClient client, String realmRole) {
-    String token = tokenFor(UUID.randomUUID(), realmRole);
+    return asUser(client, ADMIN, realmRole);
+  }
+
+  /** {@code client}, sending a {@code realmRole} token for the Keycloak user {@code keycloakId}. */
+  public RestTestClient asUser(RestTestClient client, UUID keycloakId, String realmRole) {
+    String token = tokenFor(keycloakId, realmRole);
     return client.mutate().defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token).build();
+  }
+
+  /** {@code client}, acting as the customer: a CUSTOMER token with their user's Keycloak id. */
+  public RestTestClient asCustomer(RestTestClient client, long customerId) {
+    return asUser(
+        client,
+        keycloakIdOf(
+            """
+            SELECT u.user_keycloak_id FROM users u
+            JOIN customers c ON c.user_id = u.user_id WHERE c.customer_id = ?
+            """,
+            customerId),
+        "CUSTOMER");
+  }
+
+  /** {@code client}, acting as the restaurant's owner: a RESTAURANT_OWNER token. */
+  public RestTestClient asRestaurantOwner(RestTestClient client, long restaurantId) {
+    return asUser(
+        client,
+        keycloakIdOf(
+            """
+            SELECT u.user_keycloak_id FROM users u
+            JOIN restaurants r ON r.user_id = u.user_id WHERE r.restaurant_id = ?
+            """,
+            restaurantId),
+        "RESTAURANT_OWNER");
+  }
+
+  private UUID keycloakIdOf(String sql, long id) {
+    UUID keycloakId = jdbcTemplate.queryForObject(sql, UUID.class, id);
+    if (keycloakId == null) {
+      throw new IllegalStateException("No Keycloak id linked to " + id);
+    }
+    return keycloakId;
   }
 
   /** The claims of a valid token, expiring in five minutes. */
