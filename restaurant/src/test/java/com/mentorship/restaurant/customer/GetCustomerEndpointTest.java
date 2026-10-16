@@ -11,7 +11,7 @@ class GetCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
-  void returnsTheCallersOwnProfileWithoutThePassword() {
+  void returnsTheCallersOwnProfile() {
     asCustomer(1L)
         .get()
         .uri("/api/v1/customers/me")
@@ -24,9 +24,7 @@ class GetCustomerEndpointTest extends CustomerEndpointTestSupport {
         .jsonPath("$.name")
         .isEqualTo("Ahmed Ali")
         .jsonPath("$.email")
-        .isEqualTo("ahmed.ali@example.com")
-        .jsonPath("$.password")
-        .doesNotExist();
+        .isEqualTo("ahmed.ali@example.com");
   }
 
   @Test

@@ -11,8 +11,6 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
     return "update.customer.test.";
   }
 
-  private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
-
   @Test
   void updatesNameAndPhoneAndLeavesTheRestUnchanged() {
     long customerId = insertCustomer(email("sara"));
@@ -46,8 +44,9 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
         .isEqualTo("FEMALE");
   }
 
+  /** Keycloak owns the login email (#83 part 3): the profile update no longer changes it. */
   @Test
-  void rejectsAnEmailUsedByAnotherActiveUser() {
+  void leavesTheEmailUnchanged() {
     long customerId = insertCustomer(email("sara"));
 
     asCustomer(customerId)
@@ -58,29 +57,12 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
             """
             { "email": "%s" }
             """
-                .formatted(SEEDED_CUSTOMER_EMAIL))
+                .formatted(email("other")))
         .exchange()
         .expectStatus()
-        .isEqualTo(409)
+        .isOk()
         .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Email is already in use");
-  }
-
-  @Test
-  void rejectsAnInvalidEmail() {
-    long customerId = insertCustomer(email("sara"));
-
-    asCustomer(customerId)
-        .patch()
-        .uri("/api/v1/customers/me")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            { "email": "not-an-email" }
-            """)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
+        .jsonPath("$.email")
+        .isEqualTo(email("sara"));
   }
 }

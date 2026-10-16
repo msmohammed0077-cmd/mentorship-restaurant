@@ -69,8 +69,8 @@ class CallerResolutionEndpointTest {
     jdbcTemplate.update(
         """
         WITH new_user AS (
-          INSERT INTO users (user_name, user_email, user_password, user_keycloak_id, user_deleted_at)
-          VALUES ('Gone', 'caller.resolution.test.gone@example.com', 'x', ?, now())
+          INSERT INTO users (user_name, user_email, user_keycloak_id, user_deleted_at)
+          VALUES ('Gone', 'caller.resolution.test.gone@example.com', ?, now())
           RETURNING user_id
         )
         INSERT INTO customers (user_id) SELECT user_id FROM new_user

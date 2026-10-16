@@ -43,12 +43,8 @@ class EndpointAuthorizationTest {
   private static final String AS_RESTAURANT = "?restaurantId=" + NONE;
 
   /** Endpoints reachable without a token (SecurityConfig); Swagger and /error are not ours. */
-  private static final Set<String> PUBLIC = Set.of("GET /api/v1/health", "POST /api/v1/customers");
+  private static final Set<String> PUBLIC = Set.of("GET /api/v1/health");
 
-  private static final String PASSWORD =
-      """
-      {"current_password": "old-password", "new_password": "new-password"}
-      """;
   private static final String ADDRESS =
       """
       {"label": "Home", "line": "12 Tahrir Street", "city": "Cairo", "area": "Dokki"}
@@ -103,7 +99,6 @@ class EndpointAuthorizationTest {
     return List.of(
         row(GET, "/api/v1/customers/me", "", null, "customer.read"),
         row(PATCH, "/api/v1/customers/me", "", "{}", "customer.write"),
-        row(PUT, "/api/v1/customers/me/password", "", PASSWORD, "customer.write"),
         row(DELETE, "/api/v1/customers/me", "", null, "customer.write"),
         row(POST, "/api/v1/addresses", "", ADDRESS, "address.write"),
         row(GET, "/api/v1/addresses", "", null, "address.read"),
@@ -185,6 +180,19 @@ class EndpointAuthorizationTest {
     String body = String.valueOf(result.getResponseBody());
     assertThat(status).as(row.endpoint()).isNotEqualTo(401);
     assertThat(status == 403 && body.contains("Access denied")).as(row.endpoint()).isFalse();
+  }
+
+  /** Sign-up moved to Keycloak (#83 part 3): the old registration path is not public any more. */
+  @Test
+  void theOldRegistrationEndpointNeedsAToken() {
+    client
+        .post()
+        .uri("/api/v1/customers")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{}")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
   }
 
   @Test

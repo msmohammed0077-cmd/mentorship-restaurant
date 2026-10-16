@@ -33,9 +33,6 @@ public class SecurityConfig {
                     // Spring forwards errors here; a token check would turn a 404 into a 401.
                     .requestMatchers("/error")
                     .permitAll()
-                    // Registration: the caller has no account yet. #83 part 3 replaces it.
-                    .requestMatchers(HttpMethod.POST, "/api/v1/customers")
-                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(

@@ -24,11 +24,6 @@ public class UserService {
     return userRepository.existsActiveByEmail(email);
   }
 
-  /** {@link #isEmailTaken}, ignoring the given user, so re-sending your own email is not taken. */
-  public boolean isEmailTakenByOther(String email, Long userId) {
-    return userRepository.existsActiveByEmailAndIdNot(email, userId);
-  }
-
   public User create(User user) {
     return userRepository.save(user);
   }

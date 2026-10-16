@@ -1,20 +1,13 @@
 package com.mentorship.restaurant.customer.service;
 
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
-import com.mentorship.restaurant.customer.exception.EmailAlreadyInUseException;
-import com.mentorship.restaurant.customer.exception.IncorrectPasswordException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.model.mapper.CustomerMapper;
-import com.mentorship.restaurant.customer.model.request.ChangePasswordRequest;
-import com.mentorship.restaurant.customer.model.request.CreateCustomerRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
 import com.mentorship.restaurant.user.model.entity.User;
-import com.mentorship.restaurant.user.service.UserService;
-import java.util.Locale;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,30 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerService {
 
   private final CustomerRepository customerRepository;
-  private final UserService userService;
   private final CustomerMapper customerMapper;
-  private final PasswordEncoder passwordEncoder;
-
-  @Transactional
-  public CustomerResponse createCustomer(CreateCustomerRequest request) {
-    String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-
-    ensureEmailAvailable(email);
-
-    User user =
-        User.builder()
-            .userName(request.getName())
-            .userEmail(email)
-            .userPassword(passwordEncoder.encode(request.getPassword()))
-            .userPhone(request.getPhone())
-            .userDateOfBirth(request.getDateOfBirth())
-            .userGender(request.getGender())
-            .build();
-
-    Customer customer = Customer.builder().user(userService.create(user)).build();
-
-    return customerMapper.toResponse(customerRepository.save(customer));
-  }
 
   @Transactional(readOnly = true)
   public CustomerResponse getCustomer(Long customerId) {
@@ -58,11 +28,6 @@ public class CustomerService {
     Customer customer = findActiveCustomer(customerId);
     User user = customer.getUser();
 
-    if (request.getEmail() != null) {
-      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-      ensureEmailAvailableExcept(email, user.getId());
-      user.setUserEmail(email);
-    }
     if (request.getName() != null) {
       user.setUserName(request.getName());
     }
@@ -78,16 +43,6 @@ public class CustomerService {
 
     // Managed entity: dirty checking issues the UPDATE at flush, no save() needed.
     return customerMapper.toResponse(customer);
-  }
-
-  @Transactional
-  public void changePassword(Long customerId, ChangePasswordRequest request) {
-    User user = findActiveCustomer(customerId).getUser();
-
-    ensureCurrentPasswordMatches(request.getCurrentPassword(), user);
-
-    // Managed entity: dirty checking issues the UPDATE at flush, no save() needed.
-    user.setUserPassword(passwordEncoder.encode(request.getNewPassword()));
   }
 
   /**
@@ -114,24 +69,6 @@ public class CustomerService {
   public void ensureActive(Customer customer) {
     if (customer.getUser().getUserDeletedAt() != null) {
       throw new CustomerNotFoundException("Customer not found");
-    }
-  }
-
-  private void ensureEmailAvailable(String email) {
-    if (userService.isEmailTaken(email)) {
-      throw new EmailAlreadyInUseException("Email is already in use");
-    }
-  }
-
-  private void ensureEmailAvailableExcept(String email, Long userId) {
-    if (userService.isEmailTakenByOther(email, userId)) {
-      throw new EmailAlreadyInUseException("Email is already in use");
-    }
-  }
-
-  private void ensureCurrentPasswordMatches(String currentPassword, User user) {
-    if (!passwordEncoder.matches(currentPassword, user.getUserPassword())) {
-      throw new IncorrectPasswordException("Current password is incorrect");
     }
   }
 }
