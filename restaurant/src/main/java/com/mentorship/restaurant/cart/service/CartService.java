@@ -56,6 +56,7 @@ public class CartService {
   @Transactional
   public CartResponse modifyItem(
       Long customerId, Long cartId, Long cartItemId, Integer quantity, String note) {
+    customerService.ensureActiveCustomerExists(customerId);
     CartItem cartItem =
         cartItemRepository
             .findByIdAndCart_IdAndCart_Customer_Id(cartItemId, cartId, customerId)
@@ -72,11 +73,13 @@ public class CartService {
 
   @Transactional(readOnly = true)
   public CartResponse viewCart(Long customerId, Long cartId) {
+    customerService.ensureActiveCustomerExists(customerId);
     return cartMapper.toResponse(findCustomersCart(cartId, customerId));
   }
 
   @Transactional
   public CartResponse clearCart(Long customerId, Long cartId) {
+    customerService.ensureActiveCustomerExists(customerId);
     ensureCustomersCartExists(cartId, customerId);
     cartItemRepository.deleteAllByCart_Id(cartId);
     // Re-read after the bulk delete: anything loaded before it would be stale.
@@ -85,6 +88,7 @@ public class CartService {
 
   @Transactional
   public CartResponse removeCartItems(Long customerId, Long cartId, List<Long> cartItemIds) {
+    customerService.ensureActiveCustomerExists(customerId);
     ensureCustomersCartExists(cartId, customerId);
     Set<Long> requestedIds = new LinkedHashSet<>(cartItemIds);
     ensureAllItemsInCart(cartId, requestedIds);
@@ -97,6 +101,8 @@ public class CartService {
 
   @Transactional
   public CheckoutCartResponse checkout(Long customerId, Long cartId) {
+    // The soft delete keeps the cart (#104), and the caller's token outlives it.
+    customerService.ensureActiveCustomerExists(customerId);
     // Take the lines out before the bulk delete below, which leaves a loaded cart stale.
     List<Line> lines = linesOf(findCustomersCart(cartId, customerId));
     if (lines.isEmpty()) {

@@ -5,6 +5,7 @@ import com.mentorship.restaurant.cart.service.CartService;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.service.AddressService;
+import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
@@ -37,6 +38,7 @@ public class OrderService {
   private final OrderMapper orderMapper;
   private final CartService cartService;
   private final AddressService addressService;
+  private final CustomerService customerService;
   private final PaymentProcessor paymentProcessor;
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
@@ -66,6 +68,10 @@ public class OrderService {
   /** The caller's order: placed by their customer, or with their restaurant; else a 404. */
   @Transactional(readOnly = true)
   public OrderResponse viewOrderDetails(Long orderId, Long customerId, Long userId) {
+    // A soft-deleted customer's token outlives them; their orders no longer exist to them.
+    if (customerId != null) {
+      customerService.ensureActiveCustomerExists(customerId);
+    }
     Order order =
         orderRepository
             .findByIdForCaller(orderId, customerId, userId)
@@ -84,8 +90,8 @@ public class OrderService {
 
   /**
    * Shared: a soft-deleted customer does not exist to the API, even though their orders stay for
-   * history, so acting on them is a 404. Callers run it after the ownership check, so the owner is
-   * the caller.
+   * history, so acting on them is a 404. Callers pass the deleted-at of an order their own query
+   * scoped to the caller (ADR 0009), so the owner is the caller.
    */
   public void ensureOwnerActive(OffsetDateTime ownerDeletedAt) {
     if (ownerDeletedAt != null) {
