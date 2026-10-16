@@ -19,7 +19,7 @@ This flow covers:
 (#83 part 2, ADR 0009). The endpoint keeps `{cartId}`, which names a resource rather than the caller,
 and every lookup is scoped to `cart.id` **and** the caller's customer: someone else's cart is 404
 "Cart not found", the same as a missing one. A caller who is not a customer gets 403 "Caller is not a
-customer". Before part 2 these endpoints checked no owner at all. The cart item
+customer". A soft-deleted customer is 404 "Customer not found" before any cart lookup: their token outlives the delete, and the soft delete keeps the cart (#104). Before part 2 these endpoints checked no owner at all. The cart item
 lookup carries all three: item, cart and the caller's customer.
 
 ## Main Flow

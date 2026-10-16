@@ -55,6 +55,6 @@ public class User {
    * The Keycloak user's id, the access token's {@code sub}. Null only on rows created before
    * sign-up moved to Keycloak.
    */
-  @Column(name = "user_keycloak_id", unique = true)
+  @Column(name = "user_keycloak_id")
   private UUID userKeycloakId;
 }

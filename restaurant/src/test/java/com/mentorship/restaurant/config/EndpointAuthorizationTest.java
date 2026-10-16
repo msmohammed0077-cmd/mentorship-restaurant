@@ -179,6 +179,7 @@ class EndpointAuthorizationTest {
     int status = result.getStatus().value();
     String body = String.valueOf(result.getResponseBody());
     assertThat(status).as(row.endpoint()).isNotEqualTo(401);
+    assertThat(status).as(row.endpoint()).isLessThan(500);
     assertThat(status == 403 && body.contains("Access denied")).as(row.endpoint()).isFalse();
   }
 
@@ -204,6 +205,8 @@ class EndpointAuthorizationTest {
         .exchange()
         .expectStatus()
         .isForbidden()
+        .expectHeader()
+        .valueMatches(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"insufficient_scope\".*")
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Access denied");
@@ -221,13 +224,18 @@ class EndpointAuthorizationTest {
         .forEach(
             (info, handler) -> {
               if (handler.getBeanType().getPackageName().startsWith("com.mentorship.restaurant")) {
-                info.getMethodsCondition()
-                    .getMethods()
-                    .forEach(
-                        method ->
-                            info.getPathPatternsCondition()
-                                .getPatternValues()
-                                .forEach(pattern -> ours.add(method + " " + pattern)));
+                // No method condition means every method: "ANY" matches no row, so it fails.
+                Set<String> methods =
+                    info.getMethodsCondition().getMethods().isEmpty()
+                        ? Set.of("ANY")
+                        : info.getMethodsCondition().getMethods().stream()
+                            .map(Object::toString)
+                            .collect(Collectors.toSet());
+                methods.forEach(
+                    method ->
+                        info.getPathPatternsCondition()
+                            .getPatternValues()
+                            .forEach(pattern -> ours.add(method + " " + pattern)));
               }
             });
     Set<String> covered =

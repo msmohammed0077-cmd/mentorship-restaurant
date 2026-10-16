@@ -34,7 +34,11 @@ public class JwtTestSupport {
   /** The realm's admin@example.com; V16 gives it a users row with no customer or restaurant. */
   public static final UUID ADMIN = UUID.fromString("00000000-0000-4000-a000-000000000001");
 
-  private final KeyPair keyPair;
+  /** A key the application does not trust, made once: RSA key generation is slow. */
+  private static final NimbusJwtEncoder UNKNOWN_KEY_ENCODER =
+      encoderFor(TestJwtConfig.generateRsaKeyPair());
+
+  private final NimbusJwtEncoder encoder;
   private final String issuer;
   private final List<String> audiences;
   private final JdbcTemplate jdbcTemplate;
@@ -45,7 +49,7 @@ public class JwtTestSupport {
       @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
       @Value("${spring.security.oauth2.resourceserver.jwt.audiences}") List<String> audiences,
       JdbcTemplate jdbcTemplate) {
-    this.keyPair = testJwtKeyPair;
+    this.encoder = encoderFor(testJwtKeyPair);
     this.issuer = issuer;
     this.audiences = audiences;
     this.jdbcTemplate = jdbcTemplate;
@@ -142,21 +146,24 @@ public class JwtTestSupport {
   }
 
   public String sign(JwtClaimsSet.Builder claims) {
-    return sign(claims, keyPair);
+    return sign(claims, encoder);
   }
 
-  /** Signs with a fresh key the application does not trust. */
+  /** Signs with a key the application does not trust. */
   public String signWithUnknownKey(JwtClaimsSet.Builder claims) {
-    return sign(claims, TestJwtConfig.generateRsaKeyPair());
+    return sign(claims, UNKNOWN_KEY_ENCODER);
   }
 
-  private static String sign(JwtClaimsSet.Builder claims, KeyPair keyPair) {
+  private static String sign(JwtClaimsSet.Builder claims, NimbusJwtEncoder encoder) {
+    JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();
+    return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
+  }
+
+  private static NimbusJwtEncoder encoderFor(KeyPair keyPair) {
     RSAKey key =
         new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
             .privateKey(keyPair.getPrivate())
             .build();
-    NimbusJwtEncoder encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
-    JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();
-    return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
+    return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
   }
 }

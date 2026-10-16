@@ -98,7 +98,8 @@ public class CustomerService {
 
   /**
    * A soft-deleted customer does not exist to the API, so acting on their behalf is a 404. Callers
-   * run it after their ownership check, so the customer is the caller.
+   * pass the customer of a row their own query scoped to the caller (ADR 0009), so the customer is
+   * the caller.
    */
   public void ensureActive(Customer customer) {
     if (customer.getUser().getUserDeletedAt() != null) {

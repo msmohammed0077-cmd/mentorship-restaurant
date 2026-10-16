@@ -161,7 +161,6 @@ Three checks, all 403:
 - The role does not own this transition. Unreachable over HTTP now that each endpoint fixes its
   role; it guards the service against a wrong call.
 - `restaurantId` is not the caller's restaurant — "Restaurant belongs to another owner".
-- The restaurant does not own this order — "Order belongs to another restaurant".
 
 ## Data Model
 
@@ -282,8 +281,9 @@ Each branch is labelled by the Main Flow step it extends.
   this transition". Unreachable over HTTP; a guard against a wrong call.
 - **3a. `restaurantId` is not the caller's restaurant:** reject with 403 — "Restaurant belongs to
   another owner".
-- **3b. The order exists but belongs to another restaurant:** reject with 403. Another customer's
-  order, on cancel, is a 404 (4a): the lookup is scoped to the caller.
+- **3b. The order exists but belongs to another restaurant:** reject with 404 — "Order not found",
+  so an owner cannot probe which ids other restaurants hold. Another customer's order, on cancel,
+  is a 404 too (4a): both lookups are scoped to the caller.
 - **3c. Role `CUSTOMER`, the caller owns the order, and is soft-deleted:** reject with 404 —
   "Customer not found". Checked after ownership, from the same query.
 - **4a. The order does not exist:** reject with 404 — "Order not found".
@@ -341,12 +341,10 @@ sequenceDiagram
         RS-->>C: RestaurantAccessDeniedException (403)
     end
 
-    H->>OR: findRestaurantIdById(orderId)
-    OR-->>H: Optional<Long>
-    alt empty
+    H->>OR: existsByIdAndRestaurant_Id(orderId, restaurantId)
+    OR-->>H: boolean
+    alt false (no such order, or another restaurant's)
         H-->>C: OrderNotFoundException (404)
-    else belongs to another restaurant
-        H-->>C: OrderNotOwnedException (403)
     end
 
     H->>OR: updateStatusIfCurrent(orderId, from, to)

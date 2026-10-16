@@ -123,8 +123,9 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
     assertThat(historyCountFor(orderId)).isZero();
   }
 
+  /** Another restaurant's order does not exist to this owner, as on the customer side. */
   @Test
-  void refusesAnotherRestaurantsOrder() {
+  void treatsAnotherRestaurantsOrderAsNotFound() {
     long orderId = seedOrder("ACCEPTED", NILE_KITCHEN);
 
     asRestaurantOwner(BURGER_YARD)
@@ -132,7 +133,10 @@ class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
         .uri("/api/v1/orders/{id}/preparing?restaurantId={r}", orderId, BURGER_YARD)
         .exchange()
         .expectStatus()
-        .isForbidden();
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Order not found");
 
     assertThat(statusOf(orderId)).isEqualTo("ACCEPTED");
   }

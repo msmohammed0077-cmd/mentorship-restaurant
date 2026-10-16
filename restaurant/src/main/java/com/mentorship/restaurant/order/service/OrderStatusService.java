@@ -143,11 +143,10 @@ public class OrderStatusService {
       case SYSTEM -> ensureOrderExists(orderId);
       case RESTAURANT -> {
         restaurantService.ensureOwnedBy(actorId, callerUserId);
-        Long restaurantId =
-            orderRepository
-                .findRestaurantIdById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException("Order not found"));
-        ensureOwnedBy(restaurantId, actorId, "Order belongs to another restaurant");
+        // Scoped to the restaurant: another restaurant's order is a 404, as on the customer side.
+        if (!orderRepository.existsByIdAndRestaurant_Id(orderId, actorId)) {
+          throw new OrderNotFoundException("Order not found");
+        }
       }
       case CUSTOMER -> {
         OrderOwnerProjection owner =
@@ -167,13 +166,6 @@ public class OrderStatusService {
   private void ensureOrderExists(Long orderId) {
     if (orderRepository.findRestaurantIdById(orderId).isEmpty()) {
       throw new OrderNotFoundException("Order not found");
-    }
-  }
-
-  /** The order's restaurant must be the one the caller acts for. */
-  private void ensureOwnedBy(Long ownerId, Long actorId, String message) {
-    if (!ownerId.equals(actorId)) {
-      throw new OrderNotOwnedException(message);
     }
   }
 

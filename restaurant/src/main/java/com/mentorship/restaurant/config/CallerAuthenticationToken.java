@@ -30,4 +30,10 @@ public class CallerAuthenticationToken extends AbstractAuthenticationToken {
   public Jwt getCredentials() {
     return jwt;
   }
+
+  /** The Keycloak user id, as the JwtAuthenticationToken this replaces reported it. */
+  @Override
+  public String getName() {
+    return jwt.getSubject();
+  }
 }

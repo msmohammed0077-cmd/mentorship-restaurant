@@ -145,7 +145,9 @@ come to run several. Both are checked:
 
 - The restaurant must be the caller's (`RestaurantService.ensureOwnedBy`), or 403 "Restaurant
   belongs to another owner".
-- The order must belong to that restaurant, or 403 "Order belongs to another restaurant".
+- The order must belong to that restaurant, or 404 "Order not found": another restaurant's order
+  does not exist to this owner, as another customer's order does not exist to a customer
+  (`OrderRepository.existsByIdAndRestaurant_Id`).
 
 There is no `role` parameter: the controller passes `RESTAURANT`. Only the scheduler acts as
 `SYSTEM`, so no caller can claim it.
@@ -191,7 +193,7 @@ the transition itself, since status and reason are written by two different stat
 - **Order not found:** 404.
 - **Order not in `PLACED`** (already accepted, already rejected, cancelled): 409.
 - **`restaurantId` is not the caller's restaurant:** 403.
-- **Order belongs to another restaurant:** 403.
+- **Order belongs to another restaurant:** 404, "Order not found".
 
 ## Postconditions
 
