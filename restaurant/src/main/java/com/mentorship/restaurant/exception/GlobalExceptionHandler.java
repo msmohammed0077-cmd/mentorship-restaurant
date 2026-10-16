@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -117,7 +118,14 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AccessDeniedException.class)
   public ResponseEntity<ApiErrorResponse> handleAccessDenied(
       AccessDeniedException exception, HttpServletRequest request) {
-    return buildResponse(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI());
+    // What Spring Security's own bearer-token handler would send (RFC 6750 §3.1).
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .header(
+            HttpHeaders.WWW_AUTHENTICATE,
+            "Bearer error=\"insufficient_scope\", error_description=\"Access denied\"")
+        .body(
+            buildResponse(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI())
+                .getBody());
   }
 
   @ExceptionHandler(Exception.class)
