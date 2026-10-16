@@ -7,6 +7,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class UpdateOrderStatusEndpointTest extends OrderEndpointTestSupport {
+  @Override
+  protected String realmRole() {
+    return "RESTAURANT_OWNER";
+  }
+
   @Test
   void movesAnAcceptedOrderToPreparing() {
     long orderId = seedOrder("ACCEPTED");

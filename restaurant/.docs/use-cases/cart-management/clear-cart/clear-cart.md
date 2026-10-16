@@ -1,4 +1,6 @@
 # Food Delivery System — Cart Management
+
+**Access:** a bearer token with `cart.write` (#83 part 4).
 ## Use Case: Clear Cart
 
 ### 1. Overview

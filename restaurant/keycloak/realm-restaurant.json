@@ -2,6 +2,138 @@
   "realm": "restaurant",
   "enabled": true,
   "sslRequired": "external",
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Orders food: their profile, addresses, cards, cart and orders.",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "customer.read",
+              "customer.write",
+              "address.read",
+              "address.write",
+              "payment-method.read",
+              "payment-method.write",
+              "cart.read",
+              "cart.write",
+              "order.create",
+              "order.read",
+              "order.cancel",
+              "order.rate"
+            ]
+          }
+        }
+      },
+      {
+        "name": "RESTAURANT_OWNER",
+        "description": "Runs a restaurant's orders: accept, reject, prepare.",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "order.read",
+              "order.accept",
+              "order.reject",
+              "order.prepare"
+            ]
+          }
+        }
+      },
+      {
+        "name": "ADMIN",
+        "description": "Every permission. Ownership guards still apply (#83 part 2 decides).",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "customer.read",
+              "customer.write",
+              "address.read",
+              "address.write",
+              "payment-method.read",
+              "payment-method.write",
+              "cart.read",
+              "cart.write",
+              "order.create",
+              "order.read",
+              "order.cancel",
+              "order.rate",
+              "order.accept",
+              "order.reject",
+              "order.prepare"
+            ]
+          }
+        }
+      }
+    ],
+    "client": {
+      "restaurant-api": [
+        {
+          "name": "customer.read",
+          "description": "View a customer profile"
+        },
+        {
+          "name": "customer.write",
+          "description": "Update, re-password or delete a customer"
+        },
+        {
+          "name": "address.read",
+          "description": "List a customer's addresses"
+        },
+        {
+          "name": "address.write",
+          "description": "Add, change, delete or default an address"
+        },
+        {
+          "name": "payment-method.read",
+          "description": "List a customer's saved cards"
+        },
+        {
+          "name": "payment-method.write",
+          "description": "Add, delete or default a saved card"
+        },
+        {
+          "name": "cart.read",
+          "description": "View a cart"
+        },
+        {
+          "name": "cart.write",
+          "description": "Add, change, remove or clear cart items; check out"
+        },
+        {
+          "name": "order.create",
+          "description": "Place an order"
+        },
+        {
+          "name": "order.read",
+          "description": "View an order or order history"
+        },
+        {
+          "name": "order.cancel",
+          "description": "Cancel an order"
+        },
+        {
+          "name": "order.rate",
+          "description": "Rate a delivered order"
+        },
+        {
+          "name": "order.accept",
+          "description": "Accept an incoming order"
+        },
+        {
+          "name": "order.reject",
+          "description": "Reject an incoming order"
+        },
+        {
+          "name": "order.prepare",
+          "description": "Mark an order preparing or ready for pickup"
+        }
+      ]
+    }
+  },
   "clients": [
     {
       "clientId": "restaurant-api",
@@ -58,6 +190,9 @@
       "enabled": true,
       "firstName": "Ahmed",
       "lastName": "Ali",
+      "realmRoles": [
+        "CUSTOMER"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -74,6 +209,9 @@
       "enabled": true,
       "firstName": "Mona",
       "lastName": "Hassan",
+      "realmRoles": [
+        "CUSTOMER"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -90,6 +228,9 @@
       "enabled": true,
       "firstName": "Nile",
       "lastName": "Kitchen",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -106,6 +247,9 @@
       "enabled": true,
       "firstName": "Burger",
       "lastName": "Yard",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -122,6 +266,9 @@
       "enabled": true,
       "firstName": "Sara",
       "lastName": "Nabil",
+      "realmRoles": [
+        "CUSTOMER"
+      ],
       "credentials": [
         {
           "type": "password",
@@ -138,6 +285,28 @@
       "enabled": true,
       "firstName": "Late Night",
       "lastName": "Grill",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-a000-000000000001",
+      "username": "admin@example.com",
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "realmRoles": [
+        "ADMIN"
+      ],
       "credentials": [
         {
           "type": "password",

@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `customer.write` (#83 part 4).
+
 Let a customer close their account without losing the history other people depend on.
 
 Issue [#72](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/72), under the

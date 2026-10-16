@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** public, no token (#83 part 4); #83 part 3 replaces registration.
+
 Register a new customer: create their user account and the customer record linked to it.
 
 Issue [#73](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/73), under the

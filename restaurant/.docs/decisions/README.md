@@ -12,5 +12,6 @@ Use [`_template.md`](./_template.md) for new records.
 - [0005 — Builders on entities](./0005-builders-on-entities.md)
 - [0006 — Keyset paging with the Scroll API](./0006-keyset-paging-with-the-scroll-api.md)
 - [0007 — Keycloak as identity provider](./0007-keycloak-as-identity-provider.md)
+- [0008 — Permissions as Keycloak client roles](./0008-permissions-as-keycloak-client-roles.md)
 
 <!-- Add new ADRs here as they're written. -->

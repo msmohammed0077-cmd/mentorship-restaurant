@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,6 +31,7 @@ public class OrderStatusController {
     }
   }
 
+  @PreAuthorize("hasAuthority('order.accept')")
   @PostMapping("/{orderId}/accept")
   public ResponseEntity<OrderStatusResponse> accept(
       @PathVariable Long orderId,
@@ -42,6 +44,7 @@ public class OrderStatusController {
         orderStatusService.accept(orderId, restaurantId, role, prepTimeMinutes));
   }
 
+  @PreAuthorize("hasAuthority('order.reject')")
   @PostMapping("/{orderId}/reject")
   public ResponseEntity<OrderStatusResponse> reject(
       @PathVariable Long orderId,
@@ -54,6 +57,7 @@ public class OrderStatusController {
             orderId, restaurantId, role, request.getReason(), request.getNote()));
   }
 
+  @PreAuthorize("hasAuthority('order.cancel')")
   @PostMapping("/{orderId}/cancel")
   public ResponseEntity<OrderStatusResponse> cancel(
       @PathVariable Long orderId, @RequestParam Long customerId, @RequestParam ActorRole role) {
@@ -61,6 +65,7 @@ public class OrderStatusController {
     return ResponseEntity.ok(orderStatusService.cancel(orderId, customerId, role));
   }
 
+  @PreAuthorize("hasAuthority('order.prepare')")
   @PostMapping("/{orderId}/preparing")
   public ResponseEntity<OrderStatusResponse> startPreparing(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {
@@ -68,6 +73,7 @@ public class OrderStatusController {
     return ResponseEntity.ok(orderStatusService.startPreparing(orderId, restaurantId, role));
   }
 
+  @PreAuthorize("hasAuthority('order.prepare')")
   @PostMapping("/{orderId}/ready-for-pickup")
   public ResponseEntity<OrderStatusResponse> readyForPickup(
       @PathVariable Long orderId, @RequestParam Long restaurantId, @RequestParam ActorRole role) {

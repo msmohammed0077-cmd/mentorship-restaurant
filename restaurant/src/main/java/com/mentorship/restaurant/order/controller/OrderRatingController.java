@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderRatingController {
   private final OrderRatingService orderRatingService;
 
+  @PreAuthorize("hasAuthority('order.rate')")
   @PostMapping("/{orderId}/rating")
   public ResponseEntity<OrderRatingResponse> rateOrder(
       @PathVariable Long orderId, @Valid @RequestBody RateOrderRequest request) {

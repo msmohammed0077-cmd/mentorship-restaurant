@@ -3,10 +3,11 @@ package com.mentorship.restaurant.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
@@ -14,7 +15,12 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+/**
+ * Every endpoint but the public ones needs a valid token; each controller method then requires one
+ * permission with {@code @PreAuthorize} (ADR 0008).
+ */
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
   /**
@@ -26,21 +32,27 @@ public class SecurityConfig {
           PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"),
           PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
           PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
-          PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/health"));
+          PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/health"),
+          // Spring forwards errors here; a token check would turn a 404 into a 401.
+          PathPatternRequestMatcher.withDefaults().matcher("/error"),
+          // Registration: the caller has no account yet. #83 part 3 replaces it.
+          PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/v1/customers"));
 
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    JwtAuthenticationConverter permissions = new JwtAuthenticationConverter();
+    permissions.setJwtGrantedAuthoritiesConverter(new KeycloakPermissionsConverter());
+
     return http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        // A bearer token is validated when sent, but none is required yet: #83 part 4 adds that.
         .authorizeHttpRequests(
-            auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll().anyRequest().permitAll())
+            auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll().anyRequest().authenticated())
         .oauth2ResourceServer(
             oauth2 ->
                 oauth2
                     .bearerTokenResolver(publicPathsIgnoreTokens())
-                    .jwt(Customizer.withDefaults()))
+                    .jwt(jwt -> jwt.jwtAuthenticationConverter(permissions)))
         .build();
   }
 

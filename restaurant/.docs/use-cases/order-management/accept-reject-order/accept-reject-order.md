@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `order.accept` or `order.reject` (#83 part 4).
+
 Let a restaurant accept or reject an order, and undo everything a rejection wasted.
 
 Issue [#48](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/48), under the
@@ -146,9 +148,10 @@ that fails a check is refused:
   check, so a caller may never supply it.
 - The order must belong to the `restaurantId` given, or 403.
 
-What is missing is **authentication**, not authorisation: nothing stops a caller supplying someone
-else's `restaurantId` and passing every check above. That is #34's accepted trade, and it must be
-closed before this reaches a real environment — tracked against #23, not deferred silently.
+A token and `order.accept` or `order.reject` are now required (#83 part 4), but the caller's
+identity is not yet used: nothing stops a caller supplying someone else's `restaurantId` and passing
+every check above. That is #34's accepted trade, and it must be closed before this reaches a real
+environment; #83 part 2 closes it.
 
 ## Data Model
 

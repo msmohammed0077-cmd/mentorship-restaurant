@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `cart.write` (#83 part 4).
+
 Add an item to the customer's cart.
 
 ## Actor

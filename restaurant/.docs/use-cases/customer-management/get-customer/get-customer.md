@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `customer.read` (#83 part 4).
+
 Read one customer's profile by id.
 
 Issue [#69](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/69), under the

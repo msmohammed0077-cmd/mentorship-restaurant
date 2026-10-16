@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `order.prepare` for preparing and ready-for-pickup, `order.cancel` to cancel (#83 part 4).
+
 Move an order from one status to the next, and refuse every move the lifecycle does not allow.
 
 Issue [#47](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/47), under the
