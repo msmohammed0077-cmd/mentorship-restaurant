@@ -13,5 +13,7 @@ Use [`_template.md`](./_template.md) for new records.
 - [0006 — Keyset paging with the Scroll API](./0006-keyset-paging-with-the-scroll-api.md)
 - [0007 — Keycloak as identity provider](./0007-keycloak-as-identity-provider.md)
 - [0008 — Permissions as Keycloak client roles](./0008-permissions-as-keycloak-client-roles.md)
+- [0009 — The caller is resolved after verification](./0009-caller-resolved-after-verification.md)
+- [0010 — Email-code login and sign-up through Keycloak](./0010-email-code-login-and-keycloak-sign-up.md)
 
 <!-- Add new ADRs here as they're written. -->

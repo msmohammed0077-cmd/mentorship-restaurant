@@ -23,10 +23,10 @@ Order: 1 → 4 → 2 → 3. It closes the "anyone can act as anyone" hole as ear
 
 | # | What | Status | Design | Branch / PR |
 |---|---|---|---|---|
-| 1 | Plumbing: Keycloak in compose (its tables in a `keycloak` schema of our database), the realm as a committed file, the API validating JWTs without requiring them yet, `users.user_keycloak_id`, test token signing, Swagger login | Implemented; PR not opened yet | `2026-10-14-keycloak-plumbing-design.md` | `feat/GH-83-keycloak-plumbing` |
-| 4 | Roles and permissions: permissions as `restaurant-api` client roles, bundled by the realm roles `CUSTOMER`, `RESTAURANT_OWNER` and `ADMIN`; a converter from `resource_access.restaurant-api.roles`; endpoints require a token and a permission | Implemented; PR not opened yet | `2026-10-14-roles-and-permissions-design.md` | `feat/GH-83-roles` (stacked on #116) |
-| 2 | The authenticated caller: replace the `customerId`, `restaurantId` and `role` parameters with the identity from the token (`sub` → `users` → customer or restaurant), endpoint by endpoint | Implemented; PR not opened yet | `2026-10-15-authenticated-caller-design.md` | `feat/GH-119-authenticated-caller` (stacked on #121) |
-| 3 | Sign-up and login: passwordless email OTP through Keycloak; how a new Keycloak user gets its `users` row; what happens to `POST /customers`, the change-password endpoint and `user_password`. Phone OTP only if still wanted then. | Not started | | |
+| 1 | Plumbing: Keycloak in compose (its tables in a `keycloak` schema of our database), the realm as a committed file, the API validating JWTs without requiring them yet, `users.user_keycloak_id`, test token signing, Swagger login | Implemented; PR #116 open | `2026-10-14-keycloak-plumbing-design.md` | `feat/GH-83-keycloak-plumbing` · #116 |
+| 4 | Roles and permissions: permissions as `restaurant-api` client roles, bundled by the realm roles `CUSTOMER`, `RESTAURANT_OWNER` and `ADMIN`; a converter from `resource_access.restaurant-api.roles`; endpoints require a token and a permission | Implemented; PR #121 open | `2026-10-14-roles-and-permissions-design.md` | `feat/GH-83-roles` (stacked on #116) · #121 |
+| 2 | The authenticated caller: replace the `customerId`, `restaurantId` and `role` parameters with the identity from the token (`sub` → `users` → customer or restaurant), endpoint by endpoint | Implemented; PR #124 open | `2026-10-15-authenticated-caller-design.md` | `feat/GH-119-authenticated-caller` (stacked on #121) · #124 |
+| 3 | Sign-up and login: passwordless email code through a Keycloak plugin; sign-up on Keycloak's page, rows on the first request; passwords removed | Implemented; PR not opened yet | `2026-10-16-email-otp-signup-design.md` | `feat/GH-120-email-otp-signup` (stacked on #124) |
 
 ## Decided in part 4
 
@@ -39,10 +39,16 @@ Permissions are `restaurant-api` client roles; realm roles bundle them; the API 
 - Nothing bypasses ownership, `ADMIN` included; the admin has a `users` row (V16) with no customer or restaurant.
 - `GET /orders/{orderId}` is visible to the order's customer and its restaurant's owner; `GET /orders` is customer-only.
 
+## Decided in part 3
+
+- Login is an emailed code only, through the pinned community plugin `for-keycloak/email-otp-authenticator`; Mailpit catches mail in development (ADR 0010).
+- Sign-up is Keycloak's registration page, without a password and with email verification; every new user gets `CUSTOMER`.
+- A verified token with no `users` row, `customer.write` and `email_verified: true` gets a user and customer on its first request; any other unknown `sub` is a 401. An unlinked account holding the email is refused, not linked.
+- No passwords in the API: `user_password`, `POST /customers` and the change-password endpoint are gone; `PATCH /customers/me` no longer takes an email.
+
 ## Open questions for later parts
 
-- **3:** Keycloak-hosted registration versus our API calling Keycloak's admin API; whether Keycloak's email OTP needs an extension in the pinned version; the mail server for development (e.g. Mailpit). Whether `default-roles-restaurant` gives `CUSTOMER` to every sign-up. A Keycloak user with no `users` row gets 401 since part 2, even on public endpoints if it sends its token; sign-up decides how the row appears (the admin API, or get-or-create on the first token).
-- **Later:** a staff table before any cashier role; publishing or switching off `/.well-known/oauth-protected-resource`. A restaurant's view of its orders; admin endpoints on other users' data; recording which user performed an order transition.
+- **Later:** a staff table before any cashier role; publishing or switching off `/.well-known/oauth-protected-resource`. A restaurant's view of its orders; admin endpoints on other users' data; recording which user performed an order transition. Deleting the Keycloak user when a customer is deleted (needs the admin API); restaurant-owner sign-up; phone codes.
 
 ## Working agreements
 

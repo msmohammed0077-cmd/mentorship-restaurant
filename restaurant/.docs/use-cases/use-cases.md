@@ -38,9 +38,9 @@ Tracked under [#68](https://github.com/msmohammed0077-cmd/mentorship-restaurant/
 
 | Use case | Spec |
 | --- | --- |
-| Create Customer | [create-customer](./customer-management/create-customer/create-customer.md) |
+| Sign Up | [sign-up](./customer-management/sign-up/sign-up.md) |
 | Get Customer | [get-customer](./customer-management/get-customer/get-customer.md) |
-| Update Customer (profile + password) | [update-customer](./customer-management/update-customer/update-customer.md) |
+| Update Customer | [update-customer](./customer-management/update-customer/update-customer.md) |
 | Delete Customer | [delete-customer](./customer-management/delete-customer/delete-customer.md) |
 | Address Management | [address-management](./customer-management/address-management/address-management.md) |
 | Payment Methods | [payment-methods](./customer-management/payment-methods/payment-methods.md) |
