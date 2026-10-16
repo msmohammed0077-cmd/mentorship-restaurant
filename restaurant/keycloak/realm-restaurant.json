@@ -155,10 +155,12 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:8080/swagger-ui/oauth2-redirect.html"
+        "http://localhost:8080/swagger-ui/oauth2-redirect.html",
+        "http://localhost:8081/swagger-ui/oauth2-redirect.html",
+        "http://localhost:8082/swagger-ui/oauth2-redirect.html"
       ],
       "webOrigins": [
-        "http://localhost:8080"
+        "+"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"
