@@ -11,9 +11,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * The caller behind a token (#83 part 2, ADR 0009): a token whose {@code sub} has no {@code users}
- * row is refused; a linked one resolves, and a non-customer or deleted customer is answered by the
- * customer endpoints' own rules.
+ * The caller behind a token (#83 parts 2 and 3, ADR 0009): an unknown {@code sub} is refused unless
+ * it is a customer's first request (FirstLoginEndpointTest); a linked one resolves, and a
+ * non-customer or deleted customer is answered by the customer endpoints' own rules.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -26,11 +26,11 @@ class CallerResolutionEndpointTest {
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
-  void refusesATokenWhoseUserHasNoAccount() {
+  void refusesAnUnknownUserWhoIsNotASignUp() {
     client
         .get()
         .uri("/api/v1/orders/{orderId}", NONE)
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(UUID.randomUUID(), "CUSTOMER"))
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(UUID.randomUUID(), "RESTAURANT_OWNER"))
         .exchange()
         .expectStatus()
         .isUnauthorized()

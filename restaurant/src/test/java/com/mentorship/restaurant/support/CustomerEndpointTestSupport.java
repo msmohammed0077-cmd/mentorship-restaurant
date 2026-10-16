@@ -73,6 +73,18 @@ public abstract class CustomerEndpointTestSupport {
     return customerId;
   }
 
+  /** {@link #insertCustomer}, as the old POST /customers left it: no Keycloak user linked. */
+  protected long insertCustomerWithoutKeycloakId(String email) {
+    long customerId = insertCustomer(email);
+    jdbcTemplate.update(
+        """
+        UPDATE users SET user_keycloak_id = NULL
+        WHERE user_id = (SELECT user_id FROM customers WHERE customer_id = ?)
+        """,
+        customerId);
+    return customerId;
+  }
+
   protected void softDeleteCustomer(long customerId) {
     jdbcTemplate.update(
         """

@@ -70,6 +70,27 @@ public class JwtTestSupport {
                 Map.of(PERMISSIONS_CLIENT, Map.of("roles", List.copyOf(permissions)))));
   }
 
+  /**
+   * A token for a Keycloak user with no users row yet, as Keycloak issues it after sign-up: the
+   * CUSTOMER permissions (the realm's default role), a verified email and a name.
+   */
+  public String signUpTokenFor(UUID keycloakId, String email, String name) {
+    return sign(signUpClaims(keycloakId, email, name));
+  }
+
+  /** {@link #signUpTokenFor}'s claims, for a test that changes one thing. */
+  public JwtClaimsSet.Builder signUpClaims(UUID keycloakId, String email, String name) {
+    return validClaims(keycloakId)
+        .claim(
+            "resource_access",
+            Map.of(
+                PERMISSIONS_CLIENT,
+                Map.of("roles", List.copyOf(RealmPermissions.of("CUSTOMER")))))
+        .claim("email", email)
+        .claim("email_verified", true)
+        .claim("name", name);
+  }
+
   /** {@code client}, sending a {@code realmRole} token for the Keycloak user {@code keycloakId}. */
   public RestTestClient asUser(RestTestClient client, UUID keycloakId, String realmRole) {
     String token = tokenFor(keycloakId, realmRole);
