@@ -34,4 +34,18 @@ class OpenApiDocsEndpointTest {
         .jsonPath("$.security[0].keycloak")
         .exists();
   }
+
+  /** Health is public: the docs say so, so Swagger UI sends it no token. */
+  @Test
+  void publishesHealthWithoutASecurityRequirement() {
+    client
+        .get()
+        .uri("/v3/api-docs")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.paths['/api/v1/health'].get.security")
+        .isEmpty();
+  }
 }
