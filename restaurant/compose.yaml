@@ -39,7 +39,8 @@ services:
       KC_HOSTNAME: http://localhost:8180
       KC_HEALTH_ENABLED: "true"
     ports:
-      - "8180:8080"
+      # Development credentials (admin/admin): reachable from this machine only.
+      - "127.0.0.1:8180:8080"
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
     healthcheck:

@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.customer.controller;
 
+import com.mentorship.restaurant.config.PublicEndpoint;
 import com.mentorship.restaurant.customer.model.request.ChangePasswordRequest;
 import com.mentorship.restaurant.customer.model.request.CreateCustomerRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
@@ -7,6 +8,7 @@ import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.service.CustomerDeletionService;
 import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.user.model.Caller;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,9 @@ public class CustomerController {
   private final CustomerService customerService;
   private final CustomerDeletionService customerDeletionService;
 
+  // Registration: the caller has no account yet. #83 part 3 replaces it.
+  @PublicEndpoint
+  @SecurityRequirements
   @PostMapping
   public ResponseEntity<CustomerResponse> createCustomer(
       @Valid @RequestBody CreateCustomerRequest request) {
