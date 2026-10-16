@@ -30,7 +30,9 @@ class CallerResolutionEndpointTest {
     client
         .get()
         .uri("/api/v1/orders/{orderId}", NONE)
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(UUID.randomUUID(), "RESTAURANT_OWNER"))
+        .header(
+            HttpHeaders.AUTHORIZATION,
+            "Bearer " + jwts.tokenFor(UUID.randomUUID(), "RESTAURANT_OWNER"))
         .exchange()
         .expectStatus()
         .isUnauthorized()

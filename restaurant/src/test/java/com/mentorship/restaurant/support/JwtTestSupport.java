@@ -84,8 +84,7 @@ public class JwtTestSupport {
         .claim(
             "resource_access",
             Map.of(
-                PERMISSIONS_CLIENT,
-                Map.of("roles", List.copyOf(RealmPermissions.of("CUSTOMER")))))
+                PERMISSIONS_CLIENT, Map.of("roles", List.copyOf(RealmPermissions.of("CUSTOMER")))))
         .claim("email", email)
         .claim("email_verified", true)
         .claim("name", name);
