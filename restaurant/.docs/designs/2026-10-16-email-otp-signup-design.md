@@ -13,14 +13,14 @@ Part 3 of `2026-10-14-auth-roadmap.md` (#120), built on part 2 (`2026-10-15-auth
 
 ## The Keycloak side
 
-**Image and plugin.** The Keycloak image moves from `26.5.2` to `26.5.7`, a patch release the plugin builds for. A new `restaurant/keycloak/Dockerfile` starts from `quay.io/keycloak/keycloak:26.5.7` and adds `email-otp-authenticator-v1.8.1-kc-26.5.7.jar` to `/opt/keycloak/providers/`, downloaded at a pinned version and checked against a pinned SHA-256. `compose.yaml` builds the `keycloak` service from it instead of pulling the image. No binary is committed; the first `docker compose up` builds the image once.
+**Image and plugin.** The Keycloak image moves from `26.5.2` to `26.5.7`, a patch release the plugin builds for. A new `restaurant/docker/keycloak/Dockerfile` (not under `keycloak/`, which is mounted as the import directory) starts from `quay.io/keycloak/keycloak:26.5.7` and adds `email-otp-authenticator-v1.7.0-kc-26.5.7.jar` (v1.8.1 was two days old when this was written; v1.7.0 has every setting used here) to `/opt/keycloak/providers/`, downloaded at a pinned version and checked against a pinned SHA-256. `compose.yaml` builds the `keycloak` service from it instead of pulling the image. No binary is committed; the first `docker compose up` builds the image once.
 
 **Mail.** A `mailpit` service (`axllent/mailpit`, pinned) joins compose: SMTP on `1025` inside the compose network, its inbox at `http://localhost:8025`, bound to `127.0.0.1`. The realm's `smtpServer` points at `mailpit:1025` with a `noreply@restaurant.local` sender. Mailpit catches every message; nothing leaves the machine.
 
 **Realm file (`keycloak/realm-restaurant.json`).**
 
 - **Login flow `browser-email-otp`,** set as the realm's `browserFlow`: Cookie (alternative), then a sub-flow of Username Form → the plugin's email-code authenticator, both required. Swagger UI's login goes through it like any browser. The plugin's settings on that execution: 6-digit code, 600 s lifetime, 60 s resend cooldown, at most 5 codes per user per 900 s, trusted as the sole authenticator.
-- **Registration:** `registrationAllowed` and `registrationEmailAsUsername` on; the registration flow keeps the user-profile step and drops the password-validation step, so the form asks only for email, first name and last name. A separate email-verification step is unnecessary: the first login proves the address by the code sent to it.
+- **Registration:** `registrationAllowed` and `registrationEmailAsUsername` on; the registration flow keeps the user-profile step and drops the password-validation step, so the form asks only for email, first name and last name. **Email verification is on** (`verifyEmail`): Keycloak logs a new user in straight after the form, without the login flow, so the code never proves the address at sign-up; the verification link (to Mailpit) does.
 - **`default-roles-restaurant` gains `CUSTOMER`.** Default roles apply to every user created in the realm, including through the admin console; an admin creating a restaurant owner removes `CUSTOMER` from that user, or the owner would become a customer on first login (see *Creating the account*).
 - **The seeded users lose their `credentials`.** Their fixed ids, emails and roles stay. A developer logs in as a seeded user by entering its email and reading the code in Mailpit.
 
@@ -33,12 +33,12 @@ The exact provider id and configuration keys of the plugin are read from its JAR
 **`CallerAuthenticationConverter`**, after verification:
 
 1. `userService.findCaller(sub)` finds a row → as today.
-2. No row, and the token's permissions include `customer.write` → `customerService.registerFromToken(keycloakId, email, name)`, which returns the new `Caller`.
+2. No row, the token's permissions include `customer.write`, and `email_verified` is `true` → `customerService.registerFromToken(keycloakId, email, name)`, which returns the new `Caller`.
 3. No row, and no `customer.write` → `InvalidBearerTokenException("Unknown user")`, 401, as today.
 
 The permission, not the role name, decides (ADR 0008). It reuses the authorities the converter already computes with `KeycloakPermissionsConverter`.
 
-**Claims.** `email` is required; a token without one is a 401. The name is the `name` claim, else the email. Keycloak puts both in the access token through its default `email` and `profile` scopes.
+**Claims.** `email` is required; a token without one is a 401, and so is a token whose `email_verified` is not `true`, so an unproven address never gets a row. The name is the `name` claim, else the email. Keycloak puts both in the access token through its default `email` and `profile` scopes.
 
 **`CustomerService.registerFromToken(UUID keycloakId, String email, String name)`**, `@Transactional` because it runs from the security filter, outside any use-case (like `UserService.findCaller`):
 
@@ -78,8 +78,10 @@ All over HTTP with signed tokens; no test talks to Keycloak or Mailpit.
 - `CUSTOMER` permissions + `email` + `name` → 200 with that name and email; SQL finds one `users` row linked to the `sub` and one `customers` row;
 - the same token twice → the same ids, one row each;
 - a token without `name` → 200, the name is the email;
+- a 151-character name → stored cut to 150 (`users.user_name` is `VARCHAR(150)`; Keycloak allows longer);
 - no `customer.write` → 401, no rows;
 - no `email` claim → 401, no rows;
+- `email_verified` false → 401, no rows;
 - the email held by an active row with no Keycloak id → 401; that row is unchanged and nothing is inserted;
 - the email held only by a soft-deleted row → 200, a new row.
 
@@ -91,7 +93,7 @@ All over HTTP with signed tokens; no test talks to Keycloak or Mailpit.
 
 **Manual check, in the PR description**, after `docker compose up -d --build`:
 
-1. Swagger UI → Authorize → *Register*, a new email, first and last name; read the code at `http://localhost:8025`, enter it; `GET /customers/me` → 200 with that email.
+1. Swagger UI → Authorize → *Register*, a new email, first and last name; follow the verification link in Mailpit; read the code at `http://localhost:8025`, enter it; `GET /customers/me` → 200 with that email.
 2. Log out; log in as `ahmed.ali@example.com` with a code from Mailpit; `GET /customers/me` → customer 1.
 3. In the Keycloak console, create a user, remove `CUSTOMER` from it, log in as it; any protected endpoint → 401.
 4. Ask for a sixth code within 15 minutes → refused.
