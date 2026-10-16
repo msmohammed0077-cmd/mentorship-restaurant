@@ -209,8 +209,9 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
         .isBadRequest();
   }
 
+  /** Another restaurant's order does not exist to this owner, as on the customer side. */
   @Test
-  void refusesAnotherRestaurantsOrder() {
+  void treatsAnotherRestaurantsOrderAsNotFound() {
     long orderId = seedOrder("PLACED", NILE_KITCHEN);
 
     asRestaurantOwner(BURGER_YARD)
@@ -218,7 +219,10 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
         .uri(ACCEPT, orderId, BURGER_YARD)
         .exchange()
         .expectStatus()
-        .isForbidden();
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Order not found");
   }
 
   @Test

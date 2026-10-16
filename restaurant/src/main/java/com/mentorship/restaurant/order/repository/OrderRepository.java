@@ -31,6 +31,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   @Query("select o.restaurant.id from Order o where o.id = :orderId")
   Optional<Long> findRestaurantIdById(@Param("orderId") Long orderId);
 
+  boolean existsByIdAndRestaurant_Id(Long orderId, Long restaurantId);
+
   /**
    * The caller's order's soft-delete state, in one query; another customer's order is not found. A
    * projection rather than an entity, because the status transition that follows is a bulk update
