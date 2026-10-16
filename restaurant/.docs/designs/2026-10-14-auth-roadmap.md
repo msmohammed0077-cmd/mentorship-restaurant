@@ -43,7 +43,7 @@ Permissions are `restaurant-api` client roles; realm roles bundle them; the API 
 
 - Login is an emailed code only, through the pinned community plugin `for-keycloak/email-otp-authenticator`; Mailpit catches mail in development (ADR 0010).
 - Sign-up is Keycloak's registration page, without a password and with email verification; every new user gets `CUSTOMER`.
-- A verified token with no `users` row, `customer.write` and `email_verified: true` gets a user and customer on its first request; any other unknown `sub` is a 401. An unlinked account holding the email is refused, not linked.
+- A verified token with no `users` row gets a user and customer on its first request if it is a sign-up (`email_verified: true`, `customer.write`, no kitchen permission, a sign-up client); any other unknown `sub` is a 401. An unlinked account holding the email is refused, not linked. Keycloak's verified email replaces ours when it changes. Brute-force protection is on.
 - No passwords in the API: `user_password`, `POST /customers` and the change-password endpoint are gone; `PATCH /customers/me` no longer takes an email.
 
 ## Open questions for later parts

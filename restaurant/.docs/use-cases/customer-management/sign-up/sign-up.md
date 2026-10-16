@@ -26,13 +26,21 @@ No Keycloak user has the email.
 4. **The first request creates the rows**, in one transaction: a `users` row (name, email trimmed
    and lower-cased, `user_keycloak_id` = the token's `sub`) and its `customers` row. Phone, date of
    birth and gender start empty; `PATCH /customers/me` sets them.
-5. Only a token holding **`customer.write`** with **`email_verified: true`** and an **`email`**
-   creates rows. The name is the `name` claim, else the email, cut to 150 characters.
-6. **An active account already holding the email is refused** (401), not linked: it was created
-   by the old `POST /customers` and has no Keycloak user.
+5. Only a **sign-up** creates rows: `email_verified: true` with an `email`, **`customer.write`**
+   and **no kitchen permission** (`order.accept`, `order.reject`, `order.prepare`), issued to a
+   client listed in `app.security.sign-up-clients` (`restaurant-swagger`). Staff created in the
+   Keycloak console also get the default role, so the kitchen permissions keep them from becoming
+   customers. The name is the `name` claim, else the email, cut to 150 characters (not bytes or
+   UTF-16 units, so an emoji is never split).
+6. **An active account already holding the email is refused** (401, "Email belongs to an account
+   not linked to Keycloak"), not linked: it was created by the old `POST /customers` and has no
+   Keycloak user.
 7. An email that belongs only to a **soft-deleted** account is reusable.
 8. **No cart is created.** Carts are created lazily by add-cart-item.
-9. Later requests find the rows by `sub` and create nothing.
+9. Later requests find the rows by `sub` and create nothing. If Keycloak's verified email has
+   changed, ours follows, unless another active account holds the new one.
+10. Keycloak locks an account after 5 wrong codes (or rapid failures), for a growing wait capped
+    at 15 minutes.
 
 ## Main Success Scenario
 
@@ -45,10 +53,12 @@ No Keycloak user has the email.
 
 ## Exception Flows
 
-- **4a. The token lacks `customer.write`, `email`, or a `true` `email_verified`:** 401, no rows.
+- **4a. The token is not a sign-up** (no verified email, no `customer.write`, a kitchen
+  permission, or another client): 401 "Unknown user", no rows.
 - **4b. An active account already has the email:** 401, that account unchanged.
 - **4c. Two first requests at once:** the second insert hits `uq_users_keycloak_id`; it re-reads
-  the first one's rows and both answer 200.
+  the first one's rows and both answer 200. Any other failed insert is logged and answered 401,
+  never a 500 from the security filter.
 
 ## Postconditions
 

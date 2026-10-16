@@ -21,11 +21,11 @@ erDiagram
         BIGINT user_id PK
         VARCHAR(150) user_name "NOT NULL"
         VARCHAR(255) user_email "NOT NULL; unique on lower(email) among active users"
-        VARCHAR(255) user_password "NOT NULL; BCrypt hash"
         VARCHAR(20) user_phone
         DATE user_date_of_birth
         VARCHAR(20) user_gender
         TIMESTAMPTZ user_deleted_at "soft delete; NULL = active"
+        UUID user_keycloak_id UK "the Keycloak user, the token's sub; NULL only on pre-Keycloak rows"
     }
 
     customers {
