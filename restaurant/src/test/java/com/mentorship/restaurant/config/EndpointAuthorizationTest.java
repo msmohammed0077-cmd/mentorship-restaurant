@@ -39,9 +39,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 class EndpointAuthorizationTest {
 
   private static final long NONE = 999_999L;
-  private static final UUID USER = UUID.randomUUID();
-  private static final String OF_CUSTOMER = "?customerId=" + NONE;
-  private static final String AS_RESTAURANT = "?restaurantId=" + NONE + "&role=RESTAURANT";
+  private static final UUID USER = JwtTestSupport.ADMIN;
+  private static final String AS_RESTAURANT = "?restaurantId=" + NONE;
 
   /** Endpoints reachable without a token (SecurityConfig); Swagger and /error are not ours. */
   private static final Set<String> PUBLIC = Set.of("GET /api/v1/health", "POST /api/v1/customers");
@@ -61,23 +60,21 @@ class EndpointAuthorizationTest {
       """;
   private static final String CART_ITEM =
       """
-      {"customer_id": %d, "menu_item_id": 1, "quantity": 1}
-      """
-          .formatted(NONE);
+      {"menu_item_id": 1, "quantity": 1}
+      """;
   private static final String QUANTITY =
       """
       {"quantity": 1}
       """;
   private static final String ORDER =
       """
-      {"cart_id": %d, "address_id": %d, "customer_id": %d, "restaurant_id": 1}
+      {"cart_id": %d, "address_id": %d, "restaurant_id": 1}
       """
-          .formatted(NONE, NONE, NONE);
+          .formatted(NONE, NONE);
   private static final String RATING =
       """
-      {"customer_id": %d, "score": 5}
-      """
-          .formatted(NONE);
+      {"score": 5}
+      """;
   private static final String REJECTION =
       """
       {"reason": "TOO_BUSY"}
@@ -104,29 +101,24 @@ class EndpointAuthorizationTest {
 
   static List<Row> rows() {
     return List.of(
-        row(GET, "/api/v1/customers/{customerId}", "", null, "customer.read"),
-        row(PATCH, "/api/v1/customers/{customerId}", "", "{}", "customer.write"),
-        row(PUT, "/api/v1/customers/{customerId}/password", "", PASSWORD, "customer.write"),
-        row(DELETE, "/api/v1/customers/{customerId}", "", null, "customer.write"),
-        row(POST, "/api/v1/addresses", OF_CUSTOMER, ADDRESS, "address.write"),
-        row(GET, "/api/v1/addresses", OF_CUSTOMER, null, "address.read"),
-        row(PUT, "/api/v1/addresses/{addressId}", OF_CUSTOMER, ADDRESS, "address.write"),
-        row(DELETE, "/api/v1/addresses/{addressId}", OF_CUSTOMER, null, "address.write"),
-        row(PUT, "/api/v1/addresses/{addressId}/default", OF_CUSTOMER, null, "address.write"),
-        row(POST, "/api/v1/payment-methods", OF_CUSTOMER, CARD, "payment-method.write"),
-        row(GET, "/api/v1/payment-methods", OF_CUSTOMER, null, "payment-method.read"),
+        row(GET, "/api/v1/customers/me", "", null, "customer.read"),
+        row(PATCH, "/api/v1/customers/me", "", "{}", "customer.write"),
+        row(PUT, "/api/v1/customers/me/password", "", PASSWORD, "customer.write"),
+        row(DELETE, "/api/v1/customers/me", "", null, "customer.write"),
+        row(POST, "/api/v1/addresses", "", ADDRESS, "address.write"),
+        row(GET, "/api/v1/addresses", "", null, "address.read"),
+        row(PUT, "/api/v1/addresses/{addressId}", "", ADDRESS, "address.write"),
+        row(DELETE, "/api/v1/addresses/{addressId}", "", null, "address.write"),
+        row(PUT, "/api/v1/addresses/{addressId}/default", "", null, "address.write"),
+        row(POST, "/api/v1/payment-methods", "", CARD, "payment-method.write"),
+        row(GET, "/api/v1/payment-methods", "", null, "payment-method.read"),
         row(
             PUT,
             "/api/v1/payment-methods/{paymentMethodId}/default",
-            OF_CUSTOMER,
+            "",
             null,
             "payment-method.write"),
-        row(
-            DELETE,
-            "/api/v1/payment-methods/{paymentMethodId}",
-            OF_CUSTOMER,
-            null,
-            "payment-method.write"),
+        row(DELETE, "/api/v1/payment-methods/{paymentMethodId}", "", null, "payment-method.write"),
         row(POST, "/api/v1/cart/items", "", CART_ITEM, "cart.write"),
         row(PUT, "/api/v1/cart/{cartId}/items/{cartItemId}", "", QUANTITY, "cart.write"),
         row(GET, "/api/v1/cart/{cartId}", "", null, "cart.read"),
@@ -135,13 +127,8 @@ class EndpointAuthorizationTest {
         row(POST, "/api/v1/cart/{cartId}/checkout", "", null, "cart.write"),
         row(POST, "/api/v1/orders", "", ORDER, "order.create"),
         row(GET, "/api/v1/orders/{orderId}", "", null, "order.read"),
-        row(GET, "/api/v1/orders", OF_CUSTOMER + "&role=CUSTOMER", null, "order.read"),
-        row(
-            POST,
-            "/api/v1/orders/{orderId}/cancel",
-            OF_CUSTOMER + "&role=CUSTOMER",
-            null,
-            "order.cancel"),
+        row(GET, "/api/v1/orders", "", null, "order.read"),
+        row(POST, "/api/v1/orders/{orderId}/cancel", "", null, "order.cancel"),
         row(POST, "/api/v1/orders/{orderId}/rating", "", RATING, "order.rate"),
         row(POST, "/api/v1/orders/{orderId}/accept", AS_RESTAURANT, null, "order.accept"),
         row(POST, "/api/v1/orders/{orderId}/reject", AS_RESTAURANT, REJECTION, "order.reject"),
@@ -205,7 +192,7 @@ class EndpointAuthorizationTest {
   void aTokenWithoutPermissionsIsForbidden() {
     client
         .get()
-        .uri("/api/v1/customers/{id}", NONE)
+        .uri("/api/v1/customers/me")
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwts.tokenFor(USER))
         .exchange()
         .expectStatus()

@@ -11,10 +11,10 @@ class GetCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
-  void returnsASeededCustomerWithoutThePassword() {
-    client
+  void returnsTheCallersOwnProfileWithoutThePassword() {
+    asCustomer(1L)
         .get()
-        .uri("/api/v1/customers/1")
+        .uri("/api/v1/customers/me")
         .exchange()
         .expectStatus()
         .isOk()
@@ -30,28 +30,10 @@ class GetCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .get()
-        .uri("/api/v1/customers/999999")
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
   void rejectsASoftDeletedCustomer() {
     long customerId = insertCustomer(email("sara"));
     softDeleteCustomer(customerId);
 
-    client
-        .get()
-        .uri("/api/v1/customers/{customerId}", customerId)
-        .exchange()
-        .expectStatus()
-        .isNotFound();
+    asCustomer(customerId).get().uri("/api/v1/customers/me").exchange().expectStatus().isNotFound();
   }
 }

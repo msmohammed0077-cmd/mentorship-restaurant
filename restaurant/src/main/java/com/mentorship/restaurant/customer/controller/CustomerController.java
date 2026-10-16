@@ -7,6 +7,7 @@ import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.service.CustomerDeletionService;
 import com.mentorship.restaurant.customer.service.CustomerService;
+import com.mentorship.restaurant.user.model.Caller;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,10 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,30 +44,30 @@ public class CustomerController {
   }
 
   @PreAuthorize("hasAuthority('customer.read')")
-  @GetMapping("/{customerId}")
-  public ResponseEntity<CustomerResponse> getCustomer(@PathVariable Long customerId) {
-    return ResponseEntity.ok(customerService.getCustomer(customerId));
+  @GetMapping("/me")
+  public ResponseEntity<CustomerResponse> getCustomer(@AuthenticationPrincipal Caller caller) {
+    return ResponseEntity.ok(customerService.getCustomer(caller.requireCustomerId()));
   }
 
   @PreAuthorize("hasAuthority('customer.write')")
-  @PatchMapping("/{customerId}")
+  @PatchMapping("/me")
   public ResponseEntity<CustomerResponse> updateCustomer(
-      @PathVariable Long customerId, @Valid @RequestBody UpdateCustomerRequest request) {
-    return ResponseEntity.ok(customerService.updateCustomer(customerId, request));
+      @AuthenticationPrincipal Caller caller, @Valid @RequestBody UpdateCustomerRequest request) {
+    return ResponseEntity.ok(customerService.updateCustomer(caller.requireCustomerId(), request));
   }
 
   @PreAuthorize("hasAuthority('customer.write')")
-  @PutMapping("/{customerId}/password")
+  @PutMapping("/me/password")
   public ResponseEntity<Void> changePassword(
-      @PathVariable Long customerId, @Valid @RequestBody ChangePasswordRequest request) {
-    customerService.changePassword(customerId, request);
+      @AuthenticationPrincipal Caller caller, @Valid @RequestBody ChangePasswordRequest request) {
+    customerService.changePassword(caller.requireCustomerId(), request);
     return ResponseEntity.noContent().build();
   }
 
   @PreAuthorize("hasAuthority('customer.write')")
-  @DeleteMapping("/{customerId}")
-  public ResponseEntity<Void> deleteCustomer(@PathVariable Long customerId) {
-    customerDeletionService.deleteCustomer(customerId);
+  @DeleteMapping("/me")
+  public ResponseEntity<Void> deleteCustomer(@AuthenticationPrincipal Caller caller) {
+    customerDeletionService.deleteCustomer(caller.requireCustomerId());
     return ResponseEntity.noContent().build();
   }
 }

@@ -7,7 +7,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
@@ -16,8 +15,8 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
- * Every endpoint but the public ones needs a valid token; each controller method then requires one
- * permission with {@code @PreAuthorize} (ADR 0008).
+ * Every endpoint but the public ones needs a valid token whose user has an account here (ADR 0009);
+ * each controller method then requires one permission with {@code @PreAuthorize} (ADR 0008).
  */
 @Configuration
 @EnableMethodSecurity
@@ -39,10 +38,9 @@ public class SecurityConfig {
           PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/v1/customers"));
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    JwtAuthenticationConverter permissions = new JwtAuthenticationConverter();
-    permissions.setJwtGrantedAuthoritiesConverter(new KeycloakPermissionsConverter());
-
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http, CallerAuthenticationConverter callerAuthenticationConverter)
+      throws Exception {
     return http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -52,7 +50,7 @@ public class SecurityConfig {
             oauth2 ->
                 oauth2
                     .bearerTokenResolver(publicPathsIgnoreTokens())
-                    .jwt(jwt -> jwt.jwtAuthenticationConverter(permissions)))
+                    .jwt(jwt -> jwt.jwtAuthenticationConverter(callerAuthenticationConverter)))
         .build();
   }
 

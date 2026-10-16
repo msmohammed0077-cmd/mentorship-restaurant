@@ -16,17 +16,17 @@ Any caller. There is no auth yet (see *Authorisation*).
 ## Preconditions
 
 1. The customer exists and is not soft-deleted.
-2. The request supplies `customerId` as a request parameter, as addresses do. Ownership checks use
-   it rather than the token's identity until #83 part 2.
+2. The caller is a customer; the customer is taken from the token (#83 part 2, ADR 0009), and no
+   request names one. A caller who is not a customer gets 403 "Caller is not a customer".
 
 ## Scope
 
 | Action | Endpoint | Success |
 | --- | --- | --- |
-| Add | `POST /api/v1/payment-methods?customerId={customerId}` | 201 + `PaymentMethodResponse` |
-| List | `GET /api/v1/payment-methods?customerId={customerId}` | 200 + list |
-| Set default | `PUT /api/v1/payment-methods/{paymentMethodId}/default?customerId={customerId}` | 200 + `PaymentMethodResponse` |
-| Delete | `DELETE /api/v1/payment-methods/{paymentMethodId}?customerId={customerId}` | 204 |
+| Add | `POST /api/v1/payment-methods` | 201 + `PaymentMethodResponse` |
+| List | `GET /api/v1/payment-methods` | 200 + list |
+| Set default | `PUT /api/v1/payment-methods/{paymentMethodId}/default` | 200 + `PaymentMethodResponse` |
+| Delete | `DELETE /api/v1/payment-methods/{paymentMethodId}` | 204 |
 
 Adds migration `V13__create_payment_methods.sql`, the `PaymentMethod` entity and `CardBrand` enum,
 `PaymentMethodRepository`, `PaymentMethodService`,
@@ -54,25 +54,23 @@ number (PAN) or a CVV — that would put the project in PCI-DSS scope. A request
    validation rule it belongs on the request, not in the service. It reports on the
    `expiryMonth` property because `GlobalExceptionHandler` formats field errors only, and it passes
    when either field is missing or the month is out of range, leaving those to the field
-   constraints. Because it runs before the service, an expired card for an unknown customer is a
-   400, not a 404.
+   constraints. Because it runs before the service, an expired card for a soft-deleted customer is
+   a 400, not a 404.
 4. **At most one default per customer**, enforced by the partial unique index
    `uq_payment_methods_one_default_per_customer` (as V8 does for addresses). Setting a default
    clears the previous one first. Setting the card that is already default returns it unchanged.
 5. Delete is a **hard delete**. Deleting the default does **not** promote another card.
-6. Set default and delete load the card with its owner in one query and check, in this order:
-   1. **Unknown** id: **404**, "Payment method not found" (`PaymentMethodNotFoundException`).
-   2. Card **belongs to another customer**: **403**, "Payment method belongs to another customer"
-      (`PaymentMethodAccessDeniedException`).
-   3. Owner **soft-deleted**: **404**, "Customer not found". The owner is the caller at this point,
+6. Set default and delete load the caller's card with its owner in one query, scoped to the
+   caller's customer, and check, in this order:
+   1. **Unknown id, or another customer's card**: **404**, "Payment method not found"
+      (`PaymentMethodNotFoundException`). The two cannot be told apart once the caller is in the
+      query (#83 part 2); before that, another customer's card was a 403.
+   2. Owner **soft-deleted**: **404**, "Customer not found". The owner is the caller at this point,
       so this is the caller's own soft delete.
 
-   The customer is never checked on its own, which shifts two edges compared with checking it
-   first: an unknown or soft-deleted caller asking for **another customer's card** gets **403**, and
-   asking for a **nonexistent card** gets **404 "Payment method not found"** rather than "Customer
-   not found". Likewise a soft-deleted customer's card asked for by someone else is a 403. All of
-   this is inside the accepted IDOR (see *Authorisation*); it trades a slightly less precise error
-   for one query instead of two.
+   The customer is never checked on its own: a soft-deleted caller asking for a nonexistent card
+   gets **404 "Payment method not found"** rather than "Customer not found". It trades a slightly
+   less precise error for one query instead of two.
 7. The list is a read: **expired saved cards are still listed**. Reads do not validate business
    state. Order: default first, then newest.
 8. **No duplicate detection** — the same brand and last four digits may be saved twice. Without the
@@ -82,15 +80,16 @@ number (PAN) or a CVV — that would put the project in PCI-DSS scope. A request
 
 ## Authorisation
 
-None, per #34's trade. This is an **IDOR**: anyone can list, add, change or delete any customer's
-saved cards by passing their `customerId`. Closing it belongs to auth, not to this umbrella.
+A token and `payment-method.read` or `payment-method.write` are required (#83 part 4). The customer
+is the caller (#83 part 2, ADR 0009). Before part 2 the request carried `customerId`, and this was an
+**IDOR**: anyone could list, add, change or delete any customer's saved cards by passing it.
 
 ## API
 
 ### Add
 
 ```http
-POST /api/v1/payment-methods?customerId=4
+POST /api/v1/payment-methods
 Content-Type: application/json
 
 {
@@ -127,16 +126,16 @@ Response, **201**:
 
 ### List
 
-`GET /api/v1/payment-methods?customerId=4` — **200**, an array of the same shape (empty when the
+`GET /api/v1/payment-methods` — **200**, an array of the same shape (empty when the
 customer has none).
 
 ### Set default
 
-`PUT /api/v1/payment-methods/7/default?customerId=4` — **200**, the card with `is_default: true`.
+`PUT /api/v1/payment-methods/7/default` — **200**, the card with `is_default: true`.
 
 ### Delete
 
-`DELETE /api/v1/payment-methods/7?customerId=4` — **204**, no body.
+`DELETE /api/v1/payment-methods/7` — **204**, no body.
 
 ## Data Access
 
@@ -151,7 +150,7 @@ indexed), `payment_method_brand`, `payment_method_last4` (`CHAR(4)`),
 | Method | Used by | Notes |
 | --- | --- | --- |
 | `existsByCustomer_Id` | add | decides whether the new card is the first |
-| `findByIdWithOwner` | set default, delete | by payment-method id only; `join fetch` the customer and its user, **no** soft-delete filter — the service decides (rule 6) |
+| `findByIdAndCustomerIdWithOwner` | set default, delete | by payment-method id **and** the caller's customer id; `join fetch` the customer and its user, **no** soft-delete filter — the service decides (rule 6) |
 | `clearDefaultForCustomer` | set default | `@Modifying(flushAutomatically = true)`, one `UPDATE` scoped to the customer |
 
 `CustomerService` (never `CustomerRepository`, another domain's: ADR 0004):
@@ -227,12 +226,11 @@ shape as `AddressService.setDefaultAddress`.
 - **Body invalid** (missing field, `last4` not four digits, month out of range, unknown brand, or
   an expired card — "expiryMonth must not be before the current month"): 400, before the service
   runs. Nothing is saved.
-- **`customerId` or path id missing or not a number:** 400.
-- **Customer unknown or soft-deleted** (add, list): 404, "Customer not found".
-- **Payment method unknown** (set default, delete): 404, "Payment method not found" — whatever the
-  caller.
-- **Payment method belongs to another customer** (set default, delete): 403, "Payment method
-  belongs to another customer" — whatever the caller. Nothing changes.
+- **Path id not a number:** 400.
+- **Caller is not a customer:** 403, "Caller is not a customer".
+- **Customer soft-deleted** (add, list): 404, "Customer not found".
+- **Payment method unknown, or another customer's** (set default, delete): 404, "Payment method not
+  found" — whatever the caller. Nothing changes.
 - **Caller soft-deleted, card is theirs** (set default, delete): 404, "Customer not found". Nothing
   changes.
 
@@ -248,11 +246,11 @@ sequenceDiagram
     participant CS as CustomerService
     participant PR as PaymentMethodRepository
 
-    Caller->>C: POST /api/v1/payment-methods?customerId=
+    Caller->>C: POST /api/v1/payment-methods
     C->>C: @Valid body incl. @NotExpired (400 on shape error or expired card)
-    C->>H: addPaymentMethod(customerId, request)
+    C->>H: addPaymentMethod(caller.customerId, request)
     H->>CS: findActiveCustomer(customerId)
-    alt unknown or soft-deleted
+    alt soft-deleted
         CS-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
@@ -272,17 +270,13 @@ sequenceDiagram
     participant H as PaymentMethodService
     participant PR as PaymentMethodRepository
 
-    Caller->>C: PUT /api/v1/payment-methods/{id}/default?customerId=
-    C->>H: setDefaultPaymentMethod(customerId, id)
-    H->>PR: findByIdWithOwner(id)
+    Caller->>C: PUT /api/v1/payment-methods/{id}/default
+    C->>H: setDefaultPaymentMethod(caller.customerId, id)
+    H->>PR: findByIdAndCustomerIdWithOwner(id, customerId)
     Note over H,PR: one SELECT, join fetch customer and user
-    alt empty
+    alt empty (unknown, or another customer's)
         H-->>C: PaymentMethodNotFoundException (404)
         C-->>Caller: 404 Not Found
-    end
-    alt owner is not customerId
-        H-->>C: PaymentMethodAccessDeniedException (403)
-        C-->>Caller: 403 Forbidden
     end
     alt owner (= caller) soft-deleted
         H-->>C: CustomerNotFoundException (404)
@@ -297,7 +291,7 @@ sequenceDiagram
     C-->>Caller: 200 OK
 ```
 
-Delete applies the same three checks as set default and removes the row. List calls
+Delete applies the same two checks as set default and removes the row. List calls
 `CustomerService.findActiveCustomer` (404 if absent) and maps `customer.getPaymentMethods()`.
 
 ## Structure
@@ -324,16 +318,15 @@ touched and the only HTTP call is to the endpoint under test. Shared setup is in
 | | second card | 201, `is_default: false` |
 | | expired card | 400, "expiryMonth must not be before the current month" |
 | | `last4: "12a4"` | 400 |
-| | unknown customer `999999` | 404, "Customer not found" |
 | `ViewPaymentMethodsEndpointTest` | three cards | default first, then newest |
 | | customer with none | 200, `[]` |
 | | soft-deleted customer | 404, "Customer not found" |
 | `SetDefaultPaymentMethodEndpointTest` | switch default | 200; the database has the new default and the old one non-default |
-| | another customer's card | 403 |
+| | another customer's card | 404, "Payment method not found" |
 | | unknown id `999999` | 404, "Payment method not found" |
 | | soft-deleted caller, own card | 404, "Customer not found"; still not default |
 | `DeletePaymentMethodEndpointTest` | delete own card | 204; no card left in the database |
-| | another customer's card | 403; the owner still has it |
+| | another customer's card | 404; the owner still has it |
 | | soft-deleted caller, own card | 404, "Customer not found"; the card remains |
 
 Each class has its own email prefix (e.g. `add.payment.method.test.`), and cleanup deletes only

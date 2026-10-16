@@ -5,6 +5,14 @@
 ## Overview
 This document describes the functionality for removing items from a shopping cart in the Good Delivery application. The operation allows users to remove individual items or multiple items from their cart.
 
+## Authorisation
+
+`DELETE /api/v1/cart/{cartId}/items?cartItemIds=…`. A token and `cart.write` are required (#83 part 4). The customer is the caller, taken from the token
+(#83 part 2, ADR 0009). The endpoint keeps `{cartId}`, which names a resource rather than the caller,
+and every lookup is scoped to `cart.id` **and** the caller's customer: someone else's cart is 404
+"Cart not found", the same as a missing one. A caller who is not a customer gets 403 "Caller is not a
+customer". A soft-deleted customer is 404 "Customer not found" before any cart lookup: their token outlives the delete, and the soft delete keeps the cart (#104). Before part 2 these endpoints checked no owner at all.
+
 ## Pseudo Code
 
 ```text

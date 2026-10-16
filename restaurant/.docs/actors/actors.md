@@ -15,7 +15,7 @@ _Owner: TODO · Last reviewed: TODO_
 
 ## Permissions
 
-Each endpoint requires one permission; Keycloak realm roles bundle them (ADR 0008). The development baseline is `restaurant/keycloak/realm-restaurant.json`; an admin can compose further roles in the Keycloak console. `ADMIN` holds every permission.
+Each endpoint requires one permission; Keycloak realm roles bundle them (ADR 0008). The development baseline is `restaurant/keycloak/realm-restaurant.json`; an admin can compose further roles in the Keycloak console. `ADMIN` holds every permission, but owns no customer or restaurant, so ownership guards refuse it on other people's data (#83 part 2).
 
 | Permission | Customer | Restaurant Owner |
 |---|:-:|:-:|

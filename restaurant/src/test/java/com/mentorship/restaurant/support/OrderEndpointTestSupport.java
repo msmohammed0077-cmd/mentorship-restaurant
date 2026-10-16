@@ -29,16 +29,14 @@ public abstract class OrderEndpointTestSupport {
   @Autowired protected JdbcTemplate jdbcTemplate;
   @Autowired protected JwtTestSupport jwts;
 
-  /** The realm role this class's requests carry a token for; null sends none. */
-  protected String realmRole() {
-    return "CUSTOMER";
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
   }
 
-  @BeforeEach
-  protected void sendToken() {
-    if (realmRole() != null) {
-      client = jwts.as(client, realmRole());
-    }
+  /** {@link #client}, acting as the restaurant's owner. */
+  protected RestTestClient asRestaurantOwner(long restaurantId) {
+    return jwts.asRestaurantOwner(client, restaurantId);
   }
 
   private final List<Long> seededOrderIds = new ArrayList<>();

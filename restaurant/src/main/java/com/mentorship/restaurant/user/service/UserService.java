@@ -1,13 +1,17 @@
 package com.mentorship.restaurant.user.service;
 
+import com.mentorship.restaurant.user.model.Caller;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.repository.UserRepository;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The login account, for the domains that own one (customers today, restaurants later). Every
- * method joins the caller's transaction.
+ * method but {@link #findCaller} joins the caller's transaction.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,5 +31,14 @@ public class UserService {
 
   public User create(User user) {
     return userRepository.save(user);
+  }
+
+  /**
+   * The caller behind a token's {@code sub}; empty when no users row links to it. Runs from the
+   * security filter, outside any use-case, so it opens its own read-only transaction.
+   */
+  @Transactional(readOnly = true)
+  public Optional<Caller> findCaller(UUID keycloakId) {
+    return userRepository.findCallerByKeycloakId(keycloakId);
   }
 }

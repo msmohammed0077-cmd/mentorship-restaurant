@@ -12,12 +12,9 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
   void updatesAnAddressWithoutChangingDefaultState() {
     long addressId = insertAddress("Home", true, "2026-01-01T10:00:00Z");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            addressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", addressId)
         .contentType(MediaType.APPLICATION_JSON)
         .body(updatedAddressBody("Parents"))
         .exchange()
@@ -44,12 +41,9 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownAddress() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            999999L,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", 999999L)
         .contentType(MediaType.APPLICATION_JSON)
         .body(updatedAddressBody("Parents"))
         .exchange()
@@ -64,9 +58,9 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
   void rejectsAnAddressBelongingToAnotherCustomer() {
     long addressId = addAddress("Home");
 
-    client
+    asCustomer(OTHER_CUSTOMER)
         .put()
-        .uri("/api/v1/addresses/{addressId}?customerId={customerId}", addressId, OTHER_CUSTOMER)
+        .uri("/api/v1/addresses/{addressId}", addressId)
         .contentType(MediaType.APPLICATION_JSON)
         .body(updatedAddressBody("Parents"))
         .exchange()
@@ -81,12 +75,9 @@ class UpdateAddressEndpointTest extends AddressEndpointTestSupport {
   void rejectsBlankRequiredFields() {
     long addressId = addAddress("Home");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            addressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", addressId)
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """

@@ -8,7 +8,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void addsAnItemAndCreatesTheCart() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -33,7 +33,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
   void rejectsAnItemAlreadyInTheCart() {
     addItem(KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -50,7 +50,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
   void keepsSeparateLinesForDifferentItemsOfTheSameRestaurant() {
     addItem(KOFTA, 1);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -69,7 +69,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
   void rejectsAnItemFromADifferentRestaurant() {
     addItem(KOFTA, 1);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -84,7 +84,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAClosedRestaurant() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -100,7 +100,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
   @Test
   void rejectsAQuantityBeyondStock() {
     // Kofta is seeded with stock 50; the request's @Max allows up to 1000.
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -114,20 +114,8 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .post()
-        .uri("/api/v1/cart/items")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 9999, \"menu_item_id\": 1, \"quantity\": 1}")
-        .exchange()
-        .expectStatus()
-        .isNotFound();
-  }
-
-  @Test
   void rejectsAnUnknownItem() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)
@@ -139,7 +127,7 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
 
   @Test
   void rejectsAQuantityOfZero() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .post()
         .uri("/api/v1/cart/items")
         .contentType(MediaType.APPLICATION_JSON)

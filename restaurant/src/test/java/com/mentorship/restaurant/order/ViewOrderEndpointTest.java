@@ -16,7 +16,7 @@ class ViewOrderEndpointTest extends OrderEndpointTestSupport {
     long orderId = seedOrder("PLACED");
     seedOrderLine(orderId, KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
         .uri(ORDER, orderId)
         .exchange()
@@ -49,7 +49,7 @@ class ViewOrderEndpointTest extends OrderEndpointTestSupport {
   void omitsTheTransactionForACashOrder() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asCustomer(CUSTOMER)
         .get()
         .uri(ORDER, orderId)
         .exchange()
@@ -61,16 +61,28 @@ class ViewOrderEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void returnsAnyOrderWithoutAnOwnershipCheck() {
+  void letsTheRestaurantReadItsOrder() {
     long orderId = seedOrder("PLACED");
 
-    // #82 §4: should take the caller's customer id and return 403 to a non-owner, currently
-    // anyone can read any order
-    client.get().uri(ORDER, orderId).exchange().expectStatus().isOk();
+    asRestaurantOwner(NILE_KITCHEN).get().uri(ORDER, orderId).exchange().expectStatus().isOk();
+  }
+
+  @Test
+  void hidesTheOrderFromAnotherCustomer() {
+    long orderId = seedOrder("PLACED");
+
+    asCustomer(2L).get().uri(ORDER, orderId).exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void hidesTheOrderFromAnotherRestaurant() {
+    long orderId = seedOrder("PLACED");
+
+    asRestaurantOwner(BURGER_YARD).get().uri(ORDER, orderId).exchange().expectStatus().isNotFound();
   }
 
   @Test
   void refusesAnUnknownOrder() {
-    client.get().uri(ORDER, 999999L).exchange().expectStatus().isNotFound();
+    asCustomer(CUSTOMER).get().uri(ORDER, 999999L).exchange().expectStatus().isNotFound();
   }
 }

@@ -2,6 +2,8 @@
 
 Related documents: [Use case](./address-management.md) and [Sequence diagrams](./sequence-diagrams.md).
 
+`customerId` is always the caller's, taken from the token (#83 part 2); no request carries it.
+
 ## Add Address
 
 ```text
@@ -60,14 +62,14 @@ PROCEDURE UpdateAddress(customerId, addressId, request)
     VALIDATE request.city IS NOT BLANK AND LENGTH <= 100
     VALIDATE request.area IS NOT BLANK AND LENGTH <= 100
 
-    address = addressRepository.findById(addressId)
+    address = addressRepository.findByIdAndCustomerIdWithOwner(addressId, customerId)
 
     IF address DOES NOT EXIST THEN
-        RAISE AddressNotFoundException("Address not found")
+        RAISE AddressNotFoundException("Address not found")   // missing, or another customer's
     END IF
 
-    IF address.customer.id != customerId THEN
-        RAISE AddressAccessDeniedException("Address belongs to another customer")
+    IF address.customer.user.deletedAt IS NOT NULL THEN
+        RAISE CustomerNotFoundException("Customer not found")
     END IF
 
     address.label = request.label
@@ -86,14 +88,14 @@ END PROCEDURE
 ```text
 PROCEDURE SetDefaultAddress(customerId, addressId)
 
-    address = addressRepository.findById(addressId)
+    address = addressRepository.findByIdAndCustomerIdWithOwner(addressId, customerId)
 
     IF address DOES NOT EXIST THEN
-        RAISE AddressNotFoundException("Address not found")
+        RAISE AddressNotFoundException("Address not found")   // missing, or another customer's
     END IF
 
-    IF address.customer.id != customerId THEN
-        RAISE AddressAccessDeniedException("Address belongs to another customer")
+    IF address.customer.user.deletedAt IS NOT NULL THEN
+        RAISE CustomerNotFoundException("Customer not found")
     END IF
 
     IF address.isDefault IS FALSE THEN
@@ -111,14 +113,14 @@ END PROCEDURE
 ```text
 PROCEDURE DeleteAddress(customerId, addressId)
 
-    address = addressRepository.findById(addressId)
+    address = addressRepository.findByIdAndCustomerIdWithOwner(addressId, customerId)
 
     IF address DOES NOT EXIST THEN
-        RAISE AddressNotFoundException("Address not found")
+        RAISE AddressNotFoundException("Address not found")   // missing, or another customer's
     END IF
 
-    IF address.customer.id != customerId THEN
-        RAISE AddressAccessDeniedException("Address belongs to another customer")
+    IF address.customer.user.deletedAt IS NOT NULL THEN
+        RAISE CustomerNotFoundException("Customer not found")
     END IF
 
     addressRepository.delete(address)

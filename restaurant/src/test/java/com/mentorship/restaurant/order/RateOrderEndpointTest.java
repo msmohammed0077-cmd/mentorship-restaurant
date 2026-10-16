@@ -15,11 +15,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
   void ratesADeliveredOrder() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 5, \"comment\": \"Excellent handoff\"}")
+        .body("{\"score\": 5, \"comment\": \"Excellent handoff\"}")
         .exchange()
         .expectStatus()
         .isCreated()
@@ -52,11 +52,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
   void ratesADeliveredOrderWithoutAComment() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 4}")
+        .body("{\"score\": 4}")
         .exchange()
         .expectStatus()
         .isCreated()
@@ -69,11 +69,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void refusesAnUnknownOrder() {
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, 999999L)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 5}")
+        .body("{\"score\": 5}")
         .exchange()
         .expectStatus()
         .isNotFound();
@@ -85,11 +85,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
         new String[] {"PLACED", "ACCEPTED", "REJECTED", "PREPARING", "PICKED_UP", "CANCELLED"}) {
       long orderId = seedOrder(status);
 
-      client
+      asCustomer(CUSTOMER)
           .post()
           .uri(RATE, orderId)
           .contentType(MediaType.APPLICATION_JSON)
-          .body("{\"customer_id\": 1, \"score\": 5}")
+          .body("{\"score\": 5}")
           .exchange()
           .expectStatus()
           .isEqualTo(409)
@@ -106,11 +106,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
     long orderId = seedOrder("DELIVERED");
     seedRating(orderId, 4);
 
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 5}")
+        .body("{\"score\": 5}")
         .exchange()
         .expectStatus()
         .isEqualTo(409)
@@ -125,17 +125,18 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAnotherCustomersOrder() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    // Scoped to the caller, someone else's order is not found (#83 part 2).
+    asCustomer(OTHER_CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": %d, \"score\": 5}".formatted(OTHER_CUSTOMER))
+        .body("{\"score\": 5}")
         .exchange()
         .expectStatus()
-        .isForbidden()
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Order belongs to another customer");
+        .isEqualTo("Order not found");
 
     assertThat(ratingCountFor(orderId)).isZero();
   }
@@ -144,11 +145,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAScoreBelowTheAllowedRange() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 0}")
+        .body("{\"score\": 0}")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -160,11 +161,11 @@ class RateOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAScoreAboveTheAllowedRange() {
     long orderId = seedOrder("DELIVERED");
 
-    client
+    asCustomer(CUSTOMER)
         .post()
         .uri(RATE, orderId)
         .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"customer_id\": 1, \"score\": 6}")
+        .body("{\"score\": 6}")
         .exchange()
         .expectStatus()
         .isBadRequest();

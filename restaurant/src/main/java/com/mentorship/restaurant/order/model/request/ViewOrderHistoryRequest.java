@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.order.model.request;
 
 import com.mentorship.restaurant.order.model.OrderCursor;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -13,10 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ViewOrderHistoryRequest {
-  @NotNull private Long customerId;
-
-  @NotNull private ActorRole role;
-
   @NotNull
   @Min(1)
   @Max(50)

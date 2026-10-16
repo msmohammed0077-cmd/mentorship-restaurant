@@ -54,10 +54,12 @@ public class CartService {
   }
 
   @Transactional
-  public CartResponse modifyItem(Long cartId, Long cartItemId, Integer quantity, String note) {
+  public CartResponse modifyItem(
+      Long customerId, Long cartId, Long cartItemId, Integer quantity, String note) {
+    customerService.ensureActiveCustomerExists(customerId);
     CartItem cartItem =
         cartItemRepository
-            .findByIdAndCart_Id(cartItemId, cartId)
+            .findByIdAndCart_IdAndCart_Customer_Id(cartItemId, cartId, customerId)
             .orElseThrow(() -> new CartItemNotFoundException("Cart item not found"));
 
     ensureStockCovers(quantity, cartItem.getMenuItem().getStock());
@@ -70,21 +72,24 @@ public class CartService {
   }
 
   @Transactional(readOnly = true)
-  public CartResponse viewCart(Long cartId) {
-    return cartMapper.toResponse(findCart(cartId));
+  public CartResponse viewCart(Long customerId, Long cartId) {
+    customerService.ensureActiveCustomerExists(customerId);
+    return cartMapper.toResponse(findCustomersCart(cartId, customerId));
   }
 
   @Transactional
-  public CartResponse clearCart(Long cartId) {
-    ensureCartExists(cartId);
+  public CartResponse clearCart(Long customerId, Long cartId) {
+    customerService.ensureActiveCustomerExists(customerId);
+    ensureCustomersCartExists(cartId, customerId);
     cartItemRepository.deleteAllByCart_Id(cartId);
     // Re-read after the bulk delete: anything loaded before it would be stale.
     return cartMapper.toResponse(findCart(cartId));
   }
 
   @Transactional
-  public CartResponse removeCartItems(Long cartId, List<Long> cartItemIds) {
-    ensureCartExists(cartId);
+  public CartResponse removeCartItems(Long customerId, Long cartId, List<Long> cartItemIds) {
+    customerService.ensureActiveCustomerExists(customerId);
+    ensureCustomersCartExists(cartId, customerId);
     Set<Long> requestedIds = new LinkedHashSet<>(cartItemIds);
     ensureAllItemsInCart(cartId, requestedIds);
 
@@ -95,9 +100,11 @@ public class CartService {
   }
 
   @Transactional
-  public CheckoutCartResponse checkout(Long cartId) {
+  public CheckoutCartResponse checkout(Long customerId, Long cartId) {
+    // The soft delete keeps the cart (#104), and the caller's token outlives it.
+    customerService.ensureActiveCustomerExists(customerId);
     // Take the lines out before the bulk delete below, which leaves a loaded cart stale.
-    List<Line> lines = linesOf(findCart(cartId));
+    List<Line> lines = linesOf(findCustomersCart(cartId, customerId));
     if (lines.isEmpty()) {
       throw new EmptyCartException("Cart is empty");
     }
@@ -120,8 +127,15 @@ public class CartService {
     cartRepository.deleteById(cartId);
   }
 
-  private void ensureCartExists(Long cartId) {
-    if (!cartRepository.existsById(cartId)) {
+  /** The caller's cart, else a 404: someone else's cart is not found. */
+  private Cart findCustomersCart(Long cartId, Long customerId) {
+    return cartRepository
+        .findByIdAndCustomer_Id(cartId, customerId)
+        .orElseThrow(() -> new CartNotFoundException("Cart not found"));
+  }
+
+  private void ensureCustomersCartExists(Long cartId, Long customerId) {
+    if (!cartRepository.existsByIdAndCustomer_Id(cartId, customerId)) {
       throw new CartNotFoundException("Cart not found");
     }
   }

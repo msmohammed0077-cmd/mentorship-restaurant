@@ -25,7 +25,7 @@ class BearerTokenEndpointTest {
 
   private static final String HEALTH = "/api/v1/health";
   private static final String PROBE = "/api/v1/token-check";
-  private static final UUID USER = UUID.randomUUID();
+  private static final UUID USER = JwtTestSupport.ADMIN;
 
   @Autowired private RestTestClient client;
   @Autowired private JwtTestSupport jwts;

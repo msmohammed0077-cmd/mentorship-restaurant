@@ -19,8 +19,8 @@ The customer exists and is not soft-deleted.
 
 Two endpoints:
 
-- `PATCH /api/v1/customers/{customerId}` — **200** with the updated profile.
-- `PUT /api/v1/customers/{customerId}/password` — **204**, no body.
+- `PATCH /api/v1/customers/me` — **200** with the updated profile.
+- `PUT /api/v1/customers/me/password` — **204**, no body.
 
 Builds on #73 and #69 (`CustomerController`, `CustomerService`, `CustomerMapper`,
 `CustomerRepository.findActiveById`). Adds `UpdateCustomerRequest`, `ChangePasswordRequest`,
@@ -36,7 +36,7 @@ current password; the PATCH has no `password` field at all.
 
 ### Update profile
 
-1. An **unknown or soft-deleted** customer is refused with 404, "Customer not found"
+1. A **soft-deleted** customer is refused with 404, "Customer not found"
    (`findActiveById`).
 2. Every field is **optional. Absent or `null` means unchanged.** Only the fields sent are written.
 3. The email is **trimmed and lower-cased**, as on create. If another **active** user has it, 409,
@@ -58,16 +58,19 @@ current password; the PATCH has no `password` field at all.
 
 ## Authorisation
 
-None, per #34's trade. This is an **IDOR**: anyone can edit any customer's profile, including the
-email, by id. Requiring the current password is what keeps the IDOR from becoming account
-takeover. Closing the IDOR belongs to auth, not to this umbrella.
+A token and `customer.write` are required (#83 part 4). The customer is the caller (#83 part 2, ADR 0009):
+the path is `/me`, the service takes the customer id from the token, and a caller who is not a
+customer gets 403 "Caller is not a customer". Before part 2 the path carried the customer's id, and
+this was an **IDOR**: anyone could edit, including the email, the profile of any customer's account by id.
+Requiring the current password is what kept that IDOR from becoming account takeover, and it still
+guards a stolen token from changing the password.
 
 ## API
 
 ### Update profile
 
 ```http
-PATCH /api/v1/customers/4
+PATCH /api/v1/customers/me
 Content-Type: application/json
 ```
 
@@ -106,7 +109,7 @@ Response, **200**, the full profile:
 ### Change password
 
 ```http
-PUT /api/v1/customers/4/password
+PUT /api/v1/customers/me/password
 Content-Type: application/json
 ```
 
@@ -192,7 +195,7 @@ sequenceDiagram
     participant US as UserService
     participant M as CustomerMapper
 
-    Caller->>C: PATCH /api/v1/customers/{customerId}
+    Caller->>C: PATCH /api/v1/customers/me
     alt body invalid
         C-->>Caller: 400 Bad Request
     end
@@ -229,7 +232,7 @@ sequenceDiagram
     participant CR as CustomerRepository
     participant PE as PasswordEncoder
 
-    Caller->>C: PUT /api/v1/customers/{customerId}/password
+    Caller->>C: PUT /api/v1/customers/me/password
     alt body invalid
         C-->>Caller: 400 Bad Request
     end
@@ -274,7 +277,6 @@ are never mutated.
 | --- | --- |
 | PATCH `name` + `phone` | 200, both changed; email, date of birth and gender unchanged |
 | PATCH `email` to seeded customer 1's `ahmed.ali@example.com` | 409, "Email is already in use" |
-| PATCH unknown id `999999` | 404, "Customer not found" |
 | PATCH `email` = `not-an-email` | 400 |
 
 `ChangePasswordEndpointTest`:

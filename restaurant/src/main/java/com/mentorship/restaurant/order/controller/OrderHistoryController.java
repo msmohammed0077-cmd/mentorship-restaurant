@@ -3,11 +3,13 @@ package com.mentorship.restaurant.order.controller;
 import com.mentorship.restaurant.order.model.request.ViewOrderHistoryRequest;
 import com.mentorship.restaurant.order.model.response.OrderHistoryResponse;
 import com.mentorship.restaurant.order.service.OrderHistoryService;
+import com.mentorship.restaurant.user.model.Caller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,9 +25,10 @@ public class OrderHistoryController {
   @PreAuthorize("hasAuthority('order.read')")
   @GetMapping
   public ResponseEntity<OrderHistoryResponse> viewOrderHistory(
+      @AuthenticationPrincipal Caller caller,
       @Valid @ModelAttribute ViewOrderHistoryRequest request) {
     return ResponseEntity.ok(
         orderHistoryService.viewOrderHistory(
-            request.getCustomerId(), request.getRole(), request.getLimit(), request.getCursor()));
+            caller.requireCustomerId(), request.getLimit(), request.getCursor()));
   }
 }

@@ -5,8 +5,8 @@ import com.mentorship.restaurant.cart.service.CartService;
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.model.entity.Address;
 import com.mentorship.restaurant.customer.service.AddressService;
+import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.order.exception.OrderNotFoundException;
-import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.entity.OrderStatus;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
@@ -27,8 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creating and viewing orders, plus the guards the other order services share. Those services
- * inject this one; this one never injects them, so Spring cannot meet a cycle.
+ * Creating and viewing orders, plus the guard the other order services share. Those services inject
+ * this one; this one never injects them, so Spring cannot meet a cycle.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,18 +38,19 @@ public class OrderService {
   private final OrderMapper orderMapper;
   private final CartService cartService;
   private final AddressService addressService;
+  private final CustomerService customerService;
   private final PaymentProcessor paymentProcessor;
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
   @Transactional
-  public OrderResponse createOrder(CreateOrderRequest request) {
+  public OrderResponse createOrder(Long customerId, CreateOrderRequest request) {
     Cart cart = cartService.findCart(request.getCartId());
     Address address = addressService.findAddress(request.getAddressId());
 
     OrderHandler orderHandler =
         OrderHandler.processOrder(
-            new CartValidatorHandler(cart),
-            new AddressValidatorHandler(address),
+            new CartValidatorHandler(cart, customerId),
+            new AddressValidatorHandler(address, customerId),
             new ItemsValidatorHandler(cart),
             new ProcessPaymentHandler(paymentProcessor),
             new OrderFinalizer(cart, address, orderMapper, orderRepository, cartService),
@@ -57,18 +58,23 @@ public class OrderService {
 
     OrderResponse response =
         OrderResponse.builder()
-            .customerId(request.getCustomerId())
+            .customerId(customerId)
             .restaurantId(request.getRestaurantId())
             .build();
 
     return orderHandler.handle(request, response);
   }
 
+  /** The caller's order: placed by their customer, or with their restaurant; else a 404. */
   @Transactional(readOnly = true)
-  public OrderResponse viewOrderDetails(Long orderId) {
+  public OrderResponse viewOrderDetails(Long orderId, Long customerId, Long userId) {
+    // A soft-deleted customer's token outlives them; their orders no longer exist to them.
+    if (customerId != null) {
+      customerService.ensureActiveCustomerExists(customerId);
+    }
     Order order =
         orderRepository
-            .findById(orderId)
+            .findByIdForCaller(orderId, customerId, userId)
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
     return orderMapper.toResponse(order);
@@ -82,17 +88,10 @@ public class OrderService {
     return orderRepository.existsByCustomer_IdAndStatusIn(customerId, OrderStatus.ACTIVE);
   }
 
-  /** Shared: the order's owner (customer or restaurant) must be the actor. */
-  public void ensureOwnedBy(Long ownerId, Long actorId, String message) {
-    if (!ownerId.equals(actorId)) {
-      throw new OrderNotOwnedException(message);
-    }
-  }
-
   /**
    * Shared: a soft-deleted customer does not exist to the API, even though their orders stay for
-   * history, so acting on them is a 404. Callers run it after the ownership check, so the owner is
-   * the caller.
+   * history, so acting on them is a 404. Callers pass the deleted-at of an order their own query
+   * scoped to the caller (ADR 0009), so the owner is the caller.
    */
   public void ensureOwnerActive(OffsetDateTime ownerDeletedAt) {
     if (ownerDeletedAt != null) {

@@ -12,12 +12,9 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
     long homeAddressId = insertAddress("Home", true, "2026-01-01T10:00:00Z");
     long workAddressId = insertAddress("Work", false, "2026-01-02T10:00:00Z");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}/default?customerId={customerId}",
-            workAddressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}/default", workAddressId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -35,12 +32,9 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
   void settingTheExistingDefaultIsIdempotent() {
     long addressId = insertAddress("Home", true, "2026-01-01T10:00:00Z");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}/default?customerId={customerId}",
-            addressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}/default", addressId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -55,12 +49,9 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownAddress() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}/default?customerId={customerId}",
-            999999L,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}/default", 999999L)
         .exchange()
         .expectStatus()
         .isNotFound()
@@ -73,12 +64,9 @@ class SetDefaultAddressEndpointTest extends AddressEndpointTestSupport {
   void rejectsAnAddressBelongingToAnotherCustomer() {
     long addressId = addAddress("Home");
 
-    client
+    asCustomer(OTHER_CUSTOMER)
         .put()
-        .uri(
-            "/api/v1/addresses/{addressId}/default?customerId={customerId}",
-            addressId,
-            OTHER_CUSTOMER)
+        .uri("/api/v1/addresses/{addressId}/default", addressId)
         .exchange()
         .expectStatus()
         .isNotFound()

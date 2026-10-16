@@ -15,12 +15,8 @@ class CreateCustomerEndpointTest extends CustomerEndpointTestSupport {
   }
 
   /** Registration is public (#83 part 4), so these requests carry no token. */
-  @Override
-  protected String realmRole() {
-    return null;
-  }
-
   private static final String NEW_EMAIL = "create.customer.test.sara@example.com";
+
   private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
 
   @Test

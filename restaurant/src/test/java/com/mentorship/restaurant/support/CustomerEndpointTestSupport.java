@@ -29,16 +29,9 @@ public abstract class CustomerEndpointTestSupport {
   @Autowired protected PasswordEncoder passwordEncoder;
   @Autowired protected JwtTestSupport jwts;
 
-  /** The realm role this class's requests carry a token for; null sends none. */
-  protected String realmRole() {
-    return "CUSTOMER";
-  }
-
-  @BeforeEach
-  protected void sendToken() {
-    if (realmRole() != null) {
-      client = jwts.as(client, realmRole());
-    }
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
   }
 
   /**
@@ -65,9 +58,12 @@ public abstract class CustomerEndpointTestSupport {
             """
             WITH new_user AS (
               INSERT INTO users (
-                user_name, user_email, user_password, user_phone, user_date_of_birth, user_gender
+                user_name, user_email, user_password, user_phone, user_date_of_birth, user_gender,
+                user_keycloak_id
               )
-              VALUES ('Sara Youssef', ?, ?, '+201001234567', DATE '1995-04-12', 'FEMALE')
+              VALUES (
+                'Sara Youssef', ?, ?, '+201001234567', DATE '1995-04-12', 'FEMALE', gen_random_uuid()
+              )
               RETURNING user_id
             )
             INSERT INTO customers (user_id) SELECT user_id FROM new_user

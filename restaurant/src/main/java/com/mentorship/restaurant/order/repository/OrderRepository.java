@@ -31,22 +31,38 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   @Query("select o.restaurant.id from Order o where o.id = :orderId")
   Optional<Long> findRestaurantIdById(@Param("orderId") Long orderId);
 
+  boolean existsByIdAndRestaurant_Id(Long orderId, Long restaurantId);
+
   /**
-   * The order's customer id and that customer's soft-delete timestamp, in one query. A projection
-   * rather than an entity, because the status transition that follows is a bulk update and would
-   * leave a loaded order stale. Soft-deleted owners are not filtered.
+   * The caller's order's soft-delete state, in one query; another customer's order is not found. A
+   * projection rather than an entity, because the status transition that follows is a bulk update
+   * and would leave a loaded order stale. Soft-deleted owners are not filtered.
    */
   @Query(
       """
       select customer.id as customerId, user.userDeletedAt as customerDeletedAt
       from Order o join o.customer customer join customer.user user
-      where o.id = :orderId
+      where o.id = :orderId and customer.id = :customerId
       """)
-  Optional<OrderOwnerProjection> findOwnerById(@Param("orderId") Long orderId);
+  Optional<OrderOwnerProjection> findOwnerByIdAndCustomerId(
+      @Param("orderId") Long orderId, @Param("customerId") Long customerId);
+
+  /** The order if the caller placed it or owns its restaurant; otherwise not found. */
+  @Query(
+      """
+      select o from Order o
+      where o.id = :orderId
+        and (o.customer.id = :customerId or o.restaurant.user.id = :userId)
+      """)
+  Optional<Order> findByIdForCaller(
+      @Param("orderId") Long orderId,
+      @Param("customerId") Long customerId,
+      @Param("userId") Long userId);
 
   /**
-   * Everything rate-order checks, in one query: the owner, the owner's soft delete, the status, and
-   * whether a rating exists. Soft-deleted owners are not filtered; the service decides.
+   * Everything rate-order checks for the caller's order, in one query: the owner's soft delete, the
+   * status, and whether a rating exists. Another customer's order is not found. Soft-deleted owners
+   * are not filtered; the service decides.
    */
   @Query(
       """
@@ -54,9 +70,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
              o.status as status, case when rating.id is null then false else true end as rated
       from Order o join o.customer customer join customer.user user
       left join OrderRating rating on rating.order = o
-      where o.id = :orderId
+      where o.id = :orderId and customer.id = :customerId
       """)
-  Optional<OrderRatingContextProjection> findRatingContextById(@Param("orderId") Long orderId);
+  Optional<OrderRatingContextProjection> findRatingContextByIdAndCustomerId(
+      @Param("orderId") Long orderId, @Param("customerId") Long customerId);
 
   @Modifying(flushAutomatically = true)
   @Query("update Order o set o.prepTimeMinutes = :minutes where o.id = :orderId")
