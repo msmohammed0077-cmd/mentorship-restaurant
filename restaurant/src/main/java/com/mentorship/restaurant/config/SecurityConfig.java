@@ -38,7 +38,9 @@ public class SecurityConfig {
             auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll().anyRequest().permitAll())
         .oauth2ResourceServer(
             oauth2 ->
-                oauth2.bearerTokenResolver(publicPathsIgnoreTokens()).jwt(Customizer.withDefaults()))
+                oauth2
+                    .bearerTokenResolver(publicPathsIgnoreTokens())
+                    .jwt(Customizer.withDefaults()))
         .build();
   }
 

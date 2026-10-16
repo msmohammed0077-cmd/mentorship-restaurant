@@ -15,9 +15,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
- * Bearer-token validation (#83 part 1). Tokens are checked on a path with no endpoint: a valid
- * one gets past authentication, an invalid one is a 401. Public paths ignore the header altogether, so a stale
- * token left in Swagger UI cannot break them.
+ * Bearer-token validation (#83 part 1). Tokens are checked on a path with no endpoint: a valid one
+ * gets past authentication, an invalid one is a 401. Public paths ignore the header altogether, so
+ * a stale token left in Swagger UI cannot break them.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
