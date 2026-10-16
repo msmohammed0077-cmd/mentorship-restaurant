@@ -42,8 +42,7 @@ public class CustomerService {
     User user =
         userService.create(
             User.builder()
-                .userName(
-                    name.length() > MAX_NAME_LENGTH ? name.substring(0, MAX_NAME_LENGTH) : name)
+                .userName(truncated(name))
                 .userEmail(normalisedEmail)
                 .userKeycloakId(keycloakId)
                 .build());
@@ -105,6 +104,13 @@ public class CustomerService {
     if (customer.getUser().getUserDeletedAt() != null) {
       throw new CustomerNotFoundException("Customer not found");
     }
+  }
+
+  /** Cut by characters, as PostgreSQL counts them, so a cut never splits an emoji in two. */
+  private static String truncated(String name) {
+    return name.codePointCount(0, name.length()) > MAX_NAME_LENGTH
+        ? name.substring(0, name.offsetByCodePoints(0, MAX_NAME_LENGTH))
+        : name;
   }
 
   private void ensureEmailAvailable(String email) {

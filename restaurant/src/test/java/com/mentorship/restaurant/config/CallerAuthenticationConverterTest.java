@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +18,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 
 /**
  * Two first requests with a fresh token race to insert the same {@code user_keycloak_id}. Over HTTP
@@ -28,32 +30,36 @@ class CallerAuthenticationConverterTest {
   private final UserService userService = mock(UserService.class);
   private final CustomerService customerService = mock(CustomerService.class);
   private final CallerAuthenticationConverter converter =
-      new CallerAuthenticationConverter(userService, customerService);
+      new CallerAuthenticationConverter(
+          userService, customerService, List.of("restaurant-swagger"));
 
   @Test
   void theLoserOfARaceResolvesTheWinnersRows() {
     Caller winner = new Caller(7L, 70L);
-    when(userService.findCaller(keycloakId)).thenReturn(Optional.empty(), Optional.of(winner));
+    when(userService.findCaller(eq(keycloakId), any()))
+        .thenReturn(Optional.empty(), Optional.of(winner));
     when(customerService.registerFromToken(any(), anyString(), anyString()))
         .thenThrow(new DataIntegrityViolationException("uq_users_keycloak_id"));
 
     assertThat(converter.convert(signUpJwt()).getPrincipal()).isEqualTo(winner);
   }
 
+  /** Not a 500 from the security filter, where our error handler never runs: a logged 401. */
   @Test
-  void aFailedInsertWithNoWinnerPropagates() {
-    when(userService.findCaller(keycloakId)).thenReturn(Optional.empty());
+  void aFailedInsertWithNoWinnerIsAnUnknownUser() {
+    when(userService.findCaller(eq(keycloakId), any())).thenReturn(Optional.empty());
     when(customerService.registerFromToken(any(), anyString(), anyString()))
         .thenThrow(new DataIntegrityViolationException("something else"));
 
     assertThatThrownBy(() -> converter.convert(signUpJwt()))
-        .isInstanceOf(DataIntegrityViolationException.class);
+        .isInstanceOf(InvalidBearerTokenException.class);
   }
 
   private Jwt signUpJwt() {
     return Jwt.withTokenValue("token")
         .header("alg", "none")
         .subject(keycloakId.toString())
+        .claim("azp", "restaurant-swagger")
         .claim("email", "racer@example.com")
         .claim("email_verified", true)
         .claim("name", "Racer")

@@ -6,6 +6,8 @@ import com.mentorship.restaurant.support.CustomerEndpointTestSupport;
 import com.mentorship.restaurant.support.RealmPermissions;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -97,6 +99,56 @@ class FirstLoginEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @Test
+  void keepsACharacterWholeWhenCuttingTheName() {
+    UUID keycloakId = UUID.randomUUID();
+    String name = "a".repeat(149) + "\uD83D\uDE00" + "b";
+
+    getMe(jwts.signUpTokenFor(keycloakId, email("nour"), name))
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.name")
+        .isEqualTo("a".repeat(149) + "\uD83D\uDE00");
+  }
+
+  /** Staff are linked to their rows by hand; the default role must not make them customers. */
+  @Test
+  void refusesAKitchenToken() {
+    UUID keycloakId = UUID.randomUUID();
+    Set<String> ownerAndCustomer = new TreeSet<>(RealmPermissions.of("CUSTOMER"));
+    ownerAndCustomer.addAll(RealmPermissions.of("RESTAURANT_OWNER"));
+
+    getMe(jwts.sign(withPermissions(keycloakId, ownerAndCustomer))).expectStatus().isUnauthorized();
+
+    assertThat(usersLinkedTo(keycloakId)).isZero();
+  }
+
+  @Test
+  void refusesAnAdminToken() {
+    UUID keycloakId = UUID.randomUUID();
+
+    getMe(jwts.sign(withPermissions(keycloakId, RealmPermissions.of("ADMIN"))))
+        .expectStatus()
+        .isUnauthorized();
+
+    assertThat(usersLinkedTo(keycloakId)).isZero();
+  }
+
+  @Test
+  void refusesATokenIssuedToAnotherClient() {
+    UUID keycloakId = UUID.randomUUID();
+
+    getMe(
+            jwts.sign(
+                jwts.signUpClaims(keycloakId, email("nour"), "Nour Adel")
+                    .claim("azp", "some-other-client")))
+        .expectStatus()
+        .isUnauthorized();
+
+    assertThat(usersLinkedTo(keycloakId)).isZero();
+  }
+
+  @Test
   void refusesATokenWithoutAnEmail() {
     UUID keycloakId = UUID.randomUUID();
     JwtClaimsSet.Builder claims =
@@ -126,7 +178,9 @@ class FirstLoginEndpointTest extends CustomerEndpointTestSupport {
 
     getMe(jwts.signUpTokenFor(keycloakId, email("nour"), "Nour Adel"))
         .expectStatus()
-        .isUnauthorized();
+        .isUnauthorized()
+        .expectHeader()
+        .valueMatches(HttpHeaders.WWW_AUTHENTICATE, ".*not linked to Keycloak.*");
 
     assertThat(usersLinkedTo(keycloakId)).isZero();
     assertThat(
@@ -150,6 +204,12 @@ class FirstLoginEndpointTest extends CustomerEndpointTestSupport {
 
     assertThat(created.longValue()).isNotEqualTo(deleted);
     assertThat(customersLinkedTo(keycloakId)).isEqualTo(1);
+  }
+
+  private JwtClaimsSet.Builder withPermissions(UUID keycloakId, Set<String> permissions) {
+    return jwts.signUpClaims(keycloakId, email("nour"), "Nour Adel")
+        .claim(
+            "resource_access", Map.of("restaurant-api", Map.of("roles", List.copyOf(permissions))));
   }
 
   private RestTestClient.ResponseSpec getMe(String token) {

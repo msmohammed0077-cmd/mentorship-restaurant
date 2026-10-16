@@ -75,8 +75,8 @@ public class JwtTestSupport {
   }
 
   /**
-   * A token for a Keycloak user with no users row yet, as Keycloak issues it after sign-up: the
-   * CUSTOMER permissions (the realm's default role), a verified email and a name.
+   * A token for a Keycloak user with no users row yet, as Keycloak issues it after sign-up through
+   * Swagger UI: the CUSTOMER permissions (the realm's default role), a verified email and a name.
    */
   public String signUpTokenFor(UUID keycloakId, String email, String name) {
     return sign(signUpClaims(keycloakId, email, name));
@@ -89,6 +89,7 @@ public class JwtTestSupport {
             "resource_access",
             Map.of(
                 PERMISSIONS_CLIENT, Map.of("roles", List.copyOf(RealmPermissions.of("CUSTOMER")))))
+        .claim("azp", "restaurant-swagger")
         .claim("email", email)
         .claim("email_verified", true)
         .claim("name", name);
