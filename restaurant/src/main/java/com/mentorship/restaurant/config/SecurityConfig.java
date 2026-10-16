@@ -33,9 +33,7 @@ public class SecurityConfig {
           PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
           PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/health"),
           // Spring forwards errors here; a token check would turn a 404 into a 401.
-          PathPatternRequestMatcher.withDefaults().matcher("/error"),
-          // Registration: the caller has no account yet. #83 part 3 replaces it.
-          PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/v1/customers"));
+          PathPatternRequestMatcher.withDefaults().matcher("/error"));
 
   @Bean
   SecurityFilterChain securityFilterChain(

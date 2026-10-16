@@ -28,9 +28,8 @@ Builds on #73 (`CustomerController`, `CustomerService`, `CustomerMapper`, `Custo
    still valid. Soft-deleted
    customers do not exist to the API: the lookup is `CustomerRepository.findActiveById`, which
    filters `user.userDeletedAt is null`.
-2. The password is **never** in the response.
-3. **Read-only.** No business state is validated; a read reports what is there.
-4. **Addresses are not embedded.** They have their own endpoint,
+2. **Read-only.** No business state is validated; a read reports what is there.
+3. **Addresses are not embedded.** They have their own endpoint,
    `GET /api/v1/addresses`.
 
 ## Authorisation
@@ -134,8 +133,8 @@ CustomerController -> CustomerService     (@Service, @Transactional(readOnly = t
 
 | Case | Expected |
 | --- | --- |
-| Seeded customer 1, as themselves | 200, name `Ahmed Ali`, email `ahmed.ali@example.com`, no `password` |
-| Soft-deleted customer (created via the API, marked deleted via SQL) | 404 |
+| Seeded customer 1, as themselves | 200, name `Ahmed Ali`, email `ahmed.ali@example.com` |
+| Soft-deleted customer (inserted and marked deleted via SQL) | 404 |
 
 Every email the test creates starts with `get.customer.test.`, and cleanup deletes only those
 users. The `customers` rows go with them by cascade. Seeded customers 1–3 are only read.
@@ -143,4 +142,4 @@ users. The `customers` rows go with them by cascade. Seeded customers 1–3 are 
 # Notes
 
 1. **IDOR** is #34's accepted trade, tracked with auth.
-2. **No addresses in the profile.** See rule 4.
+2. **No addresses in the profile.** See rule 3.

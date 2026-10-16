@@ -42,11 +42,13 @@ Also makes the older customer lookups outside this umbrella exclude soft-deleted
 4. **Past orders, ratings, addresses and the cart are kept.** Nothing is deleted. Until #84 the
    cart was deleted too; the cart-by-id endpoints can still reach the kept cart, which
    [#104](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/104) tracks.
-5. Afterwards the customer **does not exist** to the API: `GET`, `PATCH`, the password endpoint,
+5. Afterwards the customer **does not exist** to the API: `GET`, `PATCH`,
    every address operation, add-to-cart, order history, cancel and rate all return 404, "Customer
    not found" (for address and order operations, on their own address or order — see *Soft-deleted
-   customers elsewhere*). Their email is **reusable** by a new sign-up, because the partial unique index
-   `uq_users_active_email` only covers active users.
+   customers elsewhere*). Their Keycloak user is **not** deleted (#83 part 3, ADR 0010): they can
+   still log in and meet these 404s, and their email cannot sign up again until an admin removes
+   the Keycloak user. Our side would allow it: the partial unique index `uq_users_active_email`
+   only covers active users.
 
 ## Authorisation
 
@@ -155,8 +157,8 @@ CustomerController -> CustomerDeletionService  (@Service, @Transactional; its ow
 
 ## Testing
 
-`DeleteCustomerEndpointTest`, end-to-end, on customers the test creates through
-`POST /api/v1/customers`. Seeded customers 1–3 are never touched.
+`DeleteCustomerEndpointTest`, end-to-end, on customers the test inserts through
+`CustomerEndpointTestSupport.insertCustomer`. Seeded customers 1–3 are never touched.
 
 | Case | Expected |
 | --- | --- |

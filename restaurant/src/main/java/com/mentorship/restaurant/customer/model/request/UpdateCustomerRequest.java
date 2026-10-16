@@ -1,7 +1,6 @@
 package com.mentorship.restaurant.customer.model.request;
 
 import com.mentorship.restaurant.user.model.entity.Gender;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -20,12 +19,6 @@ public class UpdateCustomerRequest {
   @Pattern(regexp = "(?s).*\\S.*", message = "must not be blank")
   @Size(max = 150)
   private String name;
-
-  // @Email accepts an empty string, so the same pattern keeps "" from being stored as the email.
-  @Pattern(regexp = "(?s).*\\S.*", message = "must not be blank")
-  @Email
-  @Size(max = 255)
-  private String email;
 
   @Pattern(regexp = "^\\+?[0-9]{7,15}$")
   private String phone;

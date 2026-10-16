@@ -2,6 +2,14 @@
   "realm": "restaurant",
   "enabled": true,
   "sslRequired": "external",
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
   "roles": {
     "realm": [
       {
@@ -67,6 +75,16 @@
             ]
           }
         }
+      },
+      {
+        "name": "default-roles-restaurant",
+        "description": "Given to every new user: sign-ups are customers.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "CUSTOMER"
+          ]
+        }
       }
     ],
     "client": {
@@ -77,7 +95,7 @@
         },
         {
           "name": "customer.write",
-          "description": "Update, re-password or delete a customer"
+          "description": "Update or delete a customer"
         },
         {
           "name": "address.read",
@@ -192,13 +210,6 @@
       "lastName": "Ali",
       "realmRoles": [
         "CUSTOMER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -211,13 +222,6 @@
       "lastName": "Hassan",
       "realmRoles": [
         "CUSTOMER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -230,13 +234,6 @@
       "lastName": "Kitchen",
       "realmRoles": [
         "RESTAURANT_OWNER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -249,13 +246,6 @@
       "lastName": "Yard",
       "realmRoles": [
         "RESTAURANT_OWNER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -268,13 +258,6 @@
       "lastName": "Nabil",
       "realmRoles": [
         "CUSTOMER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -287,13 +270,6 @@
       "lastName": "Grill",
       "realmRoles": [
         "RESTAURANT_OWNER"
-      ],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password",
-          "temporary": false
-        }
       ]
     },
     {
@@ -306,12 +282,121 @@
       "lastName": "Admin",
       "realmRoles": [
         "ADMIN"
-      ],
-      "credentials": [
+      ]
+    }
+  ],
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "browserFlow": "browser-email-otp",
+  "registrationFlow": "registration-without-password",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@restaurant.local",
+    "fromDisplayName": "Restaurant"
+  },
+  "defaultRole": {
+    "name": "default-roles-restaurant"
+  },
+  "authenticatorConfig": [
+    {
+      "alias": "email-otp",
+      "config": {
+        "code-length": "6",
+        "code-alphabet": "0123456789",
+        "code-lifetime": "600",
+        "resend-cooldown": "60",
+        "issuance-limit": "5",
+        "issuance-limit-window": "900",
+        "trust-only-when-sole": "true",
+        "ip-trust-enabled": "false",
+        "device-trust-enabled": "false"
+      }
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "browser-email-otp",
+      "description": "Cookie, else email then a code sent to it. No password.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
         {
-          "type": "password",
-          "value": "password",
-          "temporary": false
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "flowAlias": "browser-email-otp forms",
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "browser-email-otp forms",
+      "description": "The email, then the code.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "email-otp-form",
+          "authenticatorConfig": "email-otp",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "registration-without-password",
+      "description": "Email, first and last name; no password step.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-page-form",
+          "authenticatorFlow": true,
+          "flowAlias": "registration-without-password form",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "registration-without-password form",
+      "description": "The registration form: the user profile only.",
+      "providerId": "form-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-user-creation",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
         }
       ]
     }

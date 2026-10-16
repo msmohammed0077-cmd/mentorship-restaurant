@@ -19,7 +19,9 @@ services:
       retries: 10
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.2
+    build:
+      context: ./docker/keycloak
+    image: restaurant-keycloak:26.5.7
     container_name: restaurant-keycloak
     # Imports keycloak/realm-restaurant.json only when the realm does not exist yet:
     # after editing the file, reset Keycloak's schema (CLAUDE.md, Authentication).
@@ -27,6 +29,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/restaurant
@@ -50,6 +54,14 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    container_name: restaurant-mailpit
+    # Catches every email Keycloak sends (login codes, verification links); nothing leaves the
+    # machine. Inbox at http://localhost:8025; Keycloak reaches SMTP at mailpit:1025.
+    ports:
+      - "127.0.0.1:8025:8025"
 
   app:
     build:

@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 /**
@@ -21,12 +20,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 @AutoConfigureRestTestClient
 public abstract class CustomerEndpointTestSupport {
 
-  protected static final String TEST_PASSWORD = "s3cret-pass";
   protected static final long NILE_KITCHEN = 1L;
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
-  @Autowired protected PasswordEncoder passwordEncoder;
   @Autowired protected JwtTestSupport jwts;
 
   /** {@link #client}, acting as the customer. */
@@ -51,18 +48,17 @@ public abstract class CustomerEndpointTestSupport {
     jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", emailPrefix() + "%");
   }
 
-  /** Inserts a user and its customer, password {@link #TEST_PASSWORD}. Returns the customer id. */
+  /** Inserts a user and its customer, linked to a random Keycloak id. Returns the customer id. */
   protected long insertCustomer(String email) {
     Long customerId =
         jdbcTemplate.queryForObject(
             """
             WITH new_user AS (
               INSERT INTO users (
-                user_name, user_email, user_password, user_phone, user_date_of_birth, user_gender,
-                user_keycloak_id
+                user_name, user_email, user_phone, user_date_of_birth, user_gender, user_keycloak_id
               )
               VALUES (
-                'Sara Youssef', ?, ?, '+201001234567', DATE '1995-04-12', 'FEMALE', gen_random_uuid()
+                'Sara Youssef', ?, '+201001234567', DATE '1995-04-12', 'FEMALE', gen_random_uuid()
               )
               RETURNING user_id
             )
@@ -70,11 +66,22 @@ public abstract class CustomerEndpointTestSupport {
             RETURNING customer_id
             """,
             Long.class,
-            email,
-            passwordEncoder.encode(TEST_PASSWORD));
+            email);
     if (customerId == null) {
       throw new IllegalStateException("Customer not created for " + email);
     }
+    return customerId;
+  }
+
+  /** {@link #insertCustomer}, as the old POST /customers left it: no Keycloak user linked. */
+  protected long insertCustomerWithoutKeycloakId(String email) {
+    long customerId = insertCustomer(email);
+    jdbcTemplate.update(
+        """
+        UPDATE users SET user_keycloak_id = NULL
+        WHERE user_id = (SELECT user_id FROM customers WHERE customer_id = ?)
+        """,
+        customerId);
     return customerId;
   }
 
