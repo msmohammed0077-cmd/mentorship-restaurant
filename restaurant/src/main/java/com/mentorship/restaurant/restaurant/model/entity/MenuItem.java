@@ -10,7 +10,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -19,7 +22,9 @@ import lombok.Setter;
 @Table(name = "menu_items")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MenuItem {
 
   @Id
@@ -48,4 +53,11 @@ public class MenuItem {
 
   @Column(name = "menu_item_price", nullable = false, precision = 12, scale = 2)
   private BigDecimal itemPrice;
+
+  /** Lombok: {@code isAvailable()} and {@code setAvailable()}. */
+  @Column(name = "menu_item_is_available", nullable = false)
+  private boolean isAvailable;
+
+  @Column(name = "menu_item_deleted_at")
+  private OffsetDateTime menuItemDeletedAt;
 }

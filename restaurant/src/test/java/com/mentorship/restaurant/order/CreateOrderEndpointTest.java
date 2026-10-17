@@ -2,6 +2,8 @@ package com.mentorship.restaurant.order;
 
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.setMenuItemAvailable;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -345,6 +347,58 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Restaurant not found");
+
+    assertThat(orderCountFor(customerId)).isZero();
+    assertThat(cartExists(cartId)).isTrue();
+  }
+
+  @Test
+  void refusesACartWithAnUnavailableItem() {
+    long restaurantId = insertRestaurant(jdbcTemplate, "Busy Grill", email("grill"), true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, menuItemId, 1);
+    setMenuItemAvailable(jdbcTemplate, menuItemId, false);
+
+    placeOrder(
+            customerId,
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                restaurantId,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item is unavailable");
+
+    assertThat(orderCountFor(customerId)).isZero();
+    assertThat(cartExists(cartId)).isTrue();
+  }
+
+  @Test
+  void refusesACartWithADeletedItem() {
+    long restaurantId = insertRestaurant(jdbcTemplate, "Busy Grill", email("grill"), true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long customerId = insertCustomer(email("sara"));
+    long cartId = insertCart(customerId);
+    insertCartItem(cartId, menuItemId, 1);
+    softDeleteMenuItem(jdbcTemplate, menuItemId);
+
+    placeOrder(
+            customerId,
+            fieldsFor(
+                cartId,
+                addressIdForCustomer(jdbcTemplate, customerId),
+                restaurantId,
+                "CASH_ON_DELIVERY"))
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item not found");
 
     assertThat(orderCountFor(customerId)).isZero();
     assertThat(cartExists(cartId)).isTrue();

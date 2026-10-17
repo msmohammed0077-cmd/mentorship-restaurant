@@ -9,7 +9,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -18,7 +21,9 @@ import lombok.Setter;
 @Table(name = "menus")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Menu {
 
   @Id
@@ -35,4 +40,7 @@ public class Menu {
 
   @Column(name = "menu_category", nullable = false, length = 100)
   private String menuCategory;
+
+  @Column(name = "menu_deleted_at")
+  private OffsetDateTime menuDeletedAt;
 }

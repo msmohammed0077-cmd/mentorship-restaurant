@@ -14,6 +14,7 @@ import com.mentorship.restaurant.cart.repository.CartItemRepository;
 import com.mentorship.restaurant.cart.repository.CartRepository;
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.service.CustomerService;
+import com.mentorship.restaurant.restaurant.exception.MenuItemUnavailableException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
@@ -64,6 +65,7 @@ public class CartService {
     // As add-to-cart answers: a deleted restaurant's item is not found, a closed one's refused.
     MenuItem menuItem = restaurantService.findMenuItem(cartItem.getMenuItem().getId());
     ensureRestaurantOpen(menuItem.getMenu().getRestaurant());
+    ensureItemAvailable(menuItem);
 
     ensureStockCovers(quantity, menuItem.getStock());
 
@@ -115,6 +117,8 @@ public class CartService {
     // A cart holds one restaurant's items: refuse a closed or deleted one, as create-order does.
     restaurantService.ensureOrderable(
         cart.getItems().get(0).getMenuItem().getMenu().getRestaurant().getId());
+    // And each line's item: deleted is 404, unavailable 409, as add-to-cart answers.
+    restaurantService.ensureOrderableItems(lines.stream().map(Line::menuItemId).toList());
 
     lines.forEach(line -> restaurantService.decrementStock(line.menuItemId(), line.quantity()));
     cartItemRepository.deleteAllByCart_Id(cartId);
@@ -154,6 +158,7 @@ public class CartService {
   private void validateNewLine(Cart cart, MenuItem menuItem, Integer quantity) {
     Restaurant restaurant = menuItem.getMenu().getRestaurant();
     ensureRestaurantOpen(restaurant);
+    ensureItemAvailable(menuItem);
     if (cart != null) {
       ensureItemNotAlreadyInCart(cart, menuItem);
       ensureSameRestaurant(cart, restaurant);
@@ -164,6 +169,12 @@ public class CartService {
   private void ensureRestaurantOpen(Restaurant restaurant) {
     if (!restaurant.isOpen()) {
       throw new RestaurantClosedException("Restaurant is closed");
+    }
+  }
+
+  private void ensureItemAvailable(MenuItem menuItem) {
+    if (!menuItem.isAvailable()) {
+      throw new MenuItemUnavailableException("Item is unavailable");
     }
   }
 

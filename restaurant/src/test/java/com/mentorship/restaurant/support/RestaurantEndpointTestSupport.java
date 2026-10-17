@@ -192,4 +192,66 @@ public abstract class RestaurantEndpointTestSupport {
         """,
         restaurantId);
   }
+
+  /**
+   * Inserts the restaurant's menu, coded {@code TEST-MENU-<restaurantId>}, with no items. Returns
+   * the menu id. Not with {@link #insertMenuItem}, which inserts a menu of the same code.
+   */
+  protected long insertMenu(long restaurantId) {
+    Long menuId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO menus (restaurant_id, menu_code, menu_category)
+            VALUES (?, ?, 'Main')
+            RETURNING menu_id
+            """,
+            Long.class,
+            restaurantId,
+            "TEST-MENU-" + restaurantId);
+    if (menuId == null) {
+      throw new IllegalStateException("Menu not created for restaurant " + restaurantId);
+    }
+    return menuId;
+  }
+
+  /** Inserts an item on the menu: stock 50 at 100.00. Returns the item id. */
+  protected long insertItem(long menuId, String code, boolean isAvailable) {
+    Long menuItemId =
+        jdbcTemplate.queryForObject(
+            """
+            INSERT INTO menu_items (
+              menu_id, menu_item_code, menu_item_name, menu_item_price, menu_item_stock,
+              menu_item_is_available
+            )
+            VALUES (?, ?, 'Test Dish', 100.00, 50, ?)
+            RETURNING menu_item_id
+            """,
+            Long.class,
+            menuId,
+            code,
+            isAvailable);
+    if (menuItemId == null) {
+      throw new IllegalStateException("Menu item not created on menu " + menuId);
+    }
+    return menuItemId;
+  }
+
+  protected void softDeleteMenu(long menuId) {
+    jdbcTemplate.update("UPDATE menus SET menu_deleted_at = now() WHERE menu_id = ?", menuId);
+  }
+
+  /** Static and public for the cart and order tests. */
+  public static void softDeleteMenuItem(JdbcTemplate jdbcTemplate, long menuItemId) {
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_deleted_at = now() WHERE menu_item_id = ?", menuItemId);
+  }
+
+  /** Static and public for the cart and order tests. */
+  public static void setMenuItemAvailable(
+      JdbcTemplate jdbcTemplate, long menuItemId, boolean isAvailable) {
+    jdbcTemplate.update(
+        "UPDATE menu_items SET menu_item_is_available = ? WHERE menu_item_id = ?",
+        isAvailable,
+        menuItemId);
+  }
 }

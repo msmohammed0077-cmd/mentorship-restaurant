@@ -20,3 +20,6 @@ Services built entities with `new` and a run of setters, one line per field. The
 
 ## Amendment — 2026-10-10
 `Restaurant` is now created by the application (create-restaurant, #86), so it gains the builder and the private all-args constructor. `Menu` and `MenuItem` stay builder-less until the menu CRUD (#92) creates them.
+
+## Amendment — 2026-10-17
+`Menu` and `MenuItem` are now created by the application (create-menu, create-menu-item, #92), so they gain the builder and the private all-args constructor.

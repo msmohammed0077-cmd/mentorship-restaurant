@@ -46,7 +46,8 @@
               "order.accept",
               "order.reject",
               "order.prepare",
-              "restaurant.write"
+              "restaurant.write",
+              "menu.write"
             ]
           }
         }
@@ -75,7 +76,8 @@
               "order.prepare",
               "restaurant.create",
               "restaurant.write",
-              "restaurant.delete"
+              "restaurant.delete",
+              "menu.write"
             ]
           }
         }
@@ -164,6 +166,10 @@
         {
           "name": "restaurant.delete",
           "description": "Delete a restaurant"
+        },
+        {
+          "name": "menu.write",
+          "description": "Create, edit and delete one's restaurant's menu and its items"
         }
       ]
     }

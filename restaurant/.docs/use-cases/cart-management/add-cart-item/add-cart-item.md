@@ -40,7 +40,11 @@ id. A caller who is not a customer gets 403 "Caller is not a customer".
 
 Each branch is labelled by the Main Flow step it extends.
 
+- **1a. Item deleted, on a deleted menu, or of a deleted restaurant:** 404 — "Item not found".
 - **2a. Restaurant is closed:** reject — "Restaurant is closed".
+- **2b. Item is unavailable** (its owner took it off,
+  [set-menu-item-available](../../menu-management/set-menu-item-available/set-menu-item-available.md)):
+  409 — "Item is unavailable".
 - **3a. Item already in cart:** reject — "Item is already in cart"; the customer changes the
   quantity through modify-cart instead.
 - **4a. Item is out of stock:** reject — "Item is not in stock".
