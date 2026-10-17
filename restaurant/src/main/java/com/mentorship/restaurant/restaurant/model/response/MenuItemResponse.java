@@ -1,5 +1,5 @@
 
-package com.mentorship.restaurant.menu.model.response;
+package com.mentorship.restaurant.restaurant.model.response;
 
 import java.math.BigDecimal;
 import lombok.*;

@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.menu.model.entity;
+package com.mentorship.restaurant.restaurant.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;

@@ -1,11 +1,11 @@
-package com.mentorship.restaurant.menu.controller;
+package com.mentorship.restaurant.restaurant.controller;
 
 
-import com.mentorship.restaurant.menu.model.request.MenuItemRequest;
-import com.mentorship.restaurant.menu.model.request.MenuRequest;
-import com.mentorship.restaurant.menu.model.response.MenuItemResponse;
-import com.mentorship.restaurant.menu.model.response.MenuResponse;
-import com.mentorship.restaurant.menu.service.MenuService;
+import com.mentorship.restaurant.restaurant.model.request.MenuItemRequest;
+import com.mentorship.restaurant.restaurant.model.request.MenuRequest;
+import com.mentorship.restaurant.restaurant.model.response.MenuItemResponse;
+import com.mentorship.restaurant.restaurant.model.response.MenuResponse;
+import com.mentorship.restaurant.restaurant.service.MenuService;
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.entity.ActorRole;
 import io.swagger.v3.oas.annotations.tags.Tag;

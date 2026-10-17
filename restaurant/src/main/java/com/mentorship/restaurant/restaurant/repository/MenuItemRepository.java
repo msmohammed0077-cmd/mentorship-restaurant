@@ -1,6 +1,6 @@
-package com.mentorship.restaurant.menu.repository;
+package com.mentorship.restaurant.restaurant.repository;
 
-import com.mentorship.restaurant.menu.model.entity.MenuItem;
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

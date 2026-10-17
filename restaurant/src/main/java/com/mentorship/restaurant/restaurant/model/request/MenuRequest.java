@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.menu.model.request;
+package com.mentorship.restaurant.restaurant.model.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.*;

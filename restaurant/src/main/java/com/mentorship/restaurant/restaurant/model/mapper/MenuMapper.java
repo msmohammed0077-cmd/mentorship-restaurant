@@ -1,11 +1,11 @@
-package com.mentorship.restaurant.menu.model.mapper;
+package com.mentorship.restaurant.restaurant.model.mapper;
 
 
-import com.mentorship.restaurant.menu.model.entity.Menu;
-import com.mentorship.restaurant.menu.model.entity.MenuItem;
-import com.mentorship.restaurant.menu.model.request.MenuRequest;
-import com.mentorship.restaurant.menu.model.response.MenuItemResponse;
-import com.mentorship.restaurant.menu.model.response.MenuResponse;
+import com.mentorship.restaurant.restaurant.model.entity.Menu;
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
+import com.mentorship.restaurant.restaurant.model.request.MenuRequest;
+import com.mentorship.restaurant.restaurant.model.response.MenuItemResponse;
+import com.mentorship.restaurant.restaurant.model.response.MenuResponse;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;

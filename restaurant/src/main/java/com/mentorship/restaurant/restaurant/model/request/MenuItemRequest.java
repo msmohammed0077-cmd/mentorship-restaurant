@@ -1,5 +1,5 @@
 
-package com.mentorship.restaurant.menu.model.request;
+package com.mentorship.restaurant.restaurant.model.request;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;

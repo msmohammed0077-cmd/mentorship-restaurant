@@ -1,16 +1,16 @@
 
-package com.mentorship.restaurant.menu.service;
+package com.mentorship.restaurant.restaurant.service;
 
-import com.mentorship.restaurant.menu.exception.RestaurantNotFoundException;
-import com.mentorship.restaurant.menu.model.entity.Menu;
-import com.mentorship.restaurant.menu.model.entity.MenuItem;
-import com.mentorship.restaurant.menu.model.mapper.MenuMapper;
-import com.mentorship.restaurant.menu.model.request.MenuItemRequest;
-import com.mentorship.restaurant.menu.model.request.MenuRequest;
-import com.mentorship.restaurant.menu.model.response.MenuItemResponse;
-import com.mentorship.restaurant.menu.model.response.MenuResponse;
-import com.mentorship.restaurant.menu.repository.MenuItemRepository;
-import com.mentorship.restaurant.menu.repository.MenuRepository;
+import com.mentorship.restaurant.restaurant.exception.RestaurantNotFoundException;
+import com.mentorship.restaurant.restaurant.model.entity.Menu;
+import com.mentorship.restaurant.restaurant.model.entity.MenuItem;
+import com.mentorship.restaurant.restaurant.model.mapper.MenuMapper;
+import com.mentorship.restaurant.restaurant.model.request.MenuItemRequest;
+import com.mentorship.restaurant.restaurant.model.request.MenuRequest;
+import com.mentorship.restaurant.restaurant.model.response.MenuItemResponse;
+import com.mentorship.restaurant.restaurant.model.response.MenuResponse;
+import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
+import com.mentorship.restaurant.restaurant.repository.MenuRepository;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
 import jakarta.persistence.EntityNotFoundException;

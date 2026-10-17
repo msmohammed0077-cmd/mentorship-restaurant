@@ -1,4 +1,4 @@
-package com.mentorship.restaurant.menu.model.entity;
+package com.mentorship.restaurant.restaurant.model.entity;
 
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import jakarta.persistence.*;
