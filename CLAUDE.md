@@ -43,7 +43,7 @@ done
 
 **Entities are anemic data holders.** `@Getter @Setter`, no behaviour, no hand-written factory methods, no queries. Do not put business rules on an entity.
 
-**An entity the application creates has a builder; setters change it.** It carries `@Builder`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` for Hibernate and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` for the builder, so nothing outside calls a constructor. **An initialised field needs `@Builder.Default`** (`private List<CartItem> items = new ArrayList<>();`): without it the builder sets the list to null, and the first `getItems().add(...)` throws. Updates keep using setters, which dirty checking turns into the `UPDATE`. An entity the application never creates (`Menu`, `MenuItem`) has only the protected no-args constructor. ADR 0005 records why.
+**An entity the application creates has a builder; setters change it.** It carries `@Builder`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` for Hibernate and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` for the builder, so nothing outside calls a constructor. **An initialised field needs `@Builder.Default`** (`private List<CartItem> items = new ArrayList<>();`): without it the builder sets the list to null, and the first `getItems().add(...)` throws. Updates keep using setters, which dirty checking turns into the `UPDATE`. An entity the application never creates has only the protected no-args constructor; since the menu CRUD (#92), `Menu` and `MenuItem` have builders too. ADR 0005 records why.
 
 **Lombok and `boolean` fields:** `private boolean isOpen` generates `isOpen()` **and `setOpen()`** — it strips the `is` prefix from the setter but not the getter.
 

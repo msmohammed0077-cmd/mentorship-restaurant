@@ -56,6 +56,10 @@ Only the flows added since this spec was written; `CreateOrderEndpointTest` pins
 - **Restaurant deleted:** the cart holds items of a restaurant the admin has deleted since they
   were added. 404, "Restaurant not found". The same `RestaurantValidatorHandler` check, before
   payment; the cart is kept.
+- **Item deleted or unavailable:** the cart holds an item its owner has deleted (404, "Item not
+  found") or taken off (409, "Item is unavailable") since it was added. `RestaurantValidatorHandler`
+  reads the items afresh through `RestaurantService.ensureOrderableItems`, before payment; the cart
+  is kept. Checkout answers the same.
 
 ### Sequence Diagram
 

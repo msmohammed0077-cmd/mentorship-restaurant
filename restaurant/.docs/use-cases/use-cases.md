@@ -69,3 +69,18 @@ Tracked under [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/
 | Update Restaurant | [update-restaurant](./restaurant-management/update-restaurant/update-restaurant.md) |
 | Open / Close Restaurant | [set-restaurant-open](./restaurant-management/set-restaurant-open/set-restaurant-open.md) |
 | Delete Restaurant | [delete-restaurant](./restaurant-management/delete-restaurant/delete-restaurant.md) |
+
+### Menu Management
+
+Tracked under [#92](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/92). Design: [menu CRUD](../designs/2026-10-17-menu-crud-design.md).
+
+| Use case | Spec |
+| --- | --- |
+| Get Menu | [get-menu](./menu-management/get-menu/get-menu.md) |
+| Create Menu | [create-menu](./menu-management/create-menu/create-menu.md) |
+| Update Menu | [update-menu](./menu-management/update-menu/update-menu.md) |
+| Delete Menu | [delete-menu](./menu-management/delete-menu/delete-menu.md) |
+| Create Menu Item | [create-menu-item](./menu-management/create-menu-item/create-menu-item.md) |
+| Update Menu Item | [update-menu-item](./menu-management/update-menu-item/update-menu-item.md) |
+| Set Menu Item Available | [set-menu-item-available](./menu-management/set-menu-item-available/set-menu-item-available.md) |
+| Delete Menu Item | [delete-menu-item](./menu-management/delete-menu-item/delete-menu-item.md) |

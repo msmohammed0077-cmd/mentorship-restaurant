@@ -52,11 +52,14 @@ PROCEDURE ModifyCart(cartId, action)
             END IF
 
             // As add-to-cart answers
-            IF the item's restaurant is deleted THEN
+            IF the item, its menu or its restaurant is deleted THEN
                 RAISE MenuItemNotFoundException("Item not found")            (404)
             END IF
             IF the item's restaurant is closed THEN
                 RAISE RestaurantClosedException("Restaurant is closed")      (409)
+            END IF
+            IF the item is unavailable THEN
+                RAISE MenuItemUnavailableException("Item is unavailable")    (409)
             END IF
 
             stockAvailable ← CheckStock(cartItem.menuItemId, action.quantity)
