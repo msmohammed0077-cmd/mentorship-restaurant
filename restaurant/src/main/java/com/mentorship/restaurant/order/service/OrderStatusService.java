@@ -5,6 +5,7 @@ import com.mentorship.restaurant.order.exception.OrderNotFoundException;
 import com.mentorship.restaurant.order.exception.OrderNotOwnedException;
 import com.mentorship.restaurant.order.exception.ReservedRejectionReasonException;
 import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.order.model.entity.OrderStatusHistory;
 import com.mentorship.restaurant.order.model.entity.OrderTransition;
 import com.mentorship.restaurant.order.model.entity.RejectionReason;
@@ -16,7 +17,6 @@ import com.mentorship.restaurant.order.repository.OrderOwnerProjection;
 import com.mentorship.restaurant.order.repository.OrderRepository;
 import com.mentorship.restaurant.order.repository.OrderStatusHistoryRepository;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -160,9 +160,6 @@ public class OrderStatusService {
         ensureOrderExists(orderId);
         throw new OrderNotOwnedException("No courier is assigned to orders yet");
       }
-      // Unreachable today: no OrderTransition lists ADMIN, so ensureRoleOwnsTransition refuses it
-      // first. Without this case, adding ADMIN to a transition would skip the ownership check.
-      case ADMIN -> throw new OrderNotOwnedException("No ownership rule for an admin yet");
     }
   }
 

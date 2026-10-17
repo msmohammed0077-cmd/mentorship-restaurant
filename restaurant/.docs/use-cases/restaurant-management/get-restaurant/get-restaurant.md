@@ -8,7 +8,7 @@ Design: [restaurant CRUD](../../../designs/2026-10-10-restaurant-crud-design.md)
 
 ## Actor
 
-Any caller. Reads take no role parameter (see *Authorisation*).
+Any caller, with or without a token (see *Authorisation*).
 
 ## Preconditions
 
@@ -35,8 +35,9 @@ endpoints build on them.
 ## Authorisation
 
 None. A restaurant's profile, contact email included, is public directory information, so there
-is no IDOR to close here. The write endpoints check a declared role; real authentication is
-[#83](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/83).
+is no IDOR to close here, and the directory can be browsed before login. The endpoint carries
+`@PublicEndpoint` and is in `SecurityConfig.PUBLIC_PATHS` (`GET` only), which also ignores any token
+sent to it. The write endpoints need a token and a permission (ADR 0008).
 
 ## API
 

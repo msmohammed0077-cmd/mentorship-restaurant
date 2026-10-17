@@ -3,7 +3,6 @@ package com.mentorship.restaurant.restaurant.service;
 import com.mentorship.restaurant.order.service.OrderService;
 import com.mentorship.restaurant.restaurant.exception.RestaurantHasActiveOrdersException;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
-import com.mentorship.restaurant.order.model.entity.ActorRole;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,8 +23,7 @@ public class RestaurantDeletionService {
 
   /** A soft delete. Past orders, ratings, menus and carts' lines are kept. */
   @Transactional
-  public void deleteRestaurant(Long restaurantId, ActorRole role) {
-    restaurantService.ensureAdmin(role, "delete a restaurant");
+  public void deleteRestaurant(Long restaurantId) {
     Restaurant restaurant = restaurantService.findActiveRestaurant(restaurantId);
 
     ensureNoActiveOrders(restaurantId);

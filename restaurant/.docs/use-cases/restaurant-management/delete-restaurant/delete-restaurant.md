@@ -8,7 +8,7 @@ Design: [restaurant CRUD](../../../designs/2026-10-10-restaurant-crud-design.md)
 
 ## Actor
 
-System Admin (`?role=ADMIN`).
+System Admin (`restaurant.delete`, held by `ADMIN`).
 
 ## Preconditions
 
@@ -16,7 +16,7 @@ The restaurant exists, is not deleted, and has no order in flight.
 
 ## Scope
 
-`DELETE /api/v1/restaurants/{id}?role=ADMIN` — **204**, no body.
+`DELETE /api/v1/restaurants/{id}` — **204**, no body.
 
 Adds `RestaurantDeletionService.deleteRestaurant`, `OrderService.hasActiveRestaurantOrders` and
 `RestaurantHasActiveOrdersException`. `RestaurantService.findMenuItem` now refuses a deleted
@@ -24,29 +24,32 @@ restaurant's items.
 
 ## Business Rules
 
-1. Only **`ADMIN`** may delete a restaurant. Anything else, the restaurant itself included, is 403,
-   "Role X may not delete a restaurant", **before** the database is read.
+1. Only the **admin** may delete a restaurant, through `restaurant.delete`. Anyone else, the
+   restaurant's owner included, is 403, "Access denied", **before** the database is read.
 2. A **soft delete**: the restaurant's user gets `user_deleted_at`. Nothing is removed.
 3. A restaurant with an order in an **active status** (`PLACED` through `PICKED_UP`) cannot be
    deleted: 409, "Restaurant has active orders". Delivered, rejected and cancelled orders do not
    block it.
-4. **Afterwards it does not exist to the API:** details, edit, open and delete answer 404,
-   "Restaurant not found"; the index leaves it out; adding its items to a cart is 404, "Item not
+4. **Afterwards it does not exist to the API:** details and delete answer 404, "Restaurant not
+   found", and so do edit and open for its owner; the index leaves it out; adding its items to a cart is 404, "Item not
    found"; checkout of a cart holding its items is 404, "Restaurant not found".
 5. **Kept:** past orders, ratings, menus, menu items and carts' lines. A customer's order history
    still shows past orders with the restaurant's name, and a delivered order can still be rated.
-6. Its **email is freed**: a new restaurant or customer may register it.
+6. Its **email is freed**: a new restaurant or customer may register it. Its owner's **Keycloak id
+   is not**: `uq_users_keycloak_id` covers deleted rows, so a new restaurant needs a new Keycloak
+   user.
 
 ## Authorisation
 
-Trust-based: the caller declares `?role=ADMIN` and the service believes it. Anyone can claim to be
-the admin and delete any restaurant — an IDOR that closes with real authentication,
-[#83](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/83).
+A token and `restaurant.delete` are required (ADR 0008); only `ADMIN` holds it. The permission is
+checked before the restaurant is read, so a refused caller cannot learn which ids exist. Before #83
+the caller declared `?role=ADMIN`, and anyone could delete any restaurant.
 
 ## API
 
 ```http
-DELETE /api/v1/restaurants/4?role=ADMIN
+DELETE /api/v1/restaurants/4
+Authorization: Bearer <admin token>
 ```
 
 Response, **204**, no body.
@@ -58,16 +61,16 @@ No migration. Writes `users.user_deleted_at` for the restaurant's user. The part
 
 ## Main Success Scenario
 
-1. The admin sends the restaurant's id with `role=ADMIN`.
-2. The system checks the role.
+1. The admin sends the restaurant's id.
+2. The system checks the token and the permission.
 3. The system loads the active restaurant.
 4. The system checks it has no active order.
 5. The system marks its user deleted and returns 204.
 
 ## Exception Flows
 
-- **1a. `role` missing or not a role:** 400, "role is required" / "role is not a valid value".
-- **2a. Not `ADMIN`:** 403, "Role X may not delete a restaurant". Nothing is read or written.
+- **2a. No valid token:** 401.
+- **2b. No `restaurant.delete`:** 403, "Access denied". Nothing is read or written.
 - **3a. Restaurant unknown or already deleted:** 404, "Restaurant not found". Deleting twice is 404
   the second time.
 - **4a. An order is in flight:** 409, "Restaurant has active orders". Nothing is written.
@@ -83,11 +86,10 @@ added to a cart or checked out; its email is free.
 
 ```mermaid
 flowchart TD
-    Start([Admin deletes a restaurant]) --> Valid{role parameter valid?}
-    Valid -- No --> R400[/400: role is required/]
-    Valid -- Yes --> Admin{ADMIN?}
-    Admin -- No --> R403[/403: Role X may not delete a restaurant/]
-    Admin -- Yes --> Found{Active restaurant found?}
+    Start([Admin deletes a restaurant]) --> Token{Token with restaurant.delete?}
+    Token -- No token --> R401[/401/]
+    Token -- No permission --> R403[/403: Access denied/]
+    Token -- Yes --> Found{Active restaurant found?}
     Found -- No --> R404[/404: Restaurant not found/]
     Found -- Yes --> Active{Order in an active status?}
     Active -- Yes --> R409[/409: Restaurant has active orders/]
@@ -105,13 +107,8 @@ sequenceDiagram
     participant S as RestaurantService
     participant O as OrderService
 
-    Admin->>C: DELETE /api/v1/restaurants/{id}?role=ADMIN
-    C->>D: deleteRestaurant(id, role)
-    D->>S: ensureAdmin(role, "delete a restaurant")
-    alt not ADMIN
-        S-->>C: RestaurantActionNotAllowedException (403)
-        C-->>Admin: 403 Forbidden
-    end
+    Admin->>C: DELETE /api/v1/restaurants/{id} (restaurant.delete)
+    C->>D: deleteRestaurant(id)
     D->>S: findActiveRestaurant(id)
     alt not found
         S-->>C: RestaurantNotFoundException (404)
@@ -128,8 +125,8 @@ sequenceDiagram
 
 ## Testing
 
-`DeleteRestaurantEndpointTest`, end-to-end; `AddCartItemEndpointTest` and `CreateOrderEndpointTest`
-for the paths afterwards.
+`DeleteRestaurantEndpointTest`, end-to-end, as the seeded admin unless stated;
+`AddCartItemEndpointTest` and `CreateOrderEndpointTest` for the paths afterwards.
 
 | Case | Expected |
 | --- | --- |
@@ -138,11 +135,10 @@ for the paths afterwards.
 | Its email, for a new restaurant | 201 |
 | Only a `DELIVERED` order | 204 |
 | A `PLACED` order | 409, not deleted |
-| `CUSTOMER`, `RESTAURANT`, `COURIER`, `SYSTEM` | 403, not deleted |
-| `RESTAURANT` with its own id | 403 |
-| `CUSTOMER` on an unknown id | 403, not 404 |
+| No token | 401, not deleted |
+| `CUSTOMER` token / the restaurant's own owner | 403 "Access denied", not deleted |
+| An owner on an unknown id | 403, not 404 |
 | Unknown id | 404 |
-| No `role` | 400 |
 | Add a deleted restaurant's item to a cart | 404, "Item not found" |
 | Checkout of a cart holding a deleted restaurant's item | 404, "Restaurant not found"; cart kept, no order |
 

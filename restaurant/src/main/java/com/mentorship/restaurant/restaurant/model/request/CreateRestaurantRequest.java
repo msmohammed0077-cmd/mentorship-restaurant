@@ -2,7 +2,9 @@ package com.mentorship.restaurant.restaurant.model.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -25,4 +27,7 @@ public class CreateRestaurantRequest {
   @Email
   @Size(max = 255)
   private String email;
+
+  // The owner's Keycloak user, created by the admin first; it is what their token's sub will be.
+  @NotNull private UUID ownerKeycloakId;
 }

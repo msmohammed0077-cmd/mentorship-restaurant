@@ -1,6 +1,6 @@
 # Goal
 
-The restaurant, or the System Admin, opens the restaurant to new orders or closes it.
+A restaurant's owner opens it to new orders or closes it.
 
 Issue [#91](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/91), under the
 Restaurant CRUD umbrella [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/85).
@@ -8,24 +8,25 @@ Design: [restaurant CRUD](../../../designs/2026-10-10-restaurant-crud-design.md)
 
 ## Actor
 
-The restaurant (`?role=RESTAURANT&restaurantId={id}`), or System Admin (`?role=ADMIN`).
+Restaurant Owner (`restaurant.write`, held by `RESTAURANT_OWNER`).
 
 ## Preconditions
 
-The restaurant exists and is not deleted.
+The restaurant exists, is not deleted, and belongs to the caller.
 
 ## Scope
 
-`PUT /api/v1/restaurants/{id}/open?role=…[&restaurantId=…]` — **200** with the profile.
+`PUT /api/v1/restaurants/{id}/open` — **200** with the profile.
 
 Adds `SetRestaurantOpenRequest` and `RestaurantService.setRestaurantOpen`; shares
-`ensureMayManage` with [update-restaurant](../update-restaurant/update-restaurant.md).
+`RestaurantService.ensureOwnedBy` with [update-restaurant](../update-restaurant/update-restaurant.md).
 
 ## Business Rules
 
-1. Only **`ADMIN`**, or **`RESTAURANT`** whose `restaurantId` is the `{id}`, may open or close it.
-   Anything else is 403, "Role X may not open or close this restaurant", **before** the database is
-   read.
+1. Only the restaurant's **owner** may open or close it, checked with
+   `ensureOwnedBy({id}, caller.userId())`; anyone else is 403, "Restaurant belongs to another
+   owner", **before** the restaurant is read. `ADMIN` holds `restaurant.write` but owns no
+   restaurant, so it is refused too.
 2. `is_open` is **required** (`true` or `false`).
 3. **Idempotent**: setting the current value again is 200 and changes nothing.
 4. **Closing stops new business only.** Add-to-cart and checkout refuse a closed restaurant (409,
@@ -37,14 +38,15 @@ Adds `SetRestaurantOpenRequest` and `RestaurantService.setRestaurantOpen`; share
 
 ## Authorisation
 
-Trust-based: the caller declares `?role=` and `?restaurantId=`, and the service believes them.
-Anyone can claim to be any restaurant and close it — an IDOR that closes with real authentication,
-[#83](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/83).
+A token and `restaurant.write` are required (ADR 0008), and the caller must own the restaurant
+(ADR 0009). An id that does not exist is answered as another owner's is (403). Before #83 the caller
+declared `?role=` and `?restaurantId=`, and anyone could claim to be any restaurant and close it.
 
 ## API
 
 ```http
-PUT /api/v1/restaurants/4/open?role=RESTAURANT&restaurantId=4
+PUT /api/v1/restaurants/4/open
+Authorization: Bearer <owner token>
 Content-Type: application/json
 
 { "is_open": true }
@@ -72,19 +74,21 @@ No migration. Writes `restaurants.restaurant_is_open`.
 
 ## Main Success Scenario
 
-1. The caller sends `is_open`, with its role (and, as a restaurant, its id).
-2. The system validates the body (400 before the service runs).
-3. The system checks the role against the restaurant.
-4. The system loads the active restaurant.
-5. The system sets the flag and returns 200 with the profile.
+1. The owner sends `is_open`.
+2. The system checks the token and the permission.
+3. The system validates the body (400 before the service runs).
+4. The system checks the caller owns the restaurant.
+5. The system loads the active restaurant.
+6. The system sets the flag and returns 200 with the profile.
 
 ## Exception Flows
 
-- **1a. `role` missing or not a role:** 400, "role is required" / "role is not a valid value".
-- **2a. `is_open` missing:** 400.
-- **3a. Not `ADMIN`, and not the restaurant itself:** 403, "Role X may not open or close this
-  restaurant". Nothing is read or written.
-- **4a. Restaurant unknown or deleted:** 404, "Restaurant not found".
+- **2a. No valid token:** 401.
+- **2b. No `restaurant.write`:** 403, "Access denied".
+- **3a. `is_open` missing:** 400.
+- **4a. Not the owner, or no such restaurant:** 403, "Restaurant belongs to another owner". Nothing
+  is read or written.
+- **5a. The owner's restaurant is deleted:** 404, "Restaurant not found".
 
 ## Postconditions
 
@@ -97,11 +101,14 @@ closed, both are refused with 409.
 
 ```mermaid
 flowchart TD
-    Start([Restaurant or admin sets is_open]) --> Valid{Body and role parameter valid?}
+    Start([Owner sets is_open]) --> Token{Token with restaurant.write?}
+    Token -- No token --> R401[/401/]
+    Token -- No permission --> R403P[/403: Access denied/]
+    Token -- Yes --> Valid{Body valid?}
     Valid -- No --> R400[/400: field errors/]
-    Valid -- Yes --> May{ADMIN, or RESTAURANT with its own id?}
-    May -- No --> R403[/403: Role X may not open or close this restaurant/]
-    May -- Yes --> Found{Active restaurant found?}
+    Valid -- Yes --> Owns{Caller owns the restaurant?}
+    Owns -- No --> R403O[/403: Restaurant belongs to another owner/]
+    Owns -- Yes --> Found{Active restaurant found?}
     Found -- No --> R404[/404: Restaurant not found/]
     Found -- Yes --> Set[Set is_open]
     Set --> Done([200 with the profile])
@@ -111,45 +118,47 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    actor Caller as Restaurant or Admin
+    actor Owner
     participant C as RestaurantController
     participant S as RestaurantService
     participant R as RestaurantRepository
     participant M as RestaurantMapper
 
-    Caller->>C: PUT /api/v1/restaurants/{id}/open?role=…&restaurantId=…
-    C->>S: setRestaurantOpen(id, role, callerRestaurantId, request)
-    alt not ADMIN and not itself
-        S-->>C: RestaurantActionNotAllowedException (403)
-        C-->>Caller: 403 Forbidden
+    Owner->>C: PUT /api/v1/restaurants/{id}/open (restaurant.write)
+    C->>S: setRestaurantOpen(id, caller.userId(), request)
+    S->>R: existsByIdAndUser_Id(id, userId)
+    alt not theirs
+        S-->>C: RestaurantAccessDeniedException (403)
+        C-->>Owner: 403 Forbidden
     end
     S->>R: findActiveById(id)
-    alt not found
+    alt deleted
         S-->>C: RestaurantNotFoundException (404)
-        C-->>Caller: 404 Not Found
+        C-->>Owner: 404 Not Found
     end
     S->>S: setOpen(isOpen) (dirty checking)
     S->>M: toResponse(restaurant)
     M-->>S: RestaurantResponse
     S-->>C: RestaurantResponse
-    C-->>Caller: 200 OK
+    C-->>Owner: 200 OK
 ```
 
 ## Testing
 
-`SetRestaurantOpenEndpointTest`, end-to-end; `CreateOrderEndpointTest` for the checkout guard.
+`SetRestaurantOpenEndpointTest`, end-to-end, as the restaurant's owner unless stated;
+`CreateOrderEndpointTest` for the checkout guard.
 
 | Case | Expected |
 | --- | --- |
-| Admin opens a closed restaurant | 200, `is_open: true`, stored |
-| Restaurant closes itself | 200, `is_open: false`, stored |
+| Open a closed restaurant | 200, `is_open: true`, stored |
+| Close an open restaurant | 200, `is_open: false`, stored |
 | Open an open restaurant | 200 |
-| `CUSTOMER`, `COURIER`, `SYSTEM` | 403, flag unchanged |
-| `RESTAURANT` with another restaurant's id / with no id | 403 |
-| `CUSTOMER` on an unknown id | 403, not 404 |
-| Unknown id / soft-deleted restaurant | 404 |
+| No token | 401, flag unchanged |
+| `CUSTOMER` token | 403 "Access denied", flag unchanged |
+| Another restaurant's owner / the admin | 403 "Restaurant belongs to another owner", flag unchanged |
+| Unknown id | 403, not 404 |
+| The owner's own soft-deleted restaurant | 404 |
 | `{}` | 400 |
-| No `role` | 400 |
 | Checkout of a cart holding a closed restaurant's item | 409, "Restaurant is closed"; cart kept, no order |
 
 # Notes

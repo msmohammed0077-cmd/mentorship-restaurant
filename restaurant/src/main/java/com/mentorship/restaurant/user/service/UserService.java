@@ -30,6 +30,11 @@ public class UserService {
     return userRepository.existsActiveByEmail(email);
   }
 
+  /** Whether a users row, deleted or not, is linked to the Keycloak user. */
+  public boolean isKeycloakIdLinked(UUID keycloakId) {
+    return userRepository.existsByUserKeycloakId(keycloakId);
+  }
+
   public User create(User user) {
     return userRepository.save(user);
   }

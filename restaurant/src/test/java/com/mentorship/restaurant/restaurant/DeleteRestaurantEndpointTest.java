@@ -3,9 +3,8 @@ package com.mentorship.restaurant.restaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mentorship.restaurant.support.RestaurantEndpointTestSupport;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -20,10 +19,10 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   void adminDeletesTheRestaurantSoItIsNoLongerFound() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    deleteRestaurant(restaurantId, "role=ADMIN").expectStatus().isNoContent();
+    deleteRestaurant(asAdmin(), restaurantId).expectStatus().isNoContent();
 
     assertThat(isSoftDeleted(restaurantId)).isTrue();
-    deleteRestaurant(restaurantId, "role=ADMIN")
+    deleteRestaurant(asAdmin(), restaurantId)
         .expectStatus()
         .isNotFound()
         .expectBody()
@@ -35,7 +34,7 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   void hidesTheDeletedRestaurantsDetails() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    deleteRestaurant(restaurantId, "role=ADMIN").expectStatus().isNoContent();
+    deleteRestaurant(asAdmin(), restaurantId).expectStatus().isNoContent();
 
     client
         .get()
@@ -49,17 +48,17 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   void freesItsEmailForANewRestaurant() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    deleteRestaurant(restaurantId, "role=ADMIN").expectStatus().isNoContent();
+    deleteRestaurant(asAdmin(), restaurantId).expectStatus().isNoContent();
 
-    client
+    asAdmin()
         .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
+        .uri("/api/v1/restaurants")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
-            { "name": "Koshary Corner", "email": "%s" }
+            { "name": "Koshary Corner", "email": "%s", "owner_keycloak_id": "%s" }
             """
-                .formatted(email("koshary")))
+                .formatted(email("koshary"), UUID.randomUUID()))
         .exchange()
         .expectStatus()
         .isCreated();
@@ -70,7 +69,7 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
     insertOrder(restaurantId, "DELIVERED");
 
-    deleteRestaurant(restaurantId, "role=ADMIN").expectStatus().isNoContent();
+    deleteRestaurant(asAdmin(), restaurantId).expectStatus().isNoContent();
 
     assertThat(isSoftDeleted(restaurantId)).isTrue();
   }
@@ -80,7 +79,7 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
     insertOrder(restaurantId, "PLACED");
 
-    deleteRestaurant(restaurantId, "role=ADMIN")
+    deleteRestaurant(asAdmin(), restaurantId)
         .expectStatus()
         .isEqualTo(409)
         .expectBody()
@@ -90,40 +89,39 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     assertThat(isSoftDeleted(restaurantId)).isFalse();
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"CUSTOMER", "RESTAURANT", "COURIER", "SYSTEM"})
-  void rejectsEveryRoleButAdmin(String role) {
+  @Test
+  void refusesARequestWithoutAToken() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    deleteRestaurant(restaurantId, "role=" + role)
-        .expectStatus()
-        .isForbidden()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Role " + role + " may not delete a restaurant");
+    deleteRestaurant(client, restaurantId).expectStatus().isUnauthorized();
 
     assertThat(isSoftDeleted(restaurantId)).isFalse();
   }
 
   @Test
-  void rejectsARestaurantDeletingItself() {
+  void refusesACustomer() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    deleteRestaurant(restaurantId, "role=RESTAURANT&restaurantId=" + restaurantId)
-        .expectStatus()
-        .isForbidden();
-
-    assertThat(isSoftDeleted(restaurantId)).isFalse();
+    refusesWithoutThePermission(asRole("CUSTOMER"), restaurantId);
   }
 
   @Test
-  void checksTheRoleBeforeExistence() {
-    deleteRestaurant(999_999L, "role=CUSTOMER").expectStatus().isForbidden();
+  void refusesTheRestaurantsOwner() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
+
+    refusesWithoutThePermission(asRestaurantOwner(restaurantId), restaurantId);
+  }
+
+  @Test
+  void checksThePermissionBeforeExistence() {
+    long ownId = insertRestaurant("Koshary Corner", email("koshary"), true);
+
+    deleteRestaurant(asRestaurantOwner(ownId), 999_999L).expectStatus().isForbidden();
   }
 
   @Test
   void rejectsAnUnknownRestaurant() {
-    deleteRestaurant(999_999L, "role=ADMIN")
+    deleteRestaurant(asAdmin(), 999_999L)
         .expectStatus()
         .isNotFound()
         .expectBody()
@@ -131,23 +129,19 @@ class DeleteRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .isEqualTo("Restaurant not found");
   }
 
-  @Test
-  void rejectsAMissingRole() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-
-    client
-        .delete()
-        .uri("/api/v1/restaurants/{id}", restaurantId)
-        .exchange()
+  private void refusesWithoutThePermission(RestTestClient caller, long restaurantId) {
+    deleteRestaurant(caller, restaurantId)
         .expectStatus()
-        .isBadRequest()
+        .isForbidden()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("role is required");
+        .isEqualTo("Access denied");
+
+    assertThat(isSoftDeleted(restaurantId)).isFalse();
   }
 
-  private RestTestClient.ResponseSpec deleteRestaurant(long restaurantId, String query) {
-    return client.delete().uri("/api/v1/restaurants/{id}?" + query, restaurantId).exchange();
+  private RestTestClient.ResponseSpec deleteRestaurant(RestTestClient caller, long restaurantId) {
+    return caller.delete().uri("/api/v1/restaurants/{id}", restaurantId).exchange();
   }
 
   private boolean isSoftDeleted(long restaurantId) {

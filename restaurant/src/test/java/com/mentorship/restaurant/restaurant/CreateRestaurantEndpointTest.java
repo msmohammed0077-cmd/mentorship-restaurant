@@ -2,8 +2,10 @@ package com.mentorship.restaurant.restaurant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.mentorship.restaurant.support.JwtTestSupport;
 import com.mentorship.restaurant.support.RestaurantEndpointTestSupport;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -14,6 +16,8 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
 
   private static final String SEEDED_RESTAURANT_EMAIL = "contact@nilekitchen.example.com";
   private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
+  private static final UUID SEEDED_CUSTOMER_KEYCLOAK_ID =
+      UUID.fromString("00000000-0000-4000-8000-000000000001");
 
   @Override
   protected String emailPrefix() {
@@ -21,10 +25,12 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void createsAClosedRestaurantWithANoLoginAccount() {
-    client
+  void createsAClosedRestaurantLinkedToItsOwner() {
+    UUID owner = UUID.randomUUID();
+
+    asAdmin()
         .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
+        .uri("/api/v1/restaurants")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -32,10 +38,11 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
               "name": "Koshary Corner",
               "description": "Koshary, the Cairo way.",
               "email": "Create.Restaurant.Test.KOSHARY@Example.com",
-              "is_open": true,
-              "password": "ignored"
+              "owner_keycloak_id": "%s",
+              "is_open": true
             }
-            """)
+            """
+                .formatted(owner))
         .exchange()
         .expectStatus()
         .isCreated()
@@ -50,13 +57,13 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .isEqualTo(email("koshary"))
         .jsonPath("$.is_open")
         .isEqualTo(false)
-        .jsonPath("$.password")
+        .jsonPath("$.owner_keycloak_id")
         .doesNotExist();
 
     Map<String, Object> row =
         jdbcTemplate.queryForMap(
             """
-            SELECT u.user_name, u.user_password, r.restaurant_name, r.restaurant_is_open
+            SELECT u.user_name, u.user_keycloak_id, r.restaurant_name, r.restaurant_is_open
             FROM restaurants r JOIN users u ON u.user_id = r.user_id
             WHERE u.user_email = ?
             """,
@@ -64,15 +71,15 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     assertThat(row)
         .containsEntry("user_name", "Koshary Corner")
         .containsEntry("restaurant_name", "Koshary Corner")
-        .containsEntry("user_password", "!no-login")
+        .containsEntry("user_keycloak_id", owner)
         .containsEntry("restaurant_is_open", false);
   }
 
   @Test
   void trimsTheName() {
-    client
+    asAdmin()
         .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
+        .uri("/api/v1/restaurants")
         .contentType(MediaType.APPLICATION_JSON)
         .body(body("  Koshary Corner  ", email("koshary")))
         .exchange()
@@ -96,15 +103,11 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
 
   @Test
   void createsARestaurantWithoutADescription() {
-    client
+    asAdmin()
         .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
+        .uri("/api/v1/restaurants")
         .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            { "name": "Koshary Corner", "email": "%s" }
-            """
-                .formatted(email("koshary")))
+        .body(body("Koshary Corner", email("koshary")))
         .exchange()
         .expectStatus()
         .isCreated()
@@ -113,26 +116,8 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .doesNotExist();
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"CUSTOMER", "RESTAURANT", "COURIER", "SYSTEM"})
-  void rejectsEveryRoleButAdmin(String role) {
-    createRestaurant(role, email("koshary"))
-        .expectStatus()
-        .isForbidden()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Role " + role + " may not create a restaurant");
-
-    assertThat(usersWithEmail(email("koshary"))).isZero();
-  }
-
   @Test
-  void checksTheRoleBeforeTheEmail() {
-    createRestaurant("CUSTOMER", SEEDED_RESTAURANT_EMAIL).expectStatus().isForbidden();
-  }
-
-  @Test
-  void rejectsAMissingRole() {
+  void refusesARequestWithoutAToken() {
     client
         .post()
         .uri("/api/v1/restaurants")
@@ -140,20 +125,29 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .body(body("Koshary Corner", email("koshary")))
         .exchange()
         .expectStatus()
-        .isBadRequest()
+        .isUnauthorized();
+
+    assertThat(usersWithEmail(email("koshary"))).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"CUSTOMER", "RESTAURANT_OWNER"})
+  void refusesEveryRoleButAdmin(String realmRole) {
+    create(asRole(realmRole), body("Koshary Corner", email("koshary")))
+        .expectStatus()
+        .isForbidden()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("role is required");
+        .isEqualTo("Access denied");
+
+    assertThat(usersWithEmail(email("koshary"))).isZero();
   }
 
   @Test
-  void rejectsAnUnknownRole() {
-    createRestaurant("OWNER", email("koshary"))
+  void checksThePermissionBeforeTheEmail() {
+    create(asRole("RESTAURANT_OWNER"), body("Koshary Corner", SEEDED_RESTAURANT_EMAIL))
         .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("role is not a valid value");
+        .isForbidden();
   }
 
   @Test
@@ -170,8 +164,9 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   void rejectsAMissingEmail() {
     rejectsBody(
         """
-        { "name": "Koshary Corner" }
-        """,
+        { "name": "Koshary Corner", "owner_keycloak_id": "%s" }
+        """
+            .formatted(UUID.randomUUID()),
         "email");
   }
 
@@ -181,27 +176,48 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
+  void rejectsAMissingOwnerKeycloakId() {
+    rejectsBody(
+        """
+        { "name": "Koshary Corner", "email": "%s" }
+        """
+            .formatted(email("koshary")),
+        "ownerKeycloakId");
+  }
+
+  @Test
+  void rejectsAMalformedOwnerKeycloakId() {
+    create(
+            asAdmin(),
+            """
+            { "name": "Koshary Corner", "email": "%s", "owner_keycloak_id": "not-a-uuid" }
+            """
+                .formatted(email("koshary")))
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Request body is malformed");
+  }
+
+  @Test
   void rejectsADescriptionOver1000Characters() {
     rejectsBody(
         """
-        { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+        { "name": "Koshary Corner", "email": "%s", "owner_keycloak_id": "%s", "description": "%s" }
         """
-            .formatted(email("koshary"), "x".repeat(1001)),
+            .formatted(email("koshary"), UUID.randomUUID(), "x".repeat(1001)),
         "description");
   }
 
   @Test
   void acceptsADescriptionOf1000Characters() {
-    client
-        .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
+    create(
+            asAdmin(),
             """
-            { "name": "Koshary Corner", "email": "%s", "description": "%s" }
+            { "name": "Koshary Corner", "email": "%s", "owner_keycloak_id": "%s", "description": "%s" }
             """
-                .formatted(email("koshary"), "x".repeat(1000)))
-        .exchange()
+                .formatted(email("koshary"), UUID.randomUUID(), "x".repeat(1000)))
         .expectStatus()
         .isCreated();
   }
@@ -228,7 +244,7 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
 
   @Test
   void rejectsARestaurantsEmailInAnyCase() {
-    createRestaurant("ADMIN", SEEDED_RESTAURANT_EMAIL.toUpperCase())
+    create(asAdmin(), body("Koshary Corner", SEEDED_RESTAURANT_EMAIL.toUpperCase()))
         .expectStatus()
         .isEqualTo(409)
         .expectBody()
@@ -238,7 +254,7 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
 
   @Test
   void rejectsACustomersEmail() {
-    createRestaurant("ADMIN", SEEDED_CUSTOMER_EMAIL)
+    create(asAdmin(), body("Koshary Corner", SEEDED_CUSTOMER_EMAIL))
         .expectStatus()
         .isEqualTo(409)
         .expectBody()
@@ -250,25 +266,50 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   void allowsReusingTheEmailOfASoftDeletedRestaurant() {
     softDeleteRestaurant(insertRestaurant("Old Corner", email("koshary"), true));
 
-    createRestaurant("ADMIN", email("koshary")).expectStatus().isCreated();
+    create(asAdmin(), body("Koshary Corner", email("koshary"))).expectStatus().isCreated();
   }
 
-  private RestTestClient.ResponseSpec createRestaurant(String role, String email) {
-    return client
+  @Test
+  void rejectsAnOwnerAlreadyLinkedToACustomer() {
+    rejectsLinkedOwner(SEEDED_CUSTOMER_KEYCLOAK_ID);
+  }
+
+  @Test
+  void rejectsAnOwnerAlreadyLinkedToTheAdmin() {
+    rejectsLinkedOwner(JwtTestSupport.ADMIN);
+  }
+
+  /** The unique constraint covers deleted rows too, so a deleted account's id stays taken. */
+  @Test
+  void rejectsTheOwnerOfASoftDeletedRestaurant() {
+    long oldId = insertRestaurant("Old Corner", email("old"), true);
+    softDeleteRestaurant(oldId);
+
+    rejectsLinkedOwner(ownerKeycloakIdOf(oldId));
+  }
+
+  private void rejectsLinkedOwner(UUID owner) {
+    create(asAdmin(), body("Koshary Corner", email("koshary"), owner))
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Owner account is already linked");
+
+    assertThat(usersWithEmail(email("koshary"))).isZero();
+  }
+
+  private RestTestClient.ResponseSpec create(RestTestClient caller, String body) {
+    return caller
         .post()
-        .uri("/api/v1/restaurants?role={role}", role)
+        .uri("/api/v1/restaurants")
         .contentType(MediaType.APPLICATION_JSON)
-        .body(body("Koshary Corner", email))
+        .body(body)
         .exchange();
   }
 
   private void rejectsBody(String body, String field) {
-    client
-        .post()
-        .uri("/api/v1/restaurants?role=ADMIN")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(body)
-        .exchange()
+    create(asAdmin(), body)
         .expectStatus()
         .isBadRequest()
         .expectBody()
@@ -277,10 +318,14 @@ class CreateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   private static String body(String name, String email) {
+    return body(name, email, UUID.randomUUID());
+  }
+
+  private static String body(String name, String email, UUID owner) {
     return """
-        { "name": "%s", "email": "%s" }
+        { "name": "%s", "email": "%s", "owner_keycloak_id": "%s" }
         """
-        .formatted(name, email);
+        .formatted(name, email, owner);
   }
 
   private int usersWithEmail(String email) {

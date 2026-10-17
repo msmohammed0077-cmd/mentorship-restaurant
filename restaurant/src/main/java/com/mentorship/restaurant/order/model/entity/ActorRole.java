@@ -4,6 +4,5 @@ public enum ActorRole {
   CUSTOMER,
   RESTAURANT,
   COURIER,
-  SYSTEM,
-  ADMIN
+  SYSTEM
 }

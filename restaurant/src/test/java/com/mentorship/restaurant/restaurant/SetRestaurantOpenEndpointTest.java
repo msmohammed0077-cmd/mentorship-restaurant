@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mentorship.restaurant.support.RestaurantEndpointTestSupport;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
@@ -17,10 +15,10 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void adminOpensAClosedRestaurant() {
+  void ownerOpensAClosedRestaurant() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
 
-    setOpen(restaurantId, "role=ADMIN", openBody(true))
+    setOpen(asRestaurantOwner(restaurantId), restaurantId, openBody(true))
         .expectStatus()
         .isOk()
         .expectBody()
@@ -35,10 +33,10 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void restaurantClosesItself() {
+  void ownerClosesAnOpenRestaurant() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    setOpen(restaurantId, "role=RESTAURANT&restaurantId=" + restaurantId, openBody(false))
+    setOpen(asRestaurantOwner(restaurantId), restaurantId, openBody(false))
         .expectStatus()
         .isOk()
         .expectBody()
@@ -52,7 +50,7 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
   void settingTheCurrentValueAgainSucceeds() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    setOpen(restaurantId, "role=ADMIN", openBody(true))
+    setOpen(asRestaurantOwner(restaurantId), restaurantId, openBody(true))
         .expectStatus()
         .isOk()
         .expectBody()
@@ -60,49 +58,64 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
         .isEqualTo(true);
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"CUSTOMER", "COURIER", "SYSTEM"})
-  void rejectsEveryRoleButAdminAndRestaurant(String role) {
+  @Test
+  void refusesARequestWithoutAToken() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
 
-    setOpen(restaurantId, "role=" + role, openBody(true))
-        .expectStatus()
-        .isForbidden()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Role " + role + " may not open or close this restaurant");
+    setOpen(client, restaurantId, openBody(true)).expectStatus().isUnauthorized();
 
     assertThat(isOpenInDatabase(restaurantId)).isFalse();
   }
 
   @Test
-  void rejectsARestaurantOpeningAnother() {
+  void refusesACustomer() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
-    long otherId = insertRestaurant("Other Corner", email("other"), true);
 
-    setOpen(restaurantId, "role=RESTAURANT&restaurantId=" + otherId, openBody(true))
+    setOpen(asRole("CUSTOMER"), restaurantId, openBody(true))
         .expectStatus()
         .isForbidden()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Role RESTAURANT may not open or close this restaurant");
+        .isEqualTo("Access denied");
+
+    assertThat(isOpenInDatabase(restaurantId)).isFalse();
   }
 
   @Test
-  void rejectsARestaurantWithoutItsId() {
+  void refusesAnotherRestaurantsOwner() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
+    long otherId = insertRestaurant("Other Corner", email("other"), true);
+
+    refusesNotTheOwner(asRestaurantOwner(otherId), restaurantId);
+  }
+
+  /** The admin holds restaurant.write but owns no restaurant: nothing bypasses ownership. */
+  @Test
+  void refusesTheAdmin() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
 
-    setOpen(restaurantId, "role=RESTAURANT", openBody(true)).expectStatus().isForbidden();
+    refusesNotTheOwner(asAdmin(), restaurantId);
+  }
+
+  /** Ownership is checked before existence, so an unknown id answers as another's does. */
+  @Test
+  void refusesAnUnknownRestaurant() {
+    long ownId = insertRestaurant("Koshary Corner", email("koshary"), false);
+
+    setOpen(asRestaurantOwner(ownId), 999_999L, openBody(true))
+        .expectStatus()
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant belongs to another owner");
   }
 
   @Test
-  void checksTheRoleBeforeExistence() {
-    setOpen(999_999L, "role=CUSTOMER", openBody(true)).expectStatus().isForbidden();
-  }
+  void rejectsItsOwnSoftDeletedRestaurant() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
+    softDeleteRestaurant(restaurantId);
 
-  @Test
-  void rejectsAnUnknownRestaurant() {
-    setOpen(999_999L, "role=ADMIN", openBody(true))
+    setOpen(asRestaurantOwner(restaurantId), restaurantId, openBody(true))
         .expectStatus()
         .isNotFound()
         .expectBody()
@@ -111,18 +124,10 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void rejectsASoftDeletedRestaurant() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
-    softDeleteRestaurant(restaurantId);
-
-    setOpen(restaurantId, "role=ADMIN", openBody(true)).expectStatus().isNotFound();
-  }
-
-  @Test
   void rejectsAMissingIsOpen() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
 
-    setOpen(restaurantId, "role=ADMIN", "{}")
+    setOpen(asRestaurantOwner(restaurantId), restaurantId, "{}")
         .expectStatus()
         .isBadRequest()
         .expectBody()
@@ -130,27 +135,22 @@ class SetRestaurantOpenEndpointTest extends RestaurantEndpointTestSupport {
         .value(String.class, message -> assertThat(message).contains("isOpen"));
   }
 
-  @Test
-  void rejectsAMissingRole() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), false);
-
-    client
-        .put()
-        .uri("/api/v1/restaurants/{id}/open", restaurantId)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(openBody(true))
-        .exchange()
+  private void refusesNotTheOwner(RestTestClient caller, long restaurantId) {
+    setOpen(caller, restaurantId, openBody(true))
         .expectStatus()
-        .isBadRequest()
+        .isForbidden()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("role is required");
+        .isEqualTo("Restaurant belongs to another owner");
+
+    assertThat(isOpenInDatabase(restaurantId)).isFalse();
   }
 
-  private RestTestClient.ResponseSpec setOpen(long restaurantId, String query, String body) {
-    return client
+  private RestTestClient.ResponseSpec setOpen(
+      RestTestClient caller, long restaurantId, String body) {
+    return caller
         .put()
-        .uri("/api/v1/restaurants/{id}/open?" + query, restaurantId)
+        .uri("/api/v1/restaurants/{id}/open", restaurantId)
         .contentType(MediaType.APPLICATION_JSON)
         .body(body)
         .exchange();

@@ -37,7 +37,7 @@
       },
       {
         "name": "RESTAURANT_OWNER",
-        "description": "Runs a restaurant's orders: accept, reject, prepare.",
+        "description": "Runs a restaurant: its orders (accept, reject, prepare) and its profile and opening.",
         "composite": true,
         "composites": {
           "client": {
@@ -45,7 +45,8 @@
               "order.read",
               "order.accept",
               "order.reject",
-              "order.prepare"
+              "order.prepare",
+              "restaurant.write"
             ]
           }
         }
@@ -71,7 +72,10 @@
               "order.rate",
               "order.accept",
               "order.reject",
-              "order.prepare"
+              "order.prepare",
+              "restaurant.create",
+              "restaurant.write",
+              "restaurant.delete"
             ]
           }
         }
@@ -148,6 +152,18 @@
         {
           "name": "order.prepare",
           "description": "Mark an order preparing or ready for pickup"
+        },
+        {
+          "name": "restaurant.create",
+          "description": "Create a restaurant and link its owner"
+        },
+        {
+          "name": "restaurant.write",
+          "description": "Edit, open and close a restaurant one owns"
+        },
+        {
+          "name": "restaurant.delete",
+          "description": "Delete a restaurant"
         }
       ]
     }

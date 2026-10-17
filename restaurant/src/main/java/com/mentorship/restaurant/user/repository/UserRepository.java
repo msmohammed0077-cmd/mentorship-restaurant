@@ -38,4 +38,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
       where lower(user.userEmail) = lower(:email) and user.userDeletedAt is null
       """)
   boolean existsActiveByEmail(@Param("email") String email);
+
+  /** Soft-deleted users count: {@code uq_users_keycloak_id} covers every row. */
+  boolean existsByUserKeycloakId(UUID keycloakId);
 }

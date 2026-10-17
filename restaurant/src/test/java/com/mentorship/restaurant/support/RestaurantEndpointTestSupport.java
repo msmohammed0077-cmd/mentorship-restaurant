@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.support;
 
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,36 @@ public abstract class RestaurantEndpointTestSupport {
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected JwtTestSupport jwts;
+
+  /** {@code client} as the seeded admin, with an ADMIN token. */
+  protected RestTestClient asAdmin() {
+    return asRole("ADMIN");
+  }
+
+  /**
+   * {@code client} with a {@code realmRole} token for the seeded admin's user, who owns no
+   * restaurant: for permission checks, where who the caller is does not matter.
+   */
+  protected RestTestClient asRole(String realmRole) {
+    return jwts.asUser(client, JwtTestSupport.ADMIN, realmRole);
+  }
+
+  /** {@code client} as the restaurant's owner, with a RESTAURANT_OWNER token. */
+  protected RestTestClient asRestaurantOwner(long restaurantId) {
+    return jwts.asRestaurantOwner(client, restaurantId);
+  }
+
+  /** The Keycloak id linked to the restaurant's user. */
+  protected UUID ownerKeycloakIdOf(long restaurantId) {
+    return jdbcTemplate.queryForObject(
+        """
+        SELECT u.user_keycloak_id FROM users u
+        JOIN restaurants r ON r.user_id = u.user_id WHERE r.restaurant_id = ?
+        """,
+        UUID.class,
+        restaurantId);
+  }
 
   /**
    * Every user a test class creates has an email under this prefix, so cleanup can never reach a
@@ -46,7 +77,7 @@ public abstract class RestaurantEndpointTestSupport {
     jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", emailPrefix() + "%");
   }
 
-  /** Inserts a user and its restaurant, with no usable password. Returns the restaurant id. */
+  /** Inserts a user, linked to a new Keycloak id, and its restaurant. Returns the restaurant id. */
   protected long insertRestaurant(String name, String email, boolean isOpen) {
     return insertRestaurant(jdbcTemplate, name, email, isOpen);
   }

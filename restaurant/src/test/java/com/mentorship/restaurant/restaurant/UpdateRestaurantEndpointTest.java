@@ -5,15 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.mentorship.restaurant.support.RestaurantEndpointTestSupport;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
-
-  private static final String SEEDED_RESTAURANT_EMAIL = "contact@nilekitchen.example.com";
-  private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
 
   @Override
   protected String emailPrefix() {
@@ -21,18 +16,14 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void adminUpdatesNameDescriptionAndEmail() {
+  void ownerUpdatesNameAndDescription() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
     update(
+            asRestaurantOwner(restaurantId),
             restaurantId,
-            "role=ADMIN",
             """
-            {
-              "name": "Koshary Palace",
-              "description": "Koshary, and more.",
-              "email": "Update.Restaurant.Test.PALACE@Example.com"
-            }
+            { "name": "Koshary Palace", "description": "Koshary, and more." }
             """)
         .expectStatus()
         .isOk()
@@ -44,32 +35,35 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .jsonPath("$.description")
         .isEqualTo("Koshary, and more.")
         .jsonPath("$.email")
-        .isEqualTo(email("palace"))
+        .isEqualTo(email("koshary"))
         .jsonPath("$.is_open")
         .isEqualTo(true);
 
     assertThat(storedRow(restaurantId))
         .containsEntry("user_name", "Koshary Palace")
         .containsEntry("restaurant_name", "Koshary Palace")
-        .containsEntry("restaurant_description", "Koshary, and more.")
-        .containsEntry("user_email", email("palace"));
+        .containsEntry("restaurant_description", "Koshary, and more.");
   }
 
+  /** Keycloak owns the login email (ADR 0010): one sent here is ignored, not refused. */
   @Test
-  void restaurantUpdatesItself() {
+  void ignoresAnEmail() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
     update(
+            asRestaurantOwner(restaurantId),
             restaurantId,
-            "role=RESTAURANT&restaurantId=" + restaurantId,
             """
-            { "name": "Koshary Palace" }
-            """)
+            { "email": "%s" }
+            """
+                .formatted(email("palace")))
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.name")
-        .isEqualTo("Koshary Palace");
+        .jsonPath("$.email")
+        .isEqualTo(email("koshary"));
+
+    assertThat(storedRow(restaurantId)).containsEntry("user_email", email("koshary"));
   }
 
   @Test
@@ -77,8 +71,8 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
     update(
+            asRestaurantOwner(restaurantId),
             restaurantId,
-            "role=ADMIN",
             """
             { "name": null }
             """)
@@ -88,124 +82,88 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         .jsonPath("$.name")
         .isEqualTo("Koshary Corner")
         .jsonPath("$.description")
-        .isEqualTo("Test kitchen.")
-        .jsonPath("$.email")
-        .isEqualTo(email("koshary"));
+        .isEqualTo("Test kitchen.");
   }
 
   @Test
-  void acceptsItsOwnEmailInAnyCase() {
+  void trimsTheName() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    update(restaurantId, "role=ADMIN", emailBody(email("koshary").toUpperCase()))
+    update(asRestaurantOwner(restaurantId), restaurantId, nameBody("  Koshary Palace  "))
         .expectStatus()
         .isOk()
         .expectBody()
-        .jsonPath("$.email")
-        .isEqualTo(email("koshary"));
+        .jsonPath("$.name")
+        .isEqualTo("Koshary Palace");
+
+    assertThat(storedRow(restaurantId))
+        .containsEntry("user_name", "Koshary Palace")
+        .containsEntry("restaurant_name", "Koshary Palace");
   }
 
   @Test
-  void rejectsAnotherRestaurantsEmailInAnyCase() {
+  void refusesARequestWithoutAToken() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    update(restaurantId, "role=ADMIN", emailBody(SEEDED_RESTAURANT_EMAIL.toUpperCase()))
-        .expectStatus()
-        .isEqualTo(409)
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Email is already in use");
-
-    assertThat(storedRow(restaurantId)).containsEntry("user_email", email("koshary"));
-  }
-
-  @Test
-  void rejectsACustomersEmail() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-
-    update(restaurantId, "role=ADMIN", emailBody(SEEDED_CUSTOMER_EMAIL))
-        .expectStatus()
-        .isEqualTo(409)
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Email is already in use");
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"CUSTOMER", "COURIER", "SYSTEM"})
-  void rejectsEveryRoleButAdminAndRestaurant(String role) {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-
-    update(restaurantId, "role=" + role, nameBody("Koshary Palace"))
-        .expectStatus()
-        .isForbidden()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Role " + role + " may not edit this restaurant");
+    update(client, restaurantId, nameBody("Koshary Palace")).expectStatus().isUnauthorized();
 
     assertThat(storedRow(restaurantId)).containsEntry("restaurant_name", "Koshary Corner");
   }
 
   @Test
-  void rejectsARestaurantEditingAnother() {
+  void refusesACustomer() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-    long otherId = insertRestaurant("Other Corner", email("other"), true);
 
-    update(restaurantId, "role=RESTAURANT&restaurantId=" + otherId, nameBody("Koshary Palace"))
+    update(asRole("CUSTOMER"), restaurantId, nameBody("Koshary Palace"))
         .expectStatus()
         .isForbidden()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Role RESTAURANT may not edit this restaurant");
+        .isEqualTo("Access denied");
+
+    assertThat(storedRow(restaurantId)).containsEntry("restaurant_name", "Koshary Corner");
   }
 
   @Test
-  void rejectsARestaurantWithoutItsId() {
+  void refusesAnotherRestaurantsOwner() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
+    long otherId = insertRestaurant("Other Corner", email("other"), true);
+
+    refusesNotTheOwner(asRestaurantOwner(otherId), restaurantId);
+  }
+
+  /** The admin holds restaurant.write but owns no restaurant: nothing bypasses ownership. */
+  @Test
+  void refusesTheAdmin() {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    update(restaurantId, "role=RESTAURANT", nameBody("Koshary Palace"))
+    refusesNotTheOwner(asAdmin(), restaurantId);
+  }
+
+  /** Ownership is checked before existence, so an unknown id answers as another's does. */
+  @Test
+  void refusesAnUnknownRestaurant() {
+    long ownId = insertRestaurant("Koshary Corner", email("koshary"), true);
+
+    update(asRestaurantOwner(ownId), 999_999L, nameBody("Koshary Palace"))
         .expectStatus()
-        .isForbidden();
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant belongs to another owner");
   }
 
   @Test
-  void checksTheRoleBeforeExistence() {
-    update(999_999L, "role=CUSTOMER", nameBody("Koshary Palace")).expectStatus().isForbidden();
-  }
+  void rejectsItsOwnSoftDeletedRestaurant() {
+    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
+    softDeleteRestaurant(restaurantId);
 
-  @Test
-  void rejectsAnUnknownRestaurant() {
-    update(999_999L, "role=ADMIN", nameBody("Koshary Palace"))
+    update(asRestaurantOwner(restaurantId), restaurantId, nameBody("Koshary Palace"))
         .expectStatus()
         .isNotFound()
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Restaurant not found");
-  }
-
-  @Test
-  void rejectsASoftDeletedRestaurant() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-    softDeleteRestaurant(restaurantId);
-
-    update(restaurantId, "role=ADMIN", nameBody("Koshary Palace")).expectStatus().isNotFound();
-  }
-
-  @Test
-  void rejectsAMissingRole() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-
-    client
-        .patch()
-        .uri("/api/v1/restaurants/{id}", restaurantId)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(nameBody("Koshary Palace"))
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("role is required");
   }
 
   @Test
@@ -219,27 +177,6 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   }
 
   @Test
-  void rejectsABlankEmail() {
-    rejectsBody(emailBody(""), "email");
-  }
-
-  @Test
-  void trimsTheName() {
-    long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
-
-    update(restaurantId, "role=ADMIN", nameBody("  Koshary Palace  "))
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.name")
-        .isEqualTo("Koshary Palace");
-
-    assertThat(storedRow(restaurantId))
-        .containsEntry("user_name", "Koshary Palace")
-        .containsEntry("restaurant_name", "Koshary Palace");
-  }
-
-  @Test
   void rejectsADescriptionOver1000Characters() {
     rejectsBody(
         """
@@ -249,21 +186,22 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         "description");
   }
 
-  /** {@code @Email} refuses it before the service runs, so the service does not trim. */
-  @Test
-  void rejectsAnEmailWithSurroundingWhitespace() {
-    rejectsBody(emailBody(" " + email("koshary") + " "), "email");
+  private void refusesNotTheOwner(RestTestClient caller, long restaurantId) {
+    update(caller, restaurantId, nameBody("Koshary Palace"))
+        .expectStatus()
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant belongs to another owner");
+
+    assertThat(storedRow(restaurantId)).containsEntry("restaurant_name", "Koshary Corner");
   }
 
-  @Test
-  void rejectsAMalformedEmail() {
-    rejectsBody(emailBody("not-an-email"), "email");
-  }
-
-  private RestTestClient.ResponseSpec update(long restaurantId, String query, String body) {
-    return client
+  private RestTestClient.ResponseSpec update(
+      RestTestClient caller, long restaurantId, String body) {
+    return caller
         .patch()
-        .uri("/api/v1/restaurants/{id}?" + query, restaurantId)
+        .uri("/api/v1/restaurants/{id}", restaurantId)
         .contentType(MediaType.APPLICATION_JSON)
         .body(body)
         .exchange();
@@ -272,7 +210,7 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
   private void rejectsBody(String body, String field) {
     long restaurantId = insertRestaurant("Koshary Corner", email("koshary"), true);
 
-    update(restaurantId, "role=ADMIN", body)
+    update(asRestaurantOwner(restaurantId), restaurantId, body)
         .expectStatus()
         .isBadRequest()
         .expectBody()
@@ -285,13 +223,6 @@ class UpdateRestaurantEndpointTest extends RestaurantEndpointTestSupport {
         { "name": "%s" }
         """
         .formatted(name);
-  }
-
-  private static String emailBody(String email) {
-    return """
-        { "email": "%s" }
-        """
-        .formatted(email);
   }
 
   private Map<String, Object> storedRow(long restaurantId) {

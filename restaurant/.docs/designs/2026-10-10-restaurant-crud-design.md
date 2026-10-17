@@ -21,29 +21,38 @@ Reads go first: they build what the others need (controller, response, mapper, t
 
 ## Authorisation
 
-Trust-based, like the order endpoints, until #83 delivers real authentication. The caller declares who they are; the service checks it.
+The stack was written trust-based (`?role=`, `?restaurantId=`) before #83 landed; it is merged onto `main` and follows #83's rules (ADR 0008, 0009): a permission on every endpoint, the caller from the token, ownership in our guards.
 
-- `ActorRole` gains `ADMIN` and moves from `order/model/entity/` to `user/model/` (PR 2, mechanical). It is no longer order-specific, and the restaurant domain should not import an enum from an order entity package.
-- Write endpoints take `?role=`, plus `?restaurantId=` for `RESTAURANT` (the caller's claimed identity, the same parameter the order endpoints use).
-- One private guard, `ensureMayManage(id, role, restaurantId)`. PR 2 adds the `ADMIN`-only half, `ensureAdmin(role, action)`, for create; PR 3 adds `ensureMayManage` beside it, and PR 4 reuses `ensureAdmin` for delete:
+| Endpoint | Guard | Held by |
+|---|---|---|
+| `GET` details, `GET` index | `@PublicEndpoint`, in `SecurityConfig.PUBLIC_PATHS` (`GET` only) | anyone, no token |
+| `POST` create | `restaurant.create` | `ADMIN` |
+| `PATCH` edit, `PUT` open | `restaurant.write`, then `RestaurantService.ensureOwnedBy({id}, caller.userId())` | `RESTAURANT_OWNER`, `ADMIN` |
+| `DELETE` | `restaurant.delete` | `ADMIN` |
 
-| Endpoint | Allowed |
-|---|---|
-| `GET` details, `GET` index | anyone, no role parameter |
-| `POST` create | `ADMIN` |
-| `PATCH` edit, `PUT` open | `ADMIN`, or `RESTAURANT` with `restaurantId == {id}` |
-| `DELETE` | `ADMIN` |
+- **The reads are public** so the directory can be browsed before login. They return only what the restaurant shows anyway (name, description, email, open).
+- **Edit and open are the owner's alone.** `ADMIN` holds `restaurant.write`, as it holds every permission, but has no restaurant, so `ensureOwnedBy` refuses it (403 "Restaurant belongs to another owner"), as it refuses an admin on someone else's orders. Nothing bypasses an ownership guard.
+- **The path names the restaurant.** `{id}` is both the target and what `ensureOwnedBy` checks, so edit and open take no `?restaurantId`. The order endpoints keep theirs: an order id does not name a restaurant.
+- **Order of checks on writes:** token (401) → permission (403) → ownership (403, before any read of the restaurant) → existence (404) → business rule (409). `ensureOwnedBy` answers 403 for an id that does not exist, so a caller cannot probe which ids do. A soft-deleted restaurant still belongs to its owner, so they get its 404.
+- **`?role=` and `ActorRole` leave the restaurant domain.** `RestaurantActionNotAllowedException`, `ensureAdmin` and `ensureMayManage` go; the permissions do their job. `ActorRole` stays in `order/model/entity/` without `ADMIN`, which only the restaurant guards used.
+- The three permissions are client roles of `restaurant-api` in `keycloak/realm-restaurant.json`, added to the composites above. Each endpoint gets a row in `EndpointAuthorizationTest`.
 
-- Anything else is **403**, "Role X may not …" (`RestaurantActionNotAllowedException extends RestaurantException`). A `RESTAURANT` caller without `restaurantId` counts as a mismatch.
-- **Order of checks on writes:** role (403, no database read) → existence (404) → business rule (409). An unauthorised caller cannot probe which ids exist.
-- Order endpoints are unchanged. `ADMIN` passed to them is already refused, because no `OrderTransition` belongs to it.
-- Every spec has an **Authorisation** section naming the IDOR and pointing to #83, like the customer specs.
+### Create links the owner's Keycloak user
 
-Rejected: a `users.user_role` column (nothing would read it until #83, which may model roles differently), and building real authentication here (#83's open decisions belong to its owner).
+Every account is created from a Keycloak token (V17), and an unlinked row holding the email is refused at login, not linked (#83 roadmap). A restaurant row without `user_keycloak_id` could therefore never be logged in to. So:
+
+- The admin creates the owner in Keycloak first, with `RESTAURANT_OWNER`, and passes their id: `CreateRestaurantRequest.ownerKeycloakId` (`@NotNull UUID`). It names the new owner, not the caller, so ADR 0009 is not affected.
+- A Keycloak id already linked to a `users` row is **409** "Owner account is already linked" (`RestaurantOwnerLinkedException`). The unique constraint `uq_users_keycloak_id` is the backstop for a race, answered as the email index is.
+- The email stays in the request: `users.user_email` is not null, and the reads show it before the owner's first login. If it differs from Keycloak's, `UserService.findCaller` replaces it on that login.
+- No call to Keycloak's Admin API: that needs a client, credentials and a new dependency. Creating the Keycloak user from the API is a follow-up issue.
+
+### Edit does not change the email
+
+Keycloak owns the login email (ADR 0010): `findCaller` would replace an email set through the API on the owner's next request. Edit takes the name and description only. `main` stopped editing customer emails for the same reason.
 
 ## Data model
 
-**No migration.** `restaurants` (name, description, `is_open`, `user_id`) and `users` (name, email, password, `user_deleted_at`, the partial unique email index `uq_users_active_email`) already hold everything. A restaurant is a login account like a customer: `users` ← `restaurants.user_id`.
+**No migration.** `restaurants` (name, description, `is_open`, `user_id`) and `users` (name, email, `user_keycloak_id`, `user_deleted_at`, the partial unique email index `uq_users_active_email`) already hold everything. A restaurant is a login account like a customer: `users` ← `restaurants.user_id`.
 
 `Restaurant` gets `@Builder` and `@AllArgsConstructor(access = AccessLevel.PRIVATE)` in PR 2; ADR 0005 and `CLAUDE.md` move it out of the "never created" list. `Menu` and `MenuItem` stay there until the menu CRUD (#92).
 
@@ -85,46 +94,47 @@ Offset paging, entirely Spring's: `Pageable` in, `PagedModel` out.
 
 **Why offset, not keyset:** it is the only option built in end to end (Spring Data has no web resolver or JSON form for a keyset position, so every keyset endpoint needs its own cursor code). Keyset's advantages — deep pages, stability under constant inserts — matter for order history, not for a small, admin-curated directory. Recorded as ADR 0011 in PR 1. Order history's cursor is revisited separately in #110.
 
-### Create — `POST /api/v1/restaurants?role=ADMIN` (PR 2, #86)
+### Create — `POST /api/v1/restaurants` (PR 2, #86)
 
-The System Admin creates the restaurant; it has no usable login.
+The System Admin creates the restaurant, linked to its owner's Keycloak user (see *Authorisation*).
 
 | Field | Rule |
 |---|---|
 | `name` | required, not blank, max 150 (`user_name`'s limit; stored in both `user_name` and `restaurant_name`) |
 | `description` | optional, max 1000 |
 | `email` | required, valid email, max 255 — the contact email |
+| `owner_keycloak_id` | required UUID — the owner's Keycloak user |
 
 `RestaurantService.createRestaurant`, one transaction:
 
 1. Trim and lower-case the email. Taken by an active user (`UserService.isEmailTaken`) → **409**, "Email is already in use" (`RestaurantEmailInUseException`).
-2. Build the `User`: `user_name` = the restaurant name, the email, `user_password` = `UserService.NO_LOGIN_PASSWORD` (a fixed marker such as `"!no-login"`). It is not a BCrypt hash, so no password can match it. The constant marks the accounts #83 must give a real password.
-3. `userService.create(user)`, then build and save the `Restaurant`.
-4. **201** with `RestaurantResponse`.
+2. The owner's Keycloak id linked to any user (`UserService.isKeycloakIdLinked`) → **409**, "Owner account is already linked" (`RestaurantOwnerLinkedException`).
+3. Build the `User`: `user_name` = the restaurant name, the email, `user_keycloak_id` = the owner.
+4. `userService.create(user)`, then build and save the `Restaurant`.
+5. **201** with `RestaurantResponse`.
 
 **A new restaurant starts closed** (`is_open = false`): it has no menu yet, and the owner journey ends with "go online". The column's `DEFAULT TRUE` stays; it serves the seeds and V6's backfill.
 
 Not stored: phone, address, opening hours. `is_open` stays a manual flag, as V6 decided.
 
-### Edit — `PATCH /api/v1/restaurants/{id}?role=…[&restaurantId=…]` (PR 3, #87)
+### Edit — `PATCH /api/v1/restaurants/{id}` (PR 3, #87)
 
-- `name`, `description`, `email`, all optional; absent or `null` means unchanged. As in update-customer, `description` cannot be cleared.
+- `name` and `description`, both optional; absent or `null` means unchanged. As in update-customer, `description` cannot be cleared. The email is Keycloak's (see *Authorisation*).
 - `name` updates `restaurant_name` and `user_name` together.
-- `email` is trimmed and lower-cased; taken by another active user (`isEmailTakenByOther`) → **409**. Re-sending the restaurant's own email is not a conflict.
 - Managed entity: setters, dirty checking, no `save()`.
 - **200** with `RestaurantResponse`.
 
-### Open / close — `PUT /api/v1/restaurants/{id}/open?role=…[&restaurantId=…]` (PR 3, #91)
+### Open / close — `PUT /api/v1/restaurants/{id}/open` (PR 3, #91)
 
 - Body `{"is_open": true}`, `@NotNull`. **200** with `RestaurantResponse`.
 - Idempotent: setting the current value again is 200.
 - Closing does not touch orders already placed: accepted and preparing orders carry on, and the PLACED auto-reject keeps its normal deadline. What closing stops is new business: add-to-cart (existing) and checkout (below).
 
-### Delete — `DELETE /api/v1/restaurants/{id}?role=ADMIN` (PR 4, #90)
+### Delete — `DELETE /api/v1/restaurants/{id}` (PR 4, #90)
 
 Soft delete, mirroring delete-customer. **204**, no body.
 
-1. Not `ADMIN` → **403**.
+1. No `restaurant.delete` → **403**.
 2. Unknown or already deleted → **404**, "Restaurant not found". Deleting twice is 404 the second time.
 3. An order in an active status (`OrderStatus.ACTIVE`: `PLACED` through `PICKED_UP`) → **409**, "Restaurant has active orders" (`RestaurantHasActiveOrdersException`), through a new `OrderService.hasActiveRestaurantOrders(restaurantId)` over `existsByRestaurant_IdAndStatusIn`.
 4. Otherwise `user_deleted_at = now()` on the restaurant's user.

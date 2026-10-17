@@ -8,7 +8,7 @@ Design: [restaurant CRUD](../../../designs/2026-10-10-restaurant-crud-design.md)
 
 ## Actor
 
-Any caller. Reads take no role parameter.
+Any caller, with or without a token.
 
 ## Preconditions
 

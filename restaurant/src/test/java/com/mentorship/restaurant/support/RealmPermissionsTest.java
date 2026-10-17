@@ -31,14 +31,15 @@ class RealmPermissionsTest {
   }
 
   @Test
-  void restaurantOwnerHoldsTheKitchenPermissions() {
+  void restaurantOwnerHoldsTheKitchenAndRestaurantPermissions() {
     assertThat(RealmPermissions.of("RESTAURANT_OWNER"))
-        .containsExactlyInAnyOrder("order.read", "order.accept", "order.reject", "order.prepare");
+        .containsExactlyInAnyOrder(
+            "order.read", "order.accept", "order.reject", "order.prepare", "restaurant.write");
   }
 
   @Test
   void adminHoldsEveryPermission() {
-    assertThat(RealmPermissions.all()).hasSize(15);
+    assertThat(RealmPermissions.all()).hasSize(18);
     assertThat(RealmPermissions.of("ADMIN")).isEqualTo(RealmPermissions.all());
   }
 

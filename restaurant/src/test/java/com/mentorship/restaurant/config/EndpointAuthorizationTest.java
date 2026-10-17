@@ -43,7 +43,11 @@ class EndpointAuthorizationTest {
   private static final String AS_RESTAURANT = "?restaurantId=" + NONE;
 
   /** Endpoints reachable without a token (SecurityConfig); Swagger and /error are not ours. */
-  private static final Set<String> PUBLIC = Set.of("GET /api/v1/health");
+  private static final Set<String> PUBLIC =
+      Set.of(
+          "GET /api/v1/health",
+          "GET /api/v1/restaurants",
+          "GET /api/v1/restaurants/{restaurantId}");
 
   private static final String ADDRESS =
       """
@@ -70,6 +74,18 @@ class EndpointAuthorizationTest {
   private static final String RATING =
       """
       {"score": 5}
+      """;
+
+  /** Names the admin's own Keycloak user, already linked, so a permitted create is a 409. */
+  private static final String RESTAURANT =
+      """
+      {"name": "Koshary Corner", "email": "admin@example.com", "owner_keycloak_id": "%s"}
+      """
+          .formatted(USER);
+
+  private static final String OPEN =
+      """
+      {"is_open": true}
       """;
   private static final String REJECTION =
       """
@@ -133,7 +149,11 @@ class EndpointAuthorizationTest {
             "/api/v1/orders/{orderId}/ready-for-pickup",
             AS_RESTAURANT,
             null,
-            "order.prepare"));
+            "order.prepare"),
+        row(POST, "/api/v1/restaurants", "", RESTAURANT, "restaurant.create"),
+        row(PATCH, "/api/v1/restaurants/{restaurantId}", "", "{}", "restaurant.write"),
+        row(PUT, "/api/v1/restaurants/{restaurantId}/open", "", OPEN, "restaurant.write"),
+        row(DELETE, "/api/v1/restaurants/{restaurantId}", "", null, "restaurant.delete"));
   }
 
   /** Every path variable becomes an id that does not exist. */
