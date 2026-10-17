@@ -11,15 +11,13 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
     return "update.customer.test.";
   }
 
-  private static final String SEEDED_CUSTOMER_EMAIL = "ahmed.ali@example.com";
-
   @Test
   void updatesNameAndPhoneAndLeavesTheRestUnchanged() {
     long customerId = insertCustomer(email("sara"));
 
-    client
+    asCustomer(customerId)
         .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
+        .uri("/api/v1/customers/me")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -46,59 +44,25 @@ class UpdateCustomerEndpointTest extends CustomerEndpointTestSupport {
         .isEqualTo("FEMALE");
   }
 
+  /** Keycloak owns the login email (#83 part 3): the profile update no longer changes it. */
   @Test
-  void rejectsAnEmailUsedByAnotherActiveUser() {
+  void leavesTheEmailUnchanged() {
     long customerId = insertCustomer(email("sara"));
 
-    client
+    asCustomer(customerId)
         .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
+        .uri("/api/v1/customers/me")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
             { "email": "%s" }
             """
-                .formatted(SEEDED_CUSTOMER_EMAIL))
+                .formatted(email("other")))
         .exchange()
         .expectStatus()
-        .isEqualTo(409)
+        .isOk()
         .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Email is already in use");
-  }
-
-  @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .patch()
-        .uri("/api/v1/customers/999999")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            { "name": "Sara Hassan" }
-            """)
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
-  void rejectsAnInvalidEmail() {
-    long customerId = insertCustomer(email("sara"));
-
-    client
-        .patch()
-        .uri("/api/v1/customers/{customerId}", customerId)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            """
-            { "email": "not-an-email" }
-            """)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
+        .jsonPath("$.email")
+        .isEqualTo(email("sara"));
   }
 }

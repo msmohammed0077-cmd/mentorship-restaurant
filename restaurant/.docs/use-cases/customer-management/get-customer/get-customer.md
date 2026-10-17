@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `customer.read` (#83 part 4).
+
 Read one customer's profile by id.
 
 Issue [#69](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/69), under the
@@ -15,26 +17,27 @@ None beyond the customer existing and not being soft-deleted.
 
 ## Scope
 
-`GET /api/v1/customers/{customerId}` — **200** with the customer's profile.
+`GET /api/v1/customers/me` — **200** with the caller's profile.
 
 Builds on #73 (`CustomerController`, `CustomerService`, `CustomerMapper`, `CustomerResponse`). Adds
 `CustomerRepository.findActiveById` and `CustomerService.getCustomer`.
 
 ## Business Rules
 
-1. An **unknown or soft-deleted** customer is refused with 404, "Customer not found". Soft-deleted
+1. A **soft-deleted** customer is refused with 404, "Customer not found", even while their token is
+   still valid. Soft-deleted
    customers do not exist to the API: the lookup is `CustomerRepository.findActiveById`, which
    filters `user.userDeletedAt is null`.
-2. The password is **never** in the response.
-3. **Read-only.** No business state is validated; a read reports what is there.
-4. **Addresses are not embedded.** They have their own endpoint,
-   `GET /api/v1/addresses?customerId=`.
+2. **Read-only.** No business state is validated; a read reports what is there.
+3. **Addresses are not embedded.** They have their own endpoint,
+   `GET /api/v1/addresses`.
 
 ## Authorisation
 
-None, per #34's trade. This is an **IDOR**: anyone can read any customer's profile — name, email,
-phone, date of birth — by guessing or enumerating ids. Closing it belongs to auth, not to this
-umbrella.
+A token and `customer.read` are required (#83 part 4). The customer is the caller (#83 part 2, ADR 0009):
+the path is `/me`, the service takes the customer id from the token, and a caller who is not a
+customer gets 403 "Caller is not a customer". Before part 2 the path carried the customer's id, and
+this was an **IDOR**: anyone could read the profile — name, email, phone, date of birth — of any customer's account by id.
 
 ## API
 
@@ -77,14 +80,14 @@ check, so every customer lookup excludes deleted users the same way.
 
 ## Main Success Scenario
 
-1. The caller requests a customer by id.
+1. The caller requests their own profile.
 2. The system loads the customer and its user, excluding soft-deleted users.
 3. The system returns 200 with the profile.
 
 ## Exception Flows
 
-- **1a. Id is not a number:** 400 (type mismatch, before the service runs).
-- **2a. No active customer with that id:** 404, "Customer not found".
+- **1a. The caller is not a customer:** 403, "Caller is not a customer".
+- **2a. The caller's customer is soft-deleted:** 404, "Customer not found".
 
 ## Postconditions
 
@@ -102,11 +105,11 @@ sequenceDiagram
     participant CR as CustomerRepository
     participant M as CustomerMapper
 
-    Caller->>C: GET /api/v1/customers/{customerId}
-    C->>H: getCustomer(customerId)
+    Caller->>C: GET /api/v1/customers/me
+    C->>H: getCustomer(caller.customerId)
     H->>CR: findActiveById(customerId)
     CR-->>H: Optional<Customer> (user join-fetched)
-    alt empty (unknown or soft-deleted)
+    alt empty (soft-deleted)
         H-->>C: CustomerNotFoundException (404)
         C-->>Caller: 404 Not Found
     end
@@ -130,9 +133,8 @@ CustomerController -> CustomerService     (@Service, @Transactional(readOnly = t
 
 | Case | Expected |
 | --- | --- |
-| Seeded customer 1 | 200, name `Ahmed Ali`, email `ahmed.ali@example.com`, no `password` |
-| Unknown id `999999` | 404, "Customer not found" |
-| Soft-deleted customer (created via the API, marked deleted via SQL) | 404 |
+| Seeded customer 1, as themselves | 200, name `Ahmed Ali`, email `ahmed.ali@example.com` |
+| Soft-deleted customer (inserted and marked deleted via SQL) | 404 |
 
 Every email the test creates starts with `get.customer.test.`, and cleanup deletes only those
 users. The `customers` rows go with them by cascade. Seeded customers 1–3 are only read.
@@ -140,4 +142,4 @@ users. The `customers` rows go with them by cascade. Seeded customers 1–3 are 
 # Notes
 
 1. **IDOR** is #34's accepted trade, tracked with auth.
-2. **No addresses in the profile.** See rule 4.
+2. **No addresses in the profile.** See rule 3.

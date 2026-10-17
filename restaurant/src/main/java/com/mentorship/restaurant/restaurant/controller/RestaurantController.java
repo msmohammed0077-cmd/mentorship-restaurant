@@ -6,7 +6,7 @@ import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantReques
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.service.RestaurantDeletionService;
 import com.mentorship.restaurant.restaurant.service.RestaurantService;
-import com.mentorship.restaurant.user.model.ActorRole;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

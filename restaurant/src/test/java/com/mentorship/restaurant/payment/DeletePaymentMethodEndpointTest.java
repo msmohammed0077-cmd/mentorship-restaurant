@@ -31,10 +31,11 @@ class DeletePaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
 
     deletePaymentMethod(other, paymentMethodId)
         .expectStatus()
-        .isForbidden()
+        // Scoped to the caller, someone else's card is not found (#83 part 2).
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Payment method belongs to another customer");
+        .isEqualTo("Payment method not found");
 
     assertThat(paymentMethodCountFor(owner)).isEqualTo(1);
   }
@@ -56,12 +57,9 @@ class DeletePaymentMethodEndpointTest extends PaymentMethodEndpointTestSupport {
   }
 
   private RestTestClient.ResponseSpec deletePaymentMethod(long customerId, long paymentMethodId) {
-    return client
+    return asCustomer(customerId)
         .delete()
-        .uri(
-            "/api/v1/payment-methods/{paymentMethodId}?customerId={customerId}",
-            paymentMethodId,
-            customerId)
+        .uri("/api/v1/payment-methods/{paymentMethodId}", paymentMethodId)
         .exchange();
   }
 }

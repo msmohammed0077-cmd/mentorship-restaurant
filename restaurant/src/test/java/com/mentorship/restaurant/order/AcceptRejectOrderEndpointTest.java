@@ -12,10 +12,8 @@ import org.springframework.http.MediaType;
 class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   @Autowired private com.mentorship.restaurant.order.service.OrderStatusService orderStatusService;
 
-  private static final String ACCEPT =
-      "/api/v1/orders/{id}/accept?restaurantId={r}&role=RESTAURANT";
-  private static final String REJECT =
-      "/api/v1/orders/{id}/reject?restaurantId={r}&role=RESTAURANT";
+  private static final String ACCEPT = "/api/v1/orders/{id}/accept?restaurantId={r}";
+  private static final String REJECT = "/api/v1/orders/{id}/reject?restaurantId={r}";
 
   @Test
   void acceptsAPlacedOrderWithoutTouchingStock() {
@@ -23,7 +21,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     seedOrderLine(orderId, KOFTA, 2);
     int stockBefore = stockFor(KOFTA);
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(ACCEPT, orderId, NILE_KITCHEN)
         .exchange()
@@ -42,7 +40,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void storesAPrepTimeWhenOneIsGiven() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(ACCEPT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -58,7 +56,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void acceptsWithoutABody() {
     long orderId = seedOrder("PLACED");
 
-    client.post().uri(ACCEPT, orderId, NILE_KITCHEN).exchange().expectStatus().isOk();
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, orderId, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isOk();
 
     assertThat(orderRow(orderId).get("order_prep_time_minutes")).isNull();
   }
@@ -67,7 +70,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void rejectsAPlacedOrderAndStoresTheReason() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -102,7 +105,12 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     seedOrderLine(orderId, KOFTA, 2);
     int stockBefore = stockFor(KOFTA);
 
-    client.post().uri(ACCEPT, orderId, NILE_KITCHEN).exchange().expectStatus().isEqualTo(409);
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, orderId, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409);
 
     assertThat(stockFor(KOFTA)).isEqualTo(stockBefore);
   }
@@ -116,7 +124,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     rejectFor(orderId, "TOO_BUSY");
     int afterFirst = stockFor(KOFTA);
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -133,7 +141,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesToRejectAfterAccepting() {
     long orderId = seedOrder("ACCEPTED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -147,7 +155,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAReasonOutsideTheSet() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -161,7 +169,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesAMissingReason() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -175,7 +183,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesARestaurantUsingTheSystemOnlyReason() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -191,7 +199,7 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
   void refusesANonPositivePrepTime() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(ACCEPT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)
@@ -201,28 +209,47 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
         .isBadRequest();
   }
 
+  /** Another restaurant's order does not exist to this owner, as on the customer side. */
   @Test
-  void refusesAnotherRestaurantsOrder() {
+  void treatsAnotherRestaurantsOrderAsNotFound() {
     long orderId = seedOrder("PLACED", NILE_KITCHEN);
 
-    client.post().uri(ACCEPT, orderId, BURGER_YARD).exchange().expectStatus().isForbidden();
+    asRestaurantOwner(BURGER_YARD)
+        .post()
+        .uri(ACCEPT, orderId, BURGER_YARD)
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Order not found");
   }
 
   @Test
-  void refusesACustomerAccepting() {
+  void refusesARestaurantTheCallerDoesNotOwn() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asRestaurantOwner(BURGER_YARD)
         .post()
-        .uri("/api/v1/orders/{id}/accept?restaurantId={r}&role=CUSTOMER", orderId, NILE_KITCHEN)
+        .uri(ACCEPT, orderId, NILE_KITCHEN)
         .exchange()
         .expectStatus()
-        .isForbidden();
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Restaurant belongs to another owner");
+
+    assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }
 
   @Test
   void refusesAnUnknownOrder() {
-    client.post().uri(ACCEPT, 999999L, NILE_KITCHEN).exchange().expectStatus().isNotFound();
+    asRestaurantOwner(NILE_KITCHEN)
+        .post()
+        .uri(ACCEPT, 999999L, NILE_KITCHEN)
+        .exchange()
+        .expectStatus()
+        .isNotFound();
   }
 
   @Test
@@ -255,38 +282,8 @@ class AcceptRejectOrderEndpointTest extends OrderEndpointTestSupport {
     assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }
 
-  @Test
-  void refusesACallerSupplyingTheSystemRole() {
-    long orderId = seedOrder("PLACED", NILE_KITCHEN);
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/reject?restaurantId={r}&role=SYSTEM", orderId, 999L)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body("{\"reason\": \"NO_RESPONSE\"}")
-        .exchange()
-        .expectStatus()
-        .isForbidden();
-
-    assertThat(statusOf(orderId)).isEqualTo("PLACED");
-  }
-
-  @Test
-  void refusesACallerSupplyingTheSystemRoleOnAccept() {
-    long orderId = seedOrder("PLACED", NILE_KITCHEN);
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/accept?restaurantId={r}&role=SYSTEM", orderId, 999L)
-        .exchange()
-        .expectStatus()
-        .isForbidden();
-
-    assertThat(statusOf(orderId)).isEqualTo("PLACED");
-  }
-
   private void rejectFor(long orderId, String reason) {
-    client
+    asRestaurantOwner(NILE_KITCHEN)
         .post()
         .uri(REJECT, orderId, NILE_KITCHEN)
         .contentType(MediaType.APPLICATION_JSON)

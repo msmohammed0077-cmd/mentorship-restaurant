@@ -8,15 +8,15 @@ import org.junit.jupiter.api.Test;
 
 class CancelOrderEndpointTest extends OrderEndpointTestSupport {
   private static final long OTHER_CUSTOMER = 2L;
-  private static final String CANCEL = "/api/v1/orders/{id}/cancel?customerId={c}&role=CUSTOMER";
+  private static final String CANCEL = "/api/v1/orders/{id}/cancel";
 
   @Test
   void cancelsAPlacedOrder() {
     long orderId = seedOrder("PLACED");
 
-    client
+    asCustomer(CUSTOMER)
         .post()
-        .uri(CANCEL, orderId, CUSTOMER)
+        .uri(CANCEL, orderId)
         .exchange()
         .expectStatus()
         .isOk()
@@ -62,14 +62,15 @@ class CancelOrderEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void refusesAnUnknownOrder() {
-    client.post().uri(CANCEL, 999999L, CUSTOMER).exchange().expectStatus().isNotFound();
+    asCustomer(CUSTOMER).post().uri(CANCEL, 999999L).exchange().expectStatus().isNotFound();
   }
 
   @Test
   void refusesAnotherCustomersOrder() {
     long orderId = seedOrder("PLACED");
 
-    client.post().uri(CANCEL, orderId, OTHER_CUSTOMER).exchange().expectStatus().isForbidden();
+    // Scoped to the caller, someone else's order is not found (#83 part 2).
+    asCustomer(OTHER_CUSTOMER).post().uri(CANCEL, orderId).exchange().expectStatus().isNotFound();
 
     assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }
@@ -80,39 +81,11 @@ class CancelOrderEndpointTest extends OrderEndpointTestSupport {
         new String[] {"ACCEPTED", "PREPARING", "PICKED_UP", "DELIVERED", "CANCELLED"}) {
       long orderId = seedOrder(status);
 
-      client.post().uri(CANCEL, orderId, CUSTOMER).exchange().expectStatus().isEqualTo(409);
+      asCustomer(CUSTOMER).post().uri(CANCEL, orderId).exchange().expectStatus().isEqualTo(409);
 
       assertThat(statusOf(orderId)).isEqualTo(status);
       assertThat(historyCountFor(orderId)).isZero();
     }
-  }
-
-  @Test
-  void refusesRestaurantRole() {
-    long orderId = seedOrder("PLACED");
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/cancel?customerId={c}&role=RESTAURANT", orderId, CUSTOMER)
-        .exchange()
-        .expectStatus()
-        .isForbidden();
-
-    assertThat(statusOf(orderId)).isEqualTo("PLACED");
-  }
-
-  @Test
-  void refusesSystemRole() {
-    long orderId = seedOrder("PLACED");
-
-    client
-        .post()
-        .uri("/api/v1/orders/{id}/cancel?customerId={c}&role=SYSTEM", orderId, CUSTOMER)
-        .exchange()
-        .expectStatus()
-        .isForbidden();
-
-    assertThat(statusOf(orderId)).isEqualTo("PLACED");
   }
 
   @Test
@@ -124,13 +97,13 @@ class CancelOrderEndpointTest extends OrderEndpointTestSupport {
     cancelFor(orderId);
     int afterFirst = stockFor(KOFTA);
 
-    client.post().uri(CANCEL, orderId, CUSTOMER).exchange().expectStatus().isEqualTo(409);
+    asCustomer(CUSTOMER).post().uri(CANCEL, orderId).exchange().expectStatus().isEqualTo(409);
 
     assertThat(afterFirst).isEqualTo(stockBefore + 3);
     assertThat(stockFor(KOFTA)).isEqualTo(afterFirst);
   }
 
   private void cancelFor(long orderId) {
-    client.post().uri(CANCEL, orderId, CUSTOMER).exchange().expectStatus().isOk();
+    asCustomer(CUSTOMER).post().uri(CANCEL, orderId).exchange().expectStatus().isOk();
   }
 }

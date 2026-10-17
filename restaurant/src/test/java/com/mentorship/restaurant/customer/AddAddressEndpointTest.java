@@ -8,9 +8,9 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
 
   @Test
   void addsTheFirstAddressAsDefault() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .post()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses")
         .contentType(MediaType.APPLICATION_JSON)
         .body(addressBody("Home"))
         .exchange()
@@ -37,9 +37,9 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
   void addsLaterAddressesWithoutMakingThemDefault() {
     addAddress("Home");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .post()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses")
         .contentType(MediaType.APPLICATION_JSON)
         .body(addressBody("Work"))
         .exchange()
@@ -53,25 +53,10 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .post()
-        .uri("/api/v1/addresses?customerId={customerId}", 999999L)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(addressBody("Home"))
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
   void rejectsBlankRequiredFields() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .post()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses")
         .contentType(MediaType.APPLICATION_JSON)
         .body(
             """
@@ -95,20 +80,5 @@ class AddAddressEndpointTest extends AddressEndpointTestSupport {
                     .contains("line")
                     .contains("city")
                     .contains("area"));
-  }
-
-  @Test
-  void rejectsMissingCustomerId() {
-    client
-        .post()
-        .uri("/api/v1/addresses")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(addressBody("Home"))
-        .exchange()
-        .expectStatus()
-        .isBadRequest()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("customerId is required");
   }
 }

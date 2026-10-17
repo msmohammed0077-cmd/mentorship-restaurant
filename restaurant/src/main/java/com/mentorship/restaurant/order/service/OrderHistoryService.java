@@ -2,7 +2,6 @@ package com.mentorship.restaurant.order.service;
 
 import com.mentorship.restaurant.customer.service.CustomerService;
 import com.mentorship.restaurant.order.exception.InvalidCursorException;
-import com.mentorship.restaurant.order.exception.TransitionNotAllowedForRoleException;
 import com.mentorship.restaurant.order.model.OrderCursor;
 import com.mentorship.restaurant.order.model.entity.Order;
 import com.mentorship.restaurant.order.model.mapper.OrderMapper;
@@ -11,7 +10,6 @@ import com.mentorship.restaurant.order.model.response.OrderSummaryResponse;
 import com.mentorship.restaurant.order.repository.OrderItemCountProjection;
 import com.mentorship.restaurant.order.repository.OrderItemRepository;
 import com.mentorship.restaurant.order.repository.OrderRepository;
-import com.mentorship.restaurant.user.model.ActorRole;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,9 +33,7 @@ public class OrderHistoryService {
   private final OrderMapper orderMapper;
 
   @Transactional(readOnly = true)
-  public OrderHistoryResponse viewOrderHistory(
-      Long customerId, ActorRole role, Integer limit, OrderCursor cursor) {
-    ensureCustomerRole(role);
+  public OrderHistoryResponse viewOrderHistory(Long customerId, Integer limit, OrderCursor cursor) {
     customerService.ensureActiveCustomerExists(customerId);
     ensureCursorIsUsable(cursor);
 
@@ -51,13 +47,6 @@ public class OrderHistoryService {
             .map(order -> orderMapper.toSummary(order, itemCounts.getOrDefault(order.getId(), 0L)))
             .toList();
     return new OrderHistoryResponse(rows, nextCursor(window));
-  }
-
-  private void ensureCustomerRole(ActorRole role) {
-    if (role != ActorRole.CUSTOMER) {
-      throw new TransitionNotAllowedForRoleException(
-          "Role " + role + " may not read order history");
-    }
   }
 
   private void ensureCursorIsUsable(OrderCursor cursor) {

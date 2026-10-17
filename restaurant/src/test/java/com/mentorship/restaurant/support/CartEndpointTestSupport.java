@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -26,6 +25,7 @@ public abstract class CartEndpointTestSupport {
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected JwtTestSupport jwts;
 
   @BeforeEach
   @AfterEach
@@ -45,22 +45,53 @@ public abstract class CartEndpointTestSupport {
     jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", EMAIL_PREFIX + "%");
   }
 
-  protected String addItemBody(long menuItemId, int quantity) {
-    return """
-        {"customer_id": %d, "menu_item_id": %d, "quantity": %d}
-        """
-        .formatted(CUSTOMER_WITHOUT_CART, menuItemId, quantity);
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
   }
 
+  protected String addItemBody(long menuItemId, int quantity) {
+    return """
+        {"menu_item_id": %d, "quantity": %d}
+        """
+        .formatted(menuItemId, quantity);
+  }
+
+  /** Adds a line for the fixture customer as add-to-cart would, creating the cart if needed. */
   protected void addItem(long menuItemId, int quantity) {
-    client
-        .post()
-        .uri("/api/v1/cart/items")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(addItemBody(menuItemId, quantity))
-        .exchange()
-        .expectStatus()
-        .isCreated();
+    jdbcTemplate.update(
+        """
+        INSERT INTO carts (customer_id)
+        SELECT ? WHERE NOT EXISTS (SELECT 1 FROM carts WHERE customer_id = ?)
+        """,
+        CUSTOMER_WITHOUT_CART,
+        CUSTOMER_WITHOUT_CART);
+    jdbcTemplate.update(
+        """
+        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
+        SELECT c.cart_id, m.menu_item_id, ?, m.menu_item_price
+        FROM carts c, menu_items m WHERE c.customer_id = ? AND m.menu_item_id = ?
+        """,
+        quantity,
+        CUSTOMER_WITHOUT_CART,
+        menuItemId);
+  }
+
+  /** Empties the cart as clear-cart would, keeping the row. */
+  protected void emptyCart(long cartId) {
+    jdbcTemplate.update("DELETE FROM cart_items WHERE cart_id = ?", cartId);
+  }
+
+  protected int quantityOf(long cartItemId) {
+    Integer quantity =
+        jdbcTemplate.queryForObject(
+            "SELECT cart_item_quantity FROM cart_items WHERE cart_item_id = ?",
+            Integer.class,
+            cartItemId);
+    if (quantity == null) {
+      throw new IllegalStateException("Cart item not found: " + cartItemId);
+    }
+    return quantity;
   }
 
   /**

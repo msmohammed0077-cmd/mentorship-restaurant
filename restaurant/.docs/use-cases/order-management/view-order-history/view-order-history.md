@@ -1,5 +1,7 @@
 # Goal
 
+**Access:** a bearer token with `order.read` (#83 part 4).
+
 Show a customer the orders they have placed, newest first.
 
 Issue [#37](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/37), under the
@@ -42,24 +44,20 @@ Two deviations from the issue text, both agreed:
 
 ## Authorisation
 
-There is no auth in this project and this ticket does not add any, per #34. The caller passes a role
-and the service checks it, exactly as #47's and #48's endpoints do.
+A token and `order.read` are required (#83 part 4). The customer comes from the token (#83 part 2,
+ADR 0009); the request names no one:
 
 ```http
-GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
+GET /api/v1/orders?limit=20
 ```
 
-A role other than `CUSTOMER` is refused with 403.
+A caller who is not a customer — a restaurant owner, who also holds `order.read`, or the admin — is
+refused with 403 "Caller is not a customer". A restaurant's view of its orders is a separate
+use-case, not yet built. A customer sees only their own orders — `showsNoOtherCustomersOrders` holds
+that line.
 
-`customerId` and `role` are **untrusted, caller-supplied inputs**, because `SecurityConfig` is
-`permitAll` and there is no principal to derive them from. `role` is still checked, and a customer
-sees only the orders belonging to the `customerId` given — `showsNoOtherCustomersOrders` holds that
-line.
-
-What is missing is **authentication**, not authorisation: nothing stops a caller supplying someone
-else's `customerId` and reading their history. That is the textbook IDOR shape, it is #34's accepted
-trade, and it must be closed before this reaches a real environment — tracked against #23, not
-deferred silently.
+Before part 2 the request carried `customerId` and `role`, and nothing stopped a caller supplying
+someone else's `customerId` — the textbook IDOR shape, #34's accepted trade until then.
 
 ### The `PermissionResolver` that was here, and why it went
 
@@ -82,13 +80,12 @@ that does not lock real customers out.
 ## API
 
 ```http
-GET /api/v1/orders?customerId=2&role=CUSTOMER&limit=20
+GET /api/v1/orders?limit=20
     &cursor.createdAt=2026-09-05T09:00:00.123456Z&cursor.orderId=42
 ```
 
 | Parameter | Rule |
 | --- | --- |
-| `customerId` | required |
 | `limit` | 1..50, defaults to 20 |
 | `cursor.createdAt` | optional ISO-8601 timestamp; supply with `cursor.orderId` or neither |
 | `cursor.orderId` | optional; supply with `cursor.createdAt` or neither |
@@ -189,19 +186,19 @@ found the spec had claimed it while no migration created it, so both queries wer
 ## Main Success Scenario
 
 1. Customer requests their history, optionally with a page size and a cursor.
-2. System verifies the role is `CUSTOMER`, then that the customer exists and is not soft-deleted.
+2. System takes the customer from the token (403 if the caller is not one), then verifies the
+   customer is not soft-deleted.
 4. System reads one page, newest first, starting after the cursor if given.
 5. System returns the page and a cursor for the next one, or nothing if this was the last.
 
 ## Exception Flows
 
-- **1a. `customerId` or `role` missing, `limit` outside 1..50, or `cursor` malformed:** 400. Shape
+- **1a. `limit` outside 1..50, or `cursor` malformed:** 400. Shape
   and range are rejected by validation before the service runs. `limit` is also `@NotNull`: an empty
   `?limit=` binds null *over* the field default and null passes `@Min`/`@Max`, which used to reach
   `limit + 1` and 500.
-- **2a. Customer does not exist or is soft-deleted:** 404 — "Customer not found".
-- **2b. The role is not `CUSTOMER`:** 403. Checked before existence, so a caller with the wrong role
-  learns nothing about which customer ids exist.
+- **2a. The caller is not a customer:** 403 — "Caller is not a customer".
+- **2b. The customer is soft-deleted:** 404 — "Customer not found".
 - **4a. Customer has no orders:** not an exception. 200, an empty list, no cursor.
 
 ## Postconditions
@@ -214,11 +211,11 @@ None. This is a read.
 
 ```mermaid
 flowchart TD
-    Start([Customer requests history: customerId, limit, cursor]) --> Bind{"Params valid?"}
+    Start([Customer requests history: limit, cursor]) --> Bind{"Params valid?"}
     Bind -- No --> Rej400[/Reject 400: invalid request/]
-    Bind -- Yes --> Role{"Role is CUSTOMER?"}
-    Role -- No --> Rej403[/Reject 403: wrong role/]
-    Role -- Yes --> Exists{Customer exists?}
+    Bind -- Yes --> Role{"Caller is a customer?"}
+    Role -- No --> Rej403[/Reject 403: Caller is not a customer/]
+    Role -- Yes --> Exists{Customer active?}
     Exists -- No --> Rej404[/Reject 404: Customer not found/]
     Exists -- Yes --> Read[Read limit+1 orders, newest first, after cursor]
     Read --> More{"More rows than limit?"}
@@ -239,12 +236,11 @@ sequenceDiagram
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
 
-    Customer->>C: GET /api/v1/orders?customerId&role&limit&cursor
-    C->>H: viewOrderHistory(request)
-
-    alt role is not CUSTOMER
-        H-->>C: TransitionNotAllowedForRoleException (403)
+    Customer->>C: GET /api/v1/orders?limit&cursor
+    alt caller is not a customer
+        C-->>Customer: NotACustomerException (403)
     end
+    C->>H: viewOrderHistory(caller.customerId, limit, cursor)
 
     H->>CS: ensureActiveCustomerExists(customerId)
     alt unknown or soft-deleted
@@ -289,14 +285,12 @@ A separate controller from `OrderStatusController`: that one owns transitions, t
 | Last page | no cursor |
 | **Two orders sharing `order_created_at`** | ordering falls to `order_id DESC` and stays stable across the page boundary |
 | Customer with no orders | 200, empty, no cursor |
-| A role other than `CUSTOMER` | 403 |
-| Missing `role` | 400 |
+| A restaurant owner | 403 |
 | **Two orders inside one millisecond** | neither is skipped across the page boundary |
 | A cursor whose timestamp is out of range | 400, not 500 |
 | Half a cursor (id without timestamp) | 400 |
 | An unparseable cursor timestamp | 400 |
 | `?limit=` (empty) | 400, not 500 |
-| Unknown `customerId` | 404 |
 | `limit=0`, `limit=51`, malformed `cursor` | 400 |
 
 The equal-timestamp case gets its own test because it is the entire reason the cursor is composite.
@@ -306,8 +300,8 @@ Cleanup deletes only the orders each test created; `order_items` follows by casc
 # Notes
 
 1. **No filters, by decision.** See *Scope*.
-2. **`customerId` and `role` are untrusted inputs, and reading another customer's history is an
-   IDOR that authentication has to close.** See *Authorisation*.
+2. **The customer comes from the token** (#83 part 2), which closed the IDOR that `customerId` and
+   `role` parameters left open. See *Authorisation*.
 3. **The `PermissionResolver` seam was removed after review.** See *Authorisation* — it belongs in
    its own ticket, with a default that does not lock real customers out.
 4. **No total count.** Keyset paging cannot cheaply produce one, so there is no `total_elements` or

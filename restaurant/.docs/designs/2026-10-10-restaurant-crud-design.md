@@ -10,7 +10,7 @@ Four stacked PRs. Each branches from the previous one and targets it; PR 1 targe
 
 | PR | Branch | Issues | Endpoints | Est. size | Status |
 |---|---|---|---|---|---|
-| 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done** — #111. Both reads, specs, ADR 0007 |
+| 1 — read | `feat/GH-89-read-restaurants` | #89, #88 | `GET /api/v1/restaurants/{id}`, `GET /api/v1/restaurants` | ~700 | **Done** — #111. Both reads, specs, ADR 0011 |
 | 2 — create | `feat/GH-86-create-restaurant` | #86 | `POST /api/v1/restaurants` | ~750 | **Done** — #112. Create, spec, ADR 0005 amended, `ActorRole` in `user/` with `ADMIN` |
 | 3 — edit and open | `feat/GH-87-edit-restaurant` | #87, #91 | `PATCH /api/v1/restaurants/{id}`, `PUT /api/v1/restaurants/{id}/open` | ~900 | **Done** — #113. Edit, open/close, checkout guard, specs, glossary |
 | 4 — delete | `feat/GH-90-delete-restaurant` | #90 | `DELETE /api/v1/restaurants/{id}` | ~700 | **Done** — #114. Delete, add-to-cart guard, spec. Last PR of the stack |
@@ -83,7 +83,7 @@ Offset paging, entirely Spring's: `Pageable` in, `PagedModel` out.
   The metadata names follow the snake_case setting (`total_elements`, `total_pages`), as `ListRestaurantsEndpointTest` asserts.
 - Open and closed restaurants alike. No `?open=` filter until a client needs one.
 
-**Why offset, not keyset:** it is the only option built in end to end (Spring Data has no web resolver or JSON form for a keyset position, so every keyset endpoint needs its own cursor code). Keyset's advantages — deep pages, stability under constant inserts — matter for order history, not for a small, admin-curated directory. Recorded as ADR 0007 in PR 1. Order history's cursor is revisited separately in #110.
+**Why offset, not keyset:** it is the only option built in end to end (Spring Data has no web resolver or JSON form for a keyset position, so every keyset endpoint needs its own cursor code). Keyset's advantages — deep pages, stability under constant inserts — matter for order history, not for a small, admin-curated directory. Recorded as ADR 0011 in PR 1. Order history's cursor is revisited separately in #110.
 
 ### Create — `POST /api/v1/restaurants?role=ADMIN` (PR 2, #86)
 
@@ -185,7 +185,7 @@ Specs go in `restaurant/.docs/use-cases/restaurant-management/<use-case>/<use-ca
 
 | PR | Docs |
 |---|---|
-| 1 | Specs `get-restaurant`, `list-restaurants`; a "Restaurant Management" section in `use-cases.md`, tracked under #85; ADR 0007 (offset by default, keyset for deep append-heavy lists; links #110); `CLAUDE.md`'s "`RestaurantService` has none until …" updated |
+| 1 | Specs `get-restaurant`, `list-restaurants`; a "Restaurant Management" section in `use-cases.md`, tracked under #85; ADR 0011 (offset by default, keyset for deep append-heavy lists; links #110); `CLAUDE.md`'s "`RestaurantService` has none until …" updated |
 | 2 | Spec `create-restaurant`; ADR 0005 amended; `CLAUDE.md`: `ActorRole` lives in `user/` and has `ADMIN` |
 | 3 | Specs `update-restaurant`, `set-restaurant-open`; `create-order.md` exception flow "restaurant closed"; `glossary.md` "Open (restaurant)" |
 | 4 | Spec `delete-restaurant`; `create-order.md` exception flow "restaurant deleted"; `CLAUDE.md` names `RestaurantDeletionService` beside `CustomerDeletionService` |

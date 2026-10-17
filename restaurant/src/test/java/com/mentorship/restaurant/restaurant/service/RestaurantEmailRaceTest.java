@@ -10,7 +10,7 @@ import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
 import com.mentorship.restaurant.restaurant.model.request.CreateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantRequest;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
-import com.mentorship.restaurant.user.model.ActorRole;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.sql.SQLException;
@@ -63,21 +63,6 @@ class RestaurantEmailRaceTest {
 
     assertThatThrownBy(() -> restaurantService.createRestaurant(ActorRole.ADMIN, request))
         .isSameAs(tooLong);
-  }
-
-  @Test
-  void updateAnswers409WhenTheIndexCatchesARacingEmail() {
-    User user = User.builder().id(7L).userEmail("old@koshary.example.com").build();
-    Restaurant restaurant = Restaurant.builder().id(4L).user(user).build();
-    UpdateRestaurantRequest request = new UpdateRestaurantRequest();
-    request.setEmail(EMAIL);
-    when(restaurantRepository.findActiveById(4L)).thenReturn(Optional.of(restaurant));
-    when(userService.isEmailTakenByOther(EMAIL, 7L)).thenReturn(false);
-    doThrow(emailIndexViolation()).when(userService).flush();
-
-    assertThatThrownBy(() -> restaurantService.updateRestaurant(4L, ActorRole.ADMIN, null, request))
-        .isInstanceOf(RestaurantEmailInUseException.class)
-        .hasMessage("Email is already in use");
   }
 
   /** What Spring raises when Postgres refuses a second active user with the same email. */

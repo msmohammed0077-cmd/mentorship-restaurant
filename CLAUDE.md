@@ -2,7 +2,7 @@
 
 Spring Boot food-delivery backend. The Maven project lives in `restaurant/`; the repository root holds CI and top-level docs.
 
-**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, Spotless.
+**Stack:** Java 17, Spring Boot 4.1.0, Spring Data JPA, Lombok, Flyway, PostgreSQL 16, Keycloak 26, Spotless.
 
 ## Commands
 
@@ -12,8 +12,8 @@ Run everything from `restaurant/`.
 ./mvnw -B verify            # compile + test + package (what CI runs)
 ./mvnw -B test -Dtest=Foo   # a single test class
 ./mvnw spotless:apply       # format before committing (see the JDK note below)
-docker compose up -d --wait postgres   # database only
-docker compose --profile app up        # database + application
+docker compose up -d --wait postgres keycloak   # database + Keycloak (http://localhost:8180, admin/admin)
+docker compose up                               # database + Keycloak + application
 ```
 
 ## Architecture
@@ -28,7 +28,7 @@ The pattern is set by `CartService`. Follow it rather than inventing a new shape
 
 **Chain of responsibility is fine where a use-case is a pipeline of steps.** Create-order validates the cart, address and items, then pays, saves and notifies, each link in `order/service/createorder/` handing on to the next. `OrderService.createOrder` builds and runs the chain.
 
-**Across domains, call the other domain's service, never its repository.** `CartService` asks `CustomerService.findActiveCustomer` and `RestaurantService.decrementStock`; it does not inject `CustomerRepository` or `MenuItemRepository`. This keeps each domain's queries and rules behind one door. Entity mappings across domains (`Order.customer`, `CartItem.menuItem`) are allowed: they are the schema's foreign keys, and JPQL may join through them. Only injection is restricted. The methods other domains call carry no `@Transactional`; they join the caller's transaction. A domain's service can serve other domains and its own controller at once: `RestaurantService` backs `RestaurantController` and is also what cart and order call for menu items and stock. The create-order chain's `ProcessPaymentHandler` uses `PaymentProcessor` directly, because it is a payment component, not a repository. ADR 0004 records why. To check, from `restaurant/` (prints nothing when clean):
+**Across domains, call the other domain's service, never its repository.** `CartService` asks `CustomerService.findActiveCustomer` and `RestaurantService.decrementStock`; it does not inject `CustomerRepository` or `MenuItemRepository`. This keeps each domain's queries and rules behind one door. Entity mappings across domains (`Order.customer`, `CartItem.menuItem`) are allowed: they are the schema's foreign keys, and JPQL may join through them. Only injection is restricted. The methods other domains call carry no `@Transactional`; they join the caller's transaction. The exception is what the security filter calls (`UserService.findCaller`, `CustomerService.registerFromToken`): it runs before any use-case has a transaction to join, so it opens its own. A domain's service can serve other domains and its own controller at once: `RestaurantService` backs `RestaurantController` and is also what cart and order call for menu items and stock. The create-order chain's `ProcessPaymentHandler` uses `PaymentProcessor` directly, because it is a payment component, not a repository. ADR 0004 records why. To check, from `restaurant/` (prints nothing when clean):
 
 ```bash
 for d in cart customer order payment restaurant user; do
@@ -136,6 +136,23 @@ ERROR:  duplicate key value violates unique constraint "carts_pkey"
 
 **Seed data is global and shared.** `V2` seeds users, customers, restaurants, menus and menu items; `V3` seeds carts for customers 1 and 2; `V6` adds customer 3 with no cart and restaurant 3 closed, both reserved as add-to-cart fixtures. A test that deletes broadly destroys fixtures Flyway will not restore. Scope every cleanup to the rows that test created. The agreed direction is per-test seeding rather than shared global seeds.
 
+## Authentication
+
+Keycloak is the identity provider (ADR 0007; roadmap `restaurant/.docs/designs/2026-10-14-auth-roadmap.md`). The API is an OAuth2 resource server: a bearer token is validated (signature, expiry, issuer `http://localhost:8180/realms/restaurant`, audience `restaurant-api`) and **required** everywhere except health, Swagger and `/error`.
+
+- **Keycloak lives in a `keycloak` schema of the `restaurant` database**, owned by a `keycloak` role, created by `docker/postgres/init/01-keycloak.sql`. Postgres runs init scripts on an empty volume only. On an older volume, apply it once without losing data: `docker exec -i restaurant-postgres psql -U postgres -d restaurant < docker/postgres/init/01-keycloak.sql`.
+- **The realm is `keycloak/realm-restaurant.json`**, imported only when the realm does not exist yet. An edit takes effect after `docker exec restaurant-postgres psql -U postgres -d restaurant -c 'DROP SCHEMA keycloak CASCADE; CREATE SCHEMA keycloak AUTHORIZATION keycloak;'` and `docker compose restart keycloak`, which resets Keycloak alone.
+- **Keycloak is a local image** (`docker/keycloak/Dockerfile`): 26.5.7 plus the email-code plugin, pinned by version and SHA-256 (ADR 0010). After changing the Dockerfile, `docker compose up -d --build keycloak`. **Mailpit** (`http://localhost:8025`) catches every email Keycloak sends.
+- **Seeded users log in with their seeded email and a code** from Mailpit (Swagger UI → Authorize); there are no passwords. `users.user_keycloak_id` links them: `00000000-0000-4000-8000-00000000000N` for `user_id` N. New users sign up on the same page (*Register*) and verify their email through Mailpit.
+- **Endpoints check permissions, never roles** (ADR 0008). Permissions are client roles of `restaurant-api` (`order.accept`, `cart.write`, …); the realm roles `CUSTOMER`, `RESTAURANT_OWNER` and `ADMIN` are composites of them. `KeycloakPermissionsConverter` reads `resource_access.restaurant-api.roles`. A valid token without the permission gets 403 `Access denied`.
+- **The caller comes from the token, never the request** (ADR 0009). `CallerAuthenticationConverter` resolves `sub` → `users.user_keycloak_id` → user and customer, and controllers take `@AuthenticationPrincipal Caller caller`. Customer-side endpoints pass `caller.requireCustomerId()` (403 `Caller is not a customer` otherwise) and scope every lookup by it, so someone else's row is a 404; no request carries the customer's own id (`/customers/me`). Restaurant-side endpoints keep `?restaurantId` and check it with `RestaurantService.ensureOwnedBy(restaurantId, caller.userId())`. A token whose `sub` has no `users` row creates a user and customer if it is a sign-up: `email_verified: true`, `customer.write` and no kitchen permission (`order.accept`, `order.reject`, `order.prepare`), issued to a client in `app.security.sign-up-clients`; otherwise it is a 401. Public paths ignore tokens, so they are unaffected.
+- **A new endpoint needs** `@PreAuthorize("hasAuthority('<permission>')")`, a row in `EndpointAuthorizationTest`, and, for a new permission, a client role in the realm file added to the right roles. `EndpointAuthorizationTest` fails the build if any of the three is missing, and `EndpointSecurityVerifier` refuses to start the application if a handler of ours has neither `@PreAuthorize` nor `@PublicEndpoint`. A public endpoint carries `@PublicEndpoint` and goes in `SecurityConfig.PUBLIC_PATHS`, which also ignores any token sent to it.
+- **`admin@example.com`** (code login) holds `ADMIN` and has a `users` row (V16) with no customer or restaurant, so ownership guards refuse it on other people's data; nothing bypasses them.
+- **A user created in the Keycloak console gets `CUSTOMER` too** (the default role). Give a restaurant owner `RESTAURANT_OWNER` before their first login: a token with a kitchen permission is never made a customer, so they get 401 until their row is linked. A console user with only the default role does become a customer.
+- **Keycloak owns the login email.** When a verified token's email differs from ours, `UserService.findCaller` updates our copy, unless another active row holds it.
+- **The application starts without Keycloak**: it fetches Keycloak's keys when the first token arrives.
+- **Tests never talk to Keycloak.** `support/TestJwtConfig` replaces the `JwtDecoder` with one trusting a key pair generated per run, with the same issuer and audience checks. Endpoint tests act through their support base: `asCustomer(customerId)` and `asRestaurantOwner(restaurantId)` send a token whose `sub` is that row's `user_keycloak_id` (`insertCustomer` gives every inserted customer one); the bare `client` sends none. A test that signs its own token needs a `sub` the API resolves — `JwtTestSupport.ADMIN` when the actor does not matter. `jwts.tokenFor(id, "CUSTOMER")` signs a token with the permissions the realm file gives that role; `jwts.tokenWithPermissions(id, …)` with exactly those; `jwts.tokenFor(id)` with none; for an invalid token, start from `jwts.validClaims(id)` and change one thing. `jwts.signUpTokenFor(id, email, name)` signs a first-login token; `signUpClaims` for one that changes a claim.
+
 ## Testing
 
 Tests run against **PostgreSQL** with `validate` and Flyway applied, so entity/migration drift is caught.
@@ -147,7 +164,7 @@ Two things that follow from testing over real HTTP:
 - **`@Transactional` rolls back nothing the server did** — requests run on server threads in their own transactions. Clean up explicitly, scoped to the rows the test created.
 - **Every rejection needs a fixture that can reach it.** Seed one if none exists, as `V6` does with the closed restaurant, or pick request values that trigger it — asking for 999 of an item stocked at 50 exercises the out-of-stock path with no fixture at all.
 
-**Seed through the database, not the API.** The only HTTP call a test makes is to the endpoint it tests. Arrange state — customers, addresses, carts, orders, cards — with direct SQL through the `support/*EndpointTestSupport` helpers (`insertCustomer`, `softDeleteCustomer`, `insertOrder`, …), and check side effects the same way. Setting up through another endpoint ties a test to code it is not about, so one broken endpoint fails a dozen unrelated tests. Need a new fixture? Add a helper to the matching support class — `CustomerEndpointTestSupport` is the base for anything that owns its customers — rather than a private copy in one test. Some older tests (addresses, cart) still arrange state over HTTP; convert them when you touch them.
+**Seed through the database, not the API.** The only HTTP call a test makes is to the endpoint it tests. Arrange state — customers, addresses, carts, orders, cards — with direct SQL through the `support/*EndpointTestSupport` helpers (`insertCustomer`, `softDeleteCustomer`, `insertOrder`, …), and check side effects the same way. Setting up through another endpoint ties a test to code it is not about, so one broken endpoint fails a dozen unrelated tests. Need a new fixture? Add a helper to the matching support class — `CustomerEndpointTestSupport` is the base for anything that owns its customers — rather than a private copy in one test.
 
 `CustomerEndpointTestSupport` also seeds what a customer owns — `addressIdForCustomer`, `insertCart`, `insertCartItem`, `insertOrder` — so a test that owns its customers builds their cart and address the same way.
 

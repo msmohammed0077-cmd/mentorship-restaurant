@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,9 +38,6 @@ public class User {
   @Column(name = "user_email", nullable = false, length = 255)
   private String userEmail;
 
-  @Column(name = "user_password", nullable = false, length = 255)
-  private String userPassword;
-
   @Column(name = "user_phone", length = 20)
   private String userPhone;
 
@@ -52,4 +50,11 @@ public class User {
 
   @Column(name = "user_deleted_at")
   private OffsetDateTime userDeletedAt;
+
+  /**
+   * The Keycloak user's id, the access token's {@code sub}. Null only on rows created before
+   * sign-up moved to Keycloak.
+   */
+  @Column(name = "user_keycloak_id")
+  private UUID userKeycloakId;
 }

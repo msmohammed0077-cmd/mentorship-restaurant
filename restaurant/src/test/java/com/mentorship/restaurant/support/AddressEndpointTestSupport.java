@@ -1,5 +1,6 @@
 package com.mentorship.restaurant.support;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,12 @@ public abstract class AddressEndpointTestSupport {
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected JwtTestSupport jwts;
+
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
+  }
 
   @BeforeEach
   @AfterEach
@@ -51,17 +58,14 @@ public abstract class AddressEndpointTestSupport {
         .formatted(label);
   }
 
+  /** Inserts an address for the fixture customer as add-address would: the first is the default. */
   protected long addAddress(String label) {
-    client
-        .post()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
-        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-        .body(addressBody(label))
-        .exchange()
-        .expectStatus()
-        .isCreated();
-
-    return addressIdForLabel(label);
+    Boolean first =
+        jdbcTemplate.queryForObject(
+            "SELECT NOT EXISTS (SELECT 1 FROM addresses WHERE customer_id = ?)",
+            Boolean.class,
+            CUSTOMER_WITHOUT_ADDRESSES);
+    return insertAddress(label, Boolean.TRUE.equals(first), OffsetDateTime.now().toString());
   }
 
   protected long addressIdForLabel(String label) {

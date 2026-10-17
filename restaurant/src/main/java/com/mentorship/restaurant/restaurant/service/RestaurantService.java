@@ -2,6 +2,7 @@ package com.mentorship.restaurant.restaurant.service;
 
 import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
+import com.mentorship.restaurant.restaurant.exception.RestaurantAccessDeniedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantActionNotAllowedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantEmailInUseException;
@@ -15,7 +16,7 @@ import com.mentorship.restaurant.restaurant.model.request.UpdateRestaurantReques
 import com.mentorship.restaurant.restaurant.model.response.RestaurantResponse;
 import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
-import com.mentorship.restaurant.user.model.ActorRole;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.util.Locale;
@@ -30,8 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Restaurants, and their menu items and stock. The public use-cases back {@link
- * com.mentorship.restaurant.restaurant.controller.RestaurantController}; the methods without
+ * Restaurants, their menu items and stock, and restaurant ownership. The public use-cases back
+ * {@link com.mentorship.restaurant.restaurant.controller.RestaurantController}; the methods without
  * {@code @Transactional} serve the cart and order domains and join the caller's transaction.
  */
 @Service
@@ -45,7 +46,7 @@ public class RestaurantService {
   private final RestaurantMapper restaurantMapper;
   private final UserService userService;
 
-  /** A new restaurant starts closed: it has no menu yet. Its account has no usable password. */
+  /** A new restaurant starts closed: it has no menu yet. */
   @Transactional
   public RestaurantResponse createRestaurant(ActorRole role, CreateRestaurantRequest request) {
     ensureAdmin(role, "create a restaurant");
@@ -60,7 +61,6 @@ public class RestaurantService {
             User.builder()
                 .userName(name)
                 .userEmail(email)
-                .userPassword(UserService.NO_LOGIN_PASSWORD)
                 .build());
 
     Restaurant restaurant =
@@ -95,7 +95,10 @@ public class RestaurantService {
             .map(restaurantMapper::toResponse));
   }
 
-  /** Absent or null fields are left as they are. The name is the restaurant's and its user's. */
+  /**
+   * Absent or null fields are left as they are. The name is the restaurant's and its user's. The
+   * email is Keycloak's (ADR 0010), so it is not edited here.
+   */
   @Transactional
   public RestaurantResponse updateRestaurant(
       Long restaurantId, ActorRole role, Long callerRestaurantId, UpdateRestaurantRequest request) {
@@ -103,11 +106,6 @@ public class RestaurantService {
     Restaurant restaurant = findActiveRestaurant(restaurantId);
     User user = restaurant.getUser();
 
-    if (request.getEmail() != null) {
-      String email = request.getEmail().toLowerCase(Locale.ROOT);
-      ensureEmailAvailableExcept(email, user.getId());
-      user.setUserEmail(email);
-    }
     if (request.getName() != null) {
       String name = request.getName().trim();
       restaurant.setRestaurantName(name);
@@ -115,9 +113,6 @@ public class RestaurantService {
     }
     if (request.getDescription() != null) {
       restaurant.setRestaurantDescription(request.getDescription());
-    }
-    if (request.getEmail() != null) {
-      flushEmailChange();
     }
 
     // Managed entities: dirty checking issues the UPDATEs at flush, no save() needed.
@@ -139,6 +134,16 @@ public class RestaurantService {
     // Lombok strips "is" from the setter of boolean isOpen: setOpen, not setIsOpen.
     restaurant.setOpen(request.getIsOpen());
     return restaurantMapper.toResponse(restaurant);
+  }
+
+  /**
+   * The restaurant is the caller's, else a 403. One that does not exist is not theirs either. For
+   * the order-status endpoints, which name the restaurant they act for.
+   */
+  public void ensureOwnedBy(Long restaurantId, Long userId) {
+    if (!restaurantRepository.existsByIdAndUser_Id(restaurantId, userId)) {
+      throw new RestaurantAccessDeniedException("Restaurant belongs to another owner");
+    }
   }
 
   public MenuItem findMenuItem(Long menuItemId) {
@@ -216,18 +221,6 @@ public class RestaurantService {
   }
 
   /**
-   * As {@link #createUser}, for an edit: dirty checking would only write the email at commit, after
-   * this method returns, so flush now to answer the race with 409 rather than a 500.
-   */
-  private void flushEmailChange() {
-    try {
-      userService.flush();
-    } catch (DataIntegrityViolationException exception) {
-      throw emailInUseOrRethrow(exception);
-    }
-  }
-
-  /**
    * Only the active-email index means the email is taken. Any other violation (a column too long,
    * say) is a bug, and is rethrown to stay a 500 rather than be reported as a taken email.
    */
@@ -239,11 +232,5 @@ public class RestaurantService {
       }
     }
     return exception;
-  }
-
-  private void ensureEmailAvailableExcept(String email, Long userId) {
-    if (userService.isEmailTakenByOther(email, userId)) {
-      throw new RestaurantEmailInUseException("Email is already in use");
-    }
   }
 }

@@ -1,5 +1,9 @@
 ### Pseudocode
 
+**Access:** a bearer token with `order.create` (#83 part 4). The customer is the caller, taken from
+the token (#83 part 2, ADR 0009); the request has no `customer_id`, and the chain checks the cart
+and the address against the caller's customer. A caller who is not a customer gets 403.
+
 ```text
 FUNCTION createOrder(request):
 

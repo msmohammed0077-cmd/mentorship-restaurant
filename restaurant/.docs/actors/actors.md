@@ -13,4 +13,18 @@ _Owner: TODO · Last reviewed: TODO_
 | Restaurant Cashier | Secondary      | Restaurant-floor staff who accepts/rejects incoming orders and updates prep status (preparing → ready).                   |
 | Restaurant Owner   | Secondary      | Restaurant manager who sets up menu, pricing, and hours, and reviews sales, analytics, and payouts.                       |
 
-<!-- A per-actor permissions/RBAC matrix would live here too — TODO. -->
+## Permissions
+
+Each endpoint requires one permission; Keycloak realm roles bundle them (ADR 0008). The development baseline is `restaurant/keycloak/realm-restaurant.json`; an admin can compose further roles in the Keycloak console. `ADMIN` holds every permission, but owns no customer or restaurant, so ownership guards refuse it on other people's data (#83 part 2).
+
+| Permission | Customer | Restaurant Owner |
+|---|:-:|:-:|
+| `customer.read`, `customer.write` | ✓ | |
+| `address.read`, `address.write` | ✓ | |
+| `payment-method.read`, `payment-method.write` | ✓ | |
+| `cart.read`, `cart.write` | ✓ | |
+| `order.create`, `order.cancel`, `order.rate` | ✓ | |
+| `order.read` | ✓ | ✓ |
+| `order.accept`, `order.reject`, `order.prepare` | | ✓ |
+
+The other actors have no role yet. A Restaurant Cashier would be `order.read`, `order.accept`, `order.reject` and `order.prepare`, once a staff table links them to their restaurant.

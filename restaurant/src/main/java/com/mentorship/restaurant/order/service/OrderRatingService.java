@@ -30,12 +30,10 @@ public class OrderRatingService {
       Long orderId, Long customerId, Integer score, String comment) {
     OrderRatingContextProjection context =
         orderRepository
-            .findRatingContextById(orderId)
+            .findRatingContextByIdAndCustomerId(orderId, customerId)
             .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
-    orderService.ensureOwnedBy(
-        context.getCustomerId(), customerId, "Order belongs to another customer");
-    // Runs after the ownership check, so the owner is the caller.
+    // The lookup is scoped to the caller, so the owner is the caller.
     orderService.ensureOwnerActive(context.getCustomerDeletedAt());
     ensureOrderIsDelivered(context.getStatus());
     ensureOrderIsNotRated(context.getRated());

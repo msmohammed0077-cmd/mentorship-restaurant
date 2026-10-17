@@ -23,9 +23,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     long newer = seedOrderFor(CUSTOMER, LATE);
     seedOrderLine(newer, KOFTA, 2);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders")
         .exchange()
         .expectStatus()
         .isOk()
@@ -50,9 +50,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   void showsNoOtherCustomersOrders() {
     seedOrderFor(OTHER_CUSTOMER, LATE);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders")
         .exchange()
         .expectStatus()
         .isOk()
@@ -67,9 +67,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     long second = seedOrderFor(CUSTOMER, EARLY.plusDays(2));
     long third = seedOrderFor(CUSTOMER, EARLY);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&limit=2&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders?limit=2")
         .exchange()
         .expectStatus()
         .isOk()
@@ -87,12 +87,10 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     String cursorTs = c[0];
     String cursorId = c[1];
 
-    client
+    asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&limit=2&role=CUSTOMER"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
-            CUSTOMER,
+            "/api/v1/orders?limit=2" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -112,9 +110,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     long lower = seedOrderFor(CUSTOMER, LATE);
     long higher = seedOrderFor(CUSTOMER, LATE);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&limit=1&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders?limit=1")
         .exchange()
         .expectStatus()
         .isOk()
@@ -126,12 +124,10 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     String cursorTs = c[0];
     String cursorId = c[1];
 
-    client
+    asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&limit=1&role=CUSTOMER"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
-            CUSTOMER,
+            "/api/v1/orders?limit=1" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -150,9 +146,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     long newer = seedOrderFor(CUSTOMER, base.withNano(123_500_000));
     long older = seedOrderFor(CUSTOMER, base);
 
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&limit=1", CUSTOMER)
+        .uri("/api/v1/orders?limit=1")
         .exchange()
         .expectStatus()
         .isOk()
@@ -164,12 +160,10 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
     String cursorTs = c[0];
     String cursorId = c[1];
 
-    client
+    asCustomer(CUSTOMER)
         .get()
         .uri(
-            "/api/v1/orders?customerId={id}&role=CUSTOMER&limit=1"
-                + "&cursor.createdAt={ts}&cursor.orderId={cid}",
-            CUSTOMER,
+            "/api/v1/orders?limit=1" + "&cursor.createdAt={ts}&cursor.orderId={cid}",
             cursorTs,
             cursorId)
         .exchange()
@@ -184,9 +178,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void returnsAnEmptyPageForACustomerWithNoOrders() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders")
         .exchange()
         .expectStatus()
         .isOk()
@@ -198,30 +192,10 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void rejectsARoleThatIsNotACustomer() {
-    client
-        .get()
-        .uri("/api/v1/orders?customerId={id}&role=RESTAURANT", CUSTOMER)
-        .exchange()
-        .expectStatus()
-        .isForbidden();
-  }
-
-  @Test
-  void rejectsAMissingRole() {
-    client
-        .get()
-        .uri("/api/v1/orders?customerId={id}", CUSTOMER)
-        .exchange()
-        .expectStatus()
-        .isBadRequest();
-  }
-
-  @Test
   void rejectsAnEmptyLimitRatherThanFailing() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&limit=", CUSTOMER)
+        .uri("/api/v1/orders?limit=")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -229,12 +203,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsACursorWhoseTimestampIsOutOfRange() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri(
-            "/api/v1/orders?customerId={id}&role=CUSTOMER"
-                + "&cursor.createdAt=999999999-01-01T00:00:00Z&cursor.orderId=1",
-            CUSTOMER)
+        .uri("/api/v1/orders" + "?cursor.createdAt=999999999-01-01T00:00:00Z&cursor.orderId=1")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -242,9 +213,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsAHalfSuppliedCursor() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&cursor.orderId=1", CUSTOMER)
+        .uri("/api/v1/orders?cursor.orderId=1")
         .exchange()
         .expectStatus()
         .isBadRequest()
@@ -254,28 +225,10 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
   }
 
   @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .get()
-        .uri("/api/v1/orders?customerId={id}&role=CUSTOMER", 999999L)
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
-  }
-
-  @Test
-  void rejectsAMissingCustomerId() {
-    client.get().uri("/api/v1/orders?role=CUSTOMER").exchange().expectStatus().isBadRequest();
-  }
-
-  @Test
   void rejectsALimitBelowOne() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&limit=0&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders?limit=0")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -283,9 +236,9 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsALimitAboveFifty() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri("/api/v1/orders?customerId={id}&limit=51&role=CUSTOMER", CUSTOMER)
+        .uri("/api/v1/orders?limit=51")
         .exchange()
         .expectStatus()
         .isBadRequest();
@@ -293,22 +246,32 @@ class ViewOrderHistoryEndpointTest extends OrderEndpointTestSupport {
 
   @Test
   void rejectsAnUnparseableCursorTimestamp() {
-    client
+    asCustomer(CUSTOMER)
         .get()
-        .uri(
-            "/api/v1/orders?customerId={id}&role=CUSTOMER"
-                + "&cursor.createdAt=not-a-date&cursor.orderId=1",
-            CUSTOMER)
+        .uri("/api/v1/orders" + "?cursor.createdAt=not-a-date&cursor.orderId=1")
         .exchange()
         .expectStatus()
         .isBadRequest();
   }
 
+  @Test
+  void refusesARestaurantOwner() {
+    asRestaurantOwner(NILE_KITCHEN)
+        .get()
+        .uri("/api/v1/orders")
+        .exchange()
+        .expectStatus()
+        .isForbidden()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Caller is not a customer");
+  }
+
   private String[] readCursor(int limit) {
     byte[] body =
-        client
+        asCustomer(CUSTOMER)
             .get()
-            .uri("/api/v1/orders?customerId={id}&role=CUSTOMER&limit={limit}", CUSTOMER, limit)
+            .uri("/api/v1/orders?limit={limit}", limit)
             .exchange()
             .expectStatus()
             .isOk()

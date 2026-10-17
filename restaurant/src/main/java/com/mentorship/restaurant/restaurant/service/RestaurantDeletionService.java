@@ -3,7 +3,7 @@ package com.mentorship.restaurant.restaurant.service;
 import com.mentorship.restaurant.order.service.OrderService;
 import com.mentorship.restaurant.restaurant.exception.RestaurantHasActiveOrdersException;
 import com.mentorship.restaurant.restaurant.model.entity.Restaurant;
-import com.mentorship.restaurant.user.model.ActorRole;
+import com.mentorship.restaurant.order.model.entity.ActorRole;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

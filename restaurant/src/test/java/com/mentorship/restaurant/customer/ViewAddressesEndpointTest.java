@@ -11,9 +11,9 @@ class ViewAddressesEndpointTest extends AddressEndpointTestSupport {
     insertAddress("Work", false, "2026-01-02T10:00:00Z");
     insertAddress("Gym", false, "2026-01-03T10:00:00Z");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .get()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses")
         .exchange()
         .expectStatus()
         .isOk()
@@ -32,27 +32,14 @@ class ViewAddressesEndpointTest extends AddressEndpointTestSupport {
 
   @Test
   void returnsAnEmptyListForACustomerWithoutAddresses() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .get()
-        .uri("/api/v1/addresses?customerId={customerId}", CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses")
         .exchange()
         .expectStatus()
         .isOk()
         .expectBody()
         .jsonPath("$.length()")
         .isEqualTo(0);
-  }
-
-  @Test
-  void rejectsAnUnknownCustomer() {
-    client
-        .get()
-        .uri("/api/v1/addresses?customerId={customerId}", 999999L)
-        .exchange()
-        .expectStatus()
-        .isNotFound()
-        .expectBody()
-        .jsonPath("$.message")
-        .isEqualTo("Customer not found");
   }
 }

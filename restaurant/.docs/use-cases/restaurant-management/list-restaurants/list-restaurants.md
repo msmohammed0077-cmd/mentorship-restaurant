@@ -145,5 +145,5 @@ starts with `list.restaurants.test.`; cleanup deletes only those users.
 # Notes
 
 1. **Offset, not keyset.** The directory is small and admin-curated, and offset paging is Spring's
-   end to end. See [ADR 0007](../../../decisions/0007-offset-paging-by-default.md).
+   end to end. See [ADR 0011](../../../decisions/0011-offset-paging-by-default.md).
 2. **No `?open=` filter, no search.** Added when a client needs them.

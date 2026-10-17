@@ -2,19 +2,17 @@ package com.mentorship.restaurant.customer.service;
 
 import com.mentorship.restaurant.customer.exception.CustomerNotFoundException;
 import com.mentorship.restaurant.customer.exception.EmailAlreadyInUseException;
-import com.mentorship.restaurant.customer.exception.IncorrectPasswordException;
 import com.mentorship.restaurant.customer.model.entity.Customer;
 import com.mentorship.restaurant.customer.model.mapper.CustomerMapper;
-import com.mentorship.restaurant.customer.model.request.ChangePasswordRequest;
-import com.mentorship.restaurant.customer.model.request.CreateCustomerRequest;
 import com.mentorship.restaurant.customer.model.request.UpdateCustomerRequest;
 import com.mentorship.restaurant.customer.model.response.CustomerResponse;
 import com.mentorship.restaurant.customer.repository.CustomerRepository;
+import com.mentorship.restaurant.user.model.Caller;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
 import java.util.Locale;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,30 +20,35 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CustomerService {
 
+  /** {@code users.user_name} is {@code VARCHAR(150)}; Keycloak allows longer names. */
+  private static final int MAX_NAME_LENGTH = 150;
+
   private final CustomerRepository customerRepository;
   private final UserService userService;
   private final CustomerMapper customerMapper;
-  private final PasswordEncoder passwordEncoder;
 
+  /**
+   * Creates the user and customer behind a Keycloak user's first token (#83 part 3, ADR 0010).
+   * Called from the security filter, outside any use-case, so it opens its own transaction. An
+   * active account already holding the email is refused: it predates Keycloak sign-up and is not
+   * linked automatically.
+   */
   @Transactional
-  public CustomerResponse createCustomer(CreateCustomerRequest request) {
-    String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+  public Caller registerFromToken(UUID keycloakId, String email, String name) {
+    String normalisedEmail = email.trim().toLowerCase(Locale.ROOT);
 
-    ensureEmailAvailable(email);
+    ensureEmailAvailable(normalisedEmail);
 
     User user =
-        User.builder()
-            .userName(request.getName())
-            .userEmail(email)
-            .userPassword(passwordEncoder.encode(request.getPassword()))
-            .userPhone(request.getPhone())
-            .userDateOfBirth(request.getDateOfBirth())
-            .userGender(request.getGender())
-            .build();
+        userService.create(
+            User.builder()
+                .userName(truncated(name))
+                .userEmail(normalisedEmail)
+                .userKeycloakId(keycloakId)
+                .build());
+    Customer customer = customerRepository.save(Customer.builder().user(user).build());
 
-    Customer customer = Customer.builder().user(userService.create(user)).build();
-
-    return customerMapper.toResponse(customerRepository.save(customer));
+    return new Caller(user.getId(), customer.getId());
   }
 
   @Transactional(readOnly = true)
@@ -58,11 +61,6 @@ public class CustomerService {
     Customer customer = findActiveCustomer(customerId);
     User user = customer.getUser();
 
-    if (request.getEmail() != null) {
-      String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-      ensureEmailAvailableExcept(email, user.getId());
-      user.setUserEmail(email);
-    }
     if (request.getName() != null) {
       user.setUserName(request.getName());
     }
@@ -78,16 +76,6 @@ public class CustomerService {
 
     // Managed entity: dirty checking issues the UPDATE at flush, no save() needed.
     return customerMapper.toResponse(customer);
-  }
-
-  @Transactional
-  public void changePassword(Long customerId, ChangePasswordRequest request) {
-    User user = findActiveCustomer(customerId).getUser();
-
-    ensureCurrentPasswordMatches(request.getCurrentPassword(), user);
-
-    // Managed entity: dirty checking issues the UPDATE at flush, no save() needed.
-    user.setUserPassword(passwordEncoder.encode(request.getNewPassword()));
   }
 
   /**
@@ -109,7 +97,8 @@ public class CustomerService {
 
   /**
    * A soft-deleted customer does not exist to the API, so acting on their behalf is a 404. Callers
-   * run it after their ownership check, so the customer is the caller.
+   * pass the customer of a row their own query scoped to the caller (ADR 0009), so the customer is
+   * the caller.
    */
   public void ensureActive(Customer customer) {
     if (customer.getUser().getUserDeletedAt() != null) {
@@ -117,21 +106,16 @@ public class CustomerService {
     }
   }
 
+  /** Cut by characters, as PostgreSQL counts them, so a cut never splits an emoji in two. */
+  private static String truncated(String name) {
+    return name.codePointCount(0, name.length()) > MAX_NAME_LENGTH
+        ? name.substring(0, name.offsetByCodePoints(0, MAX_NAME_LENGTH))
+        : name;
+  }
+
   private void ensureEmailAvailable(String email) {
     if (userService.isEmailTaken(email)) {
       throw new EmailAlreadyInUseException("Email is already in use");
-    }
-  }
-
-  private void ensureEmailAvailableExcept(String email, Long userId) {
-    if (userService.isEmailTakenByOther(email, userId)) {
-      throw new EmailAlreadyInUseException("Email is already in use");
-    }
-  }
-
-  private void ensureCurrentPasswordMatches(String currentPassword, User user) {
-    if (!passwordEncoder.matches(currentPassword, user.getUserPassword())) {
-      throw new IncorrectPasswordException("Current password is incorrect");
     }
   }
 }

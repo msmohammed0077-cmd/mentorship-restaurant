@@ -11,12 +11,9 @@ class DeleteAddressEndpointTest extends AddressEndpointTestSupport {
   void deletesAnAddress() {
     long addressId = addAddress("Home");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .delete()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            addressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", addressId)
         .exchange()
         .expectStatus()
         .isNoContent();
@@ -29,12 +26,9 @@ class DeleteAddressEndpointTest extends AddressEndpointTestSupport {
     long defaultAddressId = insertAddress("Home", true, "2026-01-01T10:00:00Z");
     long otherAddressId = insertAddress("Work", false, "2026-01-02T10:00:00Z");
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .delete()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            defaultAddressId,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", defaultAddressId)
         .exchange()
         .expectStatus()
         .isNoContent();
@@ -45,12 +39,9 @@ class DeleteAddressEndpointTest extends AddressEndpointTestSupport {
 
   @Test
   void rejectsAnUnknownAddress() {
-    client
+    asCustomer(CUSTOMER_WITHOUT_ADDRESSES)
         .delete()
-        .uri(
-            "/api/v1/addresses/{addressId}?customerId={customerId}",
-            999999L,
-            CUSTOMER_WITHOUT_ADDRESSES)
+        .uri("/api/v1/addresses/{addressId}", 999999L)
         .exchange()
         .expectStatus()
         .isNotFound()
@@ -63,15 +54,16 @@ class DeleteAddressEndpointTest extends AddressEndpointTestSupport {
   void rejectsAnAddressBelongingToAnotherCustomer() {
     long addressId = addAddress("Home");
 
-    client
+    // Scoped to the caller, someone else's address is not found (#83 part 2).
+    asCustomer(OTHER_CUSTOMER)
         .delete()
-        .uri("/api/v1/addresses/{addressId}?customerId={customerId}", addressId, OTHER_CUSTOMER)
+        .uri("/api/v1/addresses/{addressId}", addressId)
         .exchange()
         .expectStatus()
-        .isForbidden()
+        .isNotFound()
         .expectBody()
         .jsonPath("$.message")
-        .isEqualTo("Address belongs to another customer");
+        .isEqualTo("Address not found");
 
     assertThat(addressExists(addressId)).isTrue();
   }

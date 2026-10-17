@@ -17,7 +17,7 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
     long cartId = createCartWithItem(KOFTA, 2);
     long cartItemId = cartItemIdFor(cartId);
 
-    client
+    asCustomer(CUSTOMER_WITHOUT_CART)
         .put()
         .uri("/api/v1/cart/{cartId}/items/{cartItemId}", cartId, cartItemId)
         .contentType(MediaType.APPLICATION_JSON)
@@ -41,6 +41,23 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
         .isEqualTo("extra sauce")
         .jsonPath("$.total")
         .isEqualTo(740.00);
+  }
+
+  @Test
+  void rejectsAnotherCustomersCart() {
+    long cartId = createCartWithItem(KOFTA, 1);
+
+    // Scoped to the caller, someone else's cart is not found (#83 part 2).
+    asCustomer(1L)
+        .put()
+        .uri("/api/v1/cart/{cartId}/items/{cartItemId}", cartId, cartItemIdFor(cartId))
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{\"quantity\": 2}")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    assertThat(quantityOf(cartItemIdFor(cartId))).isEqualTo(1);
   }
 
   @Test
@@ -78,23 +95,11 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
   }
 
   private RestTestClient.ResponseSpec modify(long cartId, long cartItemId, int quantity) {
-    return client
+    return asCustomer(CUSTOMER_WITHOUT_CART)
         .put()
         .uri("/api/v1/cart/{cartId}/items/{cartItemId}", cartId, cartItemId)
         .contentType(MediaType.APPLICATION_JSON)
         .body("{\"quantity\": %d}".formatted(quantity))
         .exchange();
-  }
-
-  private int quantityOf(long cartItemId) {
-    Integer quantity =
-        jdbcTemplate.queryForObject(
-            "SELECT cart_item_quantity FROM cart_items WHERE cart_item_id = ?",
-            Integer.class,
-            cartItemId);
-    if (quantity == null) {
-      throw new IllegalStateException("Cart item not found: " + cartItemId);
-    }
-    return quantity;
   }
 }

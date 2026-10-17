@@ -61,8 +61,8 @@ public abstract class RestaurantEndpointTestSupport {
         jdbcTemplate.queryForObject(
             """
             WITH new_user AS (
-              INSERT INTO users (user_name, user_email, user_password)
-              VALUES (?, ?, '!no-login')
+              INSERT INTO users (user_name, user_email, user_keycloak_id)
+              VALUES (?, ?, gen_random_uuid())
               RETURNING user_id
             )
             INSERT INTO restaurants
@@ -118,8 +118,8 @@ public abstract class RestaurantEndpointTestSupport {
         jdbcTemplate.queryForObject(
             """
             WITH new_user AS (
-              INSERT INTO users (user_name, user_email, user_password)
-              VALUES ('Sara Youssef', ?, '!no-login')
+              INSERT INTO users (user_name, user_email, user_keycloak_id)
+              VALUES ('Sara Youssef', ?, gen_random_uuid())
               RETURNING user_id
             ), new_customer AS (
               INSERT INTO customers (user_id) SELECT user_id FROM new_user

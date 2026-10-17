@@ -1,6 +1,5 @@
 package com.mentorship.restaurant.restaurant.model.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -22,10 +21,4 @@ public class UpdateRestaurantRequest {
   // restaurant_description is TEXT; the cap keeps every list page's size bounded.
   @Size(max = 1000)
   private String description;
-
-  // @Email accepts an empty string, so the same pattern keeps "" from being stored as the email.
-  @Pattern(regexp = "(?s).*\\S.*", message = "must not be blank")
-  @Email
-  @Size(max = 255)
-  private String email;
 }

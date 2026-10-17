@@ -1,4 +1,4 @@
-# 0007 — Offset paging by default, keyset for deep append-heavy lists
+# 0011 — Offset paging by default, keyset for deep append-heavy lists
 
 - **Status:** Accepted
 - **Date:** 2026-10-10

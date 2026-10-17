@@ -10,11 +10,10 @@ import lombok.AllArgsConstructor;
 public class AddressValidatorHandler extends OrderHandler {
 
   private final Address address;
+  private final Long customerId;
 
   @Override
   public OrderResponse handle(CreateOrderRequest request, OrderResponse response) {
-
-    Long customerId = request.getCustomerId();
 
     Long customerIdFromAddress = address.getCustomer().getId();
 

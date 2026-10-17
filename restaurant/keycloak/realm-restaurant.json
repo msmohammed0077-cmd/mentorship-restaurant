@@ -1,0 +1,404 @@
+{
+  "realm": "restaurant",
+  "enabled": true,
+  "sslRequired": "external",
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Orders food: their profile, addresses, cards, cart and orders.",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "customer.read",
+              "customer.write",
+              "address.read",
+              "address.write",
+              "payment-method.read",
+              "payment-method.write",
+              "cart.read",
+              "cart.write",
+              "order.create",
+              "order.read",
+              "order.cancel",
+              "order.rate"
+            ]
+          }
+        }
+      },
+      {
+        "name": "RESTAURANT_OWNER",
+        "description": "Runs a restaurant's orders: accept, reject, prepare.",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "order.read",
+              "order.accept",
+              "order.reject",
+              "order.prepare"
+            ]
+          }
+        }
+      },
+      {
+        "name": "ADMIN",
+        "description": "Every permission. Ownership guards still apply (#83 part 2 decides).",
+        "composite": true,
+        "composites": {
+          "client": {
+            "restaurant-api": [
+              "customer.read",
+              "customer.write",
+              "address.read",
+              "address.write",
+              "payment-method.read",
+              "payment-method.write",
+              "cart.read",
+              "cart.write",
+              "order.create",
+              "order.read",
+              "order.cancel",
+              "order.rate",
+              "order.accept",
+              "order.reject",
+              "order.prepare"
+            ]
+          }
+        }
+      },
+      {
+        "name": "default-roles-restaurant",
+        "description": "Given to every new user: sign-ups are customers.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "CUSTOMER"
+          ]
+        }
+      }
+    ],
+    "client": {
+      "restaurant-api": [
+        {
+          "name": "customer.read",
+          "description": "View a customer profile"
+        },
+        {
+          "name": "customer.write",
+          "description": "Update or delete a customer"
+        },
+        {
+          "name": "address.read",
+          "description": "List a customer's addresses"
+        },
+        {
+          "name": "address.write",
+          "description": "Add, change, delete or default an address"
+        },
+        {
+          "name": "payment-method.read",
+          "description": "List a customer's saved cards"
+        },
+        {
+          "name": "payment-method.write",
+          "description": "Add, delete or default a saved card"
+        },
+        {
+          "name": "cart.read",
+          "description": "View a cart"
+        },
+        {
+          "name": "cart.write",
+          "description": "Add, change, remove or clear cart items; check out"
+        },
+        {
+          "name": "order.create",
+          "description": "Place an order"
+        },
+        {
+          "name": "order.read",
+          "description": "View an order or order history"
+        },
+        {
+          "name": "order.cancel",
+          "description": "Cancel an order"
+        },
+        {
+          "name": "order.rate",
+          "description": "Rate a delivered order"
+        },
+        {
+          "name": "order.accept",
+          "description": "Accept an incoming order"
+        },
+        {
+          "name": "order.reject",
+          "description": "Reject an incoming order"
+        },
+        {
+          "name": "order.prepare",
+          "description": "Mark an order preparing or ready for pickup"
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "restaurant-api",
+      "name": "Restaurant API",
+      "description": "The audience the API checks. No login flow of its own.",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "restaurant-swagger",
+      "name": "Swagger UI",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/swagger-ui/oauth2-redirect.html",
+        "http://localhost:8081/swagger-ui/oauth2-redirect.html",
+        "http://localhost:8082/swagger-ui/oauth2-redirect.html"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "restaurant-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "restaurant-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "username": "ahmed.ali@example.com",
+      "email": "ahmed.ali@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ahmed",
+      "lastName": "Ali",
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "username": "mona.hassan@example.com",
+      "email": "mona.hassan@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Mona",
+      "lastName": "Hassan",
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "username": "contact@nilekitchen.example.com",
+      "email": "contact@nilekitchen.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Nile",
+      "lastName": "Kitchen",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "username": "contact@burgeryard.example.com",
+      "email": "contact@burgeryard.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Burger",
+      "lastName": "Yard",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "username": "sara.nabil@example.com",
+      "email": "sara.nabil@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sara",
+      "lastName": "Nabil",
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "username": "contact@latenight.example.com",
+      "email": "contact@latenight.example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Late Night",
+      "lastName": "Grill",
+      "realmRoles": [
+        "RESTAURANT_OWNER"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-a000-000000000001",
+      "username": "admin@example.com",
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ],
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "browserFlow": "browser-email-otp",
+  "registrationFlow": "registration-without-password",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@restaurant.local",
+    "fromDisplayName": "Restaurant"
+  },
+  "defaultRole": {
+    "name": "default-roles-restaurant"
+  },
+  "authenticatorConfig": [
+    {
+      "alias": "email-otp",
+      "config": {
+        "code-length": "6",
+        "code-alphabet": "0123456789",
+        "code-lifetime": "600",
+        "resend-cooldown": "60",
+        "issuance-limit": "5",
+        "issuance-limit-window": "900",
+        "trust-only-when-sole": "true",
+        "ip-trust-enabled": "false",
+        "device-trust-enabled": "false"
+      }
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "browser-email-otp",
+      "description": "Cookie, else email then a code sent to it. No password.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "flowAlias": "browser-email-otp forms",
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "browser-email-otp forms",
+      "description": "The email, then the code.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "email-otp-form",
+          "authenticatorConfig": "email-otp",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "registration-without-password",
+      "description": "Email, first and last name; no password step.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-page-form",
+          "authenticatorFlow": true,
+          "flowAlias": "registration-without-password form",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "registration-without-password form",
+      "description": "The registration form: the user profile only.",
+      "providerId": "form-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "registration-user-creation",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ]
+}

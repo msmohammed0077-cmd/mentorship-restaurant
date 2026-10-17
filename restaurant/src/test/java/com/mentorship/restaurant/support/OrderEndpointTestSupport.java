@@ -27,6 +27,17 @@ public abstract class OrderEndpointTestSupport {
 
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
+  @Autowired protected JwtTestSupport jwts;
+
+  /** {@link #client}, acting as the customer. */
+  protected RestTestClient asCustomer(long customerId) {
+    return jwts.asCustomer(client, customerId);
+  }
+
+  /** {@link #client}, acting as the restaurant's owner. */
+  protected RestTestClient asRestaurantOwner(long restaurantId) {
+    return jwts.asRestaurantOwner(client, restaurantId);
+  }
 
   private final List<Long> seededOrderIds = new ArrayList<>();
 

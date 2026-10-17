@@ -29,4 +29,6 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
    */
   @EntityGraph(attributePaths = "user")
   Page<Restaurant> findByUser_UserDeletedAtIsNull(Pageable pageable);
+
+  boolean existsByIdAndUser_Id(Long restaurantId, Long userId);
 }

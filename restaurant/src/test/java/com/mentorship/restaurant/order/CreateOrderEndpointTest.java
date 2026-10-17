@@ -39,7 +39,7 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 2);
     insertCartItem(cartId, FALAFEL, 1);
 
-    placeOrder(fieldsFor(cartId, addressId, customerId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
+    placeOrder(customerId, fieldsFor(cartId, addressId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
         .expectStatus()
         .isCreated()
         .expectBody()
@@ -79,10 +79,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     long cartId = insertCart(customerId);
     insertCartItem(cartId, KOFTA, 1);
 
-    Map<String, Object> fields = fieldsFor(cartId, addressId, customerId, NILE_KITCHEN, "CARD");
+    Map<String, Object> fields = fieldsFor(cartId, addressId, NILE_KITCHEN, "CARD");
     fields.put("card_id", "card-123");
 
-    placeOrder(fields)
+    placeOrder(customerId, fields)
         .expectStatus()
         .isCreated()
         .expectBody()
@@ -103,10 +103,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 1);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -124,10 +124,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     int stockBefore = stockFor(KOFTA);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -144,10 +144,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 1);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 BURGER_YARD,
                 "CASH_ON_DELIVERY"))
         // #82 §2: should reject a restaurant_id that is not the cart's, currently ignores it
@@ -165,12 +165,8 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 1);
 
     placeOrder(
-            fieldsFor(
-                cartId,
-                addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
-                NILE_KITCHEN,
-                null))
+            customerId,
+            fieldsFor(cartId, addressIdForCustomer(jdbcTemplate, customerId), NILE_KITCHEN, null))
         // #82 §2: should be 400, currently 201 with no transaction
         .expectStatus()
         .isCreated()
@@ -187,7 +183,7 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 1);
     softDeleteCustomer(customerId);
 
-    placeOrder(fieldsFor(cartId, addressId, customerId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
+    placeOrder(customerId, fieldsFor(cartId, addressId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
         // #82 §2: should be 404 like the other deleted-customer guards, currently 201
         .expectStatus()
         .isCreated();
@@ -200,10 +196,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 999);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         // #82 §2: should be 409 (OutOfStockException), currently 403
@@ -219,10 +215,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     long cartId = insertCart(customerId);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         // #82 §2: should be 400, currently 409
@@ -237,10 +233,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     long customerId = insertCustomer(email("sara"));
 
     placeOrder(
+            customerId,
             fieldsFor(
                 999999L,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -255,7 +251,7 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     long cartId = insertCart(customerId);
     insertCartItem(cartId, KOFTA, 1);
 
-    placeOrder(fieldsFor(cartId, 999999L, customerId, NILE_KITCHEN, "CASH_ON_DELIVERY"))
+    placeOrder(customerId, fieldsFor(cartId, 999999L, NILE_KITCHEN, "CASH_ON_DELIVERY"))
         .expectStatus()
         .isNotFound();
 
@@ -270,10 +266,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(otherCartId, KOFTA, 1);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 otherCartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -291,10 +287,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, KOFTA, 1);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, otherCustomerId),
-                customerId,
                 NILE_KITCHEN,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -312,10 +308,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     insertCartItem(cartId, menuItemId, 1);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 restaurantId,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -338,10 +334,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
     softDeleteRestaurant(jdbcTemplate, restaurantId);
 
     placeOrder(
+            customerId,
             fieldsFor(
                 cartId,
                 addressIdForCustomer(jdbcTemplate, customerId),
-                customerId,
                 restaurantId,
                 "CASH_ON_DELIVERY"))
         .expectStatus()
@@ -355,7 +351,7 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"cart_id", "address_id", "customer_id", "restaurant_id"})
+  @ValueSource(strings = {"cart_id", "address_id", "restaurant_id"})
   void refusesAMissingRequiredField(String field) {
     long customerId = insertCustomer(email("sara"));
     long cartId = insertCart(customerId);
@@ -364,18 +360,17 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
         fieldsFor(
             cartId,
             addressIdForCustomer(jdbcTemplate, customerId),
-            customerId,
             NILE_KITCHEN,
             "CASH_ON_DELIVERY");
     fields.remove(field);
 
-    placeOrder(fields).expectStatus().isBadRequest();
+    placeOrder(customerId, fields).expectStatus().isBadRequest();
 
     assertThat(orderCountFor(customerId)).isZero();
   }
 
-  private RestTestClient.ResponseSpec placeOrder(Map<String, Object> fields) {
-    return client
+  private RestTestClient.ResponseSpec placeOrder(long customerId, Map<String, Object> fields) {
+    return asCustomer(customerId)
         .post()
         .uri(ORDERS)
         .contentType(MediaType.APPLICATION_JSON)
@@ -384,11 +379,10 @@ class CreateOrderEndpointTest extends CustomerEndpointTestSupport {
   }
 
   private Map<String, Object> fieldsFor(
-      long cartId, long addressId, long customerId, long restaurantId, String paymentMethod) {
+      long cartId, long addressId, long restaurantId, String paymentMethod) {
     Map<String, Object> fields = new LinkedHashMap<>();
     fields.put("cart_id", cartId);
     fields.put("address_id", addressId);
-    fields.put("customer_id", customerId);
     fields.put("restaurant_id", restaurantId);
     if (paymentMethod != null) {
       fields.put("payment_method", paymentMethod);
