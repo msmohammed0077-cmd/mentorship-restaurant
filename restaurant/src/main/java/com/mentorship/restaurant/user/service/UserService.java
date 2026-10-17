@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The login account, for the domains that own one (customers today, restaurants later). Every
- * method but {@link #findCaller} joins the caller's transaction.
+ * The login account, for the domains that own one (customers and restaurants). Every method but
+ * {@link #findCaller} joins the caller's transaction.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +28,11 @@ public class UserService {
   /** Whether an active user holds the email, case-insensitively. */
   public boolean isEmailTaken(String email) {
     return userRepository.existsActiveByEmail(email);
+  }
+
+  /** Whether a users row, deleted or not, is linked to the Keycloak user. */
+  public boolean isKeycloakIdLinked(UUID keycloakId) {
+    return userRepository.existsByUserKeycloakId(keycloakId);
   }
 
   public User create(User user) {

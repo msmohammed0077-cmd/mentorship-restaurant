@@ -20,6 +20,9 @@ public abstract class CartEndpointTestSupport {
   protected static final long CLASSIC_BURGER = 4L;
   protected static final long WINGS = 7L;
 
+  /** Every user a cart test creates has an email under this prefix, so cleanup is scoped. */
+  protected static final String EMAIL_PREFIX = "cart.test.";
+
   @Autowired protected RestTestClient client;
   @Autowired protected JdbcTemplate jdbcTemplate;
   @Autowired protected JwtTestSupport jwts;
@@ -38,6 +41,8 @@ public abstract class CartEndpointTestSupport {
     jdbcTemplate.update(
         "UPDATE menu_items SET menu_item_stock = 40 WHERE menu_item_id = ?", CLASSIC_BURGER);
     jdbcTemplate.update("UPDATE menu_items SET menu_item_stock = 30 WHERE menu_item_id = ?", WINGS);
+    // Restaurants a test seeded, with their menus and items, follow by ON DELETE CASCADE.
+    jdbcTemplate.update("DELETE FROM users WHERE user_email LIKE ?", EMAIL_PREFIX + "%");
   }
 
   /** {@link #client}, acting as the customer. */
@@ -87,6 +92,30 @@ public abstract class CartEndpointTestSupport {
       throw new IllegalStateException("Cart item not found: " + cartItemId);
     }
     return quantity;
+  }
+
+  /**
+   * Seeds a cart for {@link #CUSTOMER_WITHOUT_CART} holding one line, straight into the database,
+   * so it can hold items add-to-cart would refuse. Returns the cart id.
+   */
+  protected long insertCartWithItem(long menuItemId, int quantity) {
+    Long cartId =
+        jdbcTemplate.queryForObject(
+            "INSERT INTO carts (customer_id) VALUES (?) RETURNING cart_id",
+            Long.class,
+            CUSTOMER_WITHOUT_CART);
+    if (cartId == null) {
+      throw new IllegalStateException("Cart not created for customer " + CUSTOMER_WITHOUT_CART);
+    }
+    jdbcTemplate.update(
+        """
+        INSERT INTO cart_items (cart_id, menu_item_id, cart_item_quantity, cart_item_price)
+        SELECT ?, menu_item_id, ?, menu_item_price FROM menu_items WHERE menu_item_id = ?
+        """,
+        cartId,
+        quantity,
+        menuItemId);
+    return cartId;
   }
 
   protected long createCartWithItem(long menuItemId, int quantity) {

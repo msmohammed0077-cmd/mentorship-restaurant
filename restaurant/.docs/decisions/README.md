@@ -15,5 +15,6 @@ Use [`_template.md`](./_template.md) for new records.
 - [0008 — Permissions as Keycloak client roles](./0008-permissions-as-keycloak-client-roles.md)
 - [0009 — The caller is resolved after verification](./0009-caller-resolved-after-verification.md)
 - [0010 — Email-code login and sign-up through Keycloak](./0010-email-code-login-and-keycloak-sign-up.md)
+- [0011 — Offset paging by default](./0011-offset-paging-by-default.md)
 
 <!-- Add new ADRs here as they're written. -->

@@ -32,6 +32,10 @@ public class SecurityConfig {
           PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
           PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
           PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/health"),
+          // The directory is browsed before login (restaurant CRUD design).
+          PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/restaurants"),
+          PathPatternRequestMatcher.withDefaults()
+              .matcher(HttpMethod.GET, "/api/v1/restaurants/{restaurantId}"),
           // Spring forwards errors here; a token check would turn a 404 into a 401.
           PathPatternRequestMatcher.withDefaults().matcher("/error"));
 

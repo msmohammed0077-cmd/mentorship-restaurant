@@ -1,0 +1,155 @@
+# Goal
+
+The System Admin removes a restaurant from the platform.
+
+Issue [#90](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/90), under the
+Restaurant CRUD umbrella [#85](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/85).
+Design: [restaurant CRUD](../../../designs/2026-10-10-restaurant-crud-design.md).
+
+## Actor
+
+System Admin (`restaurant.delete`, held by `ADMIN`).
+
+## Preconditions
+
+The restaurant exists, is not deleted, and has no order in flight.
+
+## Scope
+
+`DELETE /api/v1/restaurants/{id}` — **204**, no body.
+
+Adds `RestaurantDeletionService.deleteRestaurant`, `OrderService.hasActiveRestaurantOrders` and
+`RestaurantHasActiveOrdersException`. `RestaurantService.findMenuItem` now refuses a deleted
+restaurant's items.
+
+## Business Rules
+
+1. Only the **admin** may delete a restaurant, through `restaurant.delete`. Anyone else, the
+   restaurant's owner included, is 403, "Access denied", **before** the database is read.
+2. A **soft delete**: the restaurant's user gets `user_deleted_at`. Nothing is removed.
+3. A restaurant with an order in an **active status** (`PLACED` through `PICKED_UP`) cannot be
+   deleted: 409, "Restaurant has active orders". Delivered, rejected and cancelled orders do not
+   block it.
+4. **Afterwards it does not exist to the API:** details and delete answer 404, "Restaurant not
+   found", and so do edit and open for its owner; the index leaves it out; adding its items to a cart is 404, "Item not
+   found"; checkout of a cart holding its items is 404, "Restaurant not found".
+5. **Kept:** past orders, ratings, menus, menu items and carts' lines. A customer's order history
+   still shows past orders with the restaurant's name, and a delivered order can still be rated.
+6. Its **email is freed**: a new restaurant or customer may register it. Its owner's **Keycloak id
+   is not**: `uq_users_keycloak_id` covers deleted rows, so a new restaurant needs a new Keycloak
+   user.
+
+## Authorisation
+
+A token and `restaurant.delete` are required (ADR 0008); only `ADMIN` holds it. The permission is
+checked before the restaurant is read, so a refused caller cannot learn which ids exist. Before #83
+the caller declared `?role=ADMIN`, and anyone could delete any restaurant.
+
+## API
+
+```http
+DELETE /api/v1/restaurants/4
+Authorization: Bearer <admin token>
+```
+
+Response, **204**, no body.
+
+## Data Model
+
+No migration. Writes `users.user_deleted_at` for the restaurant's user. The partial unique index
+`uq_users_active_email` covers active users only, which is what frees the email.
+
+## Main Success Scenario
+
+1. The admin sends the restaurant's id.
+2. The system checks the token and the permission.
+3. The system loads the active restaurant.
+4. The system checks it has no active order.
+5. The system marks its user deleted and returns 204.
+
+## Exception Flows
+
+- **2a. No valid token:** 401.
+- **2b. No `restaurant.delete`:** 403, "Access denied". Nothing is read or written.
+- **3a. Restaurant unknown or already deleted:** 404, "Restaurant not found". Deleting twice is 404
+  the second time.
+- **4a. An order is in flight:** 409, "Restaurant has active orders". Nothing is written.
+
+## Postconditions
+
+The restaurant is soft-deleted and gone from every restaurant endpoint; its items can no longer be
+added to a cart or checked out; its email is free.
+
+## Diagram
+
+### Flowchart
+
+```mermaid
+flowchart TD
+    Start([Admin deletes a restaurant]) --> Token{Token with restaurant.delete?}
+    Token -- No token --> R401[/401/]
+    Token -- No permission --> R403[/403: Access denied/]
+    Token -- Yes --> Found{Active restaurant found?}
+    Found -- No --> R404[/404: Restaurant not found/]
+    Found -- Yes --> Active{Order in an active status?}
+    Active -- Yes --> R409[/409: Restaurant has active orders/]
+    Active -- No --> Delete[Set user_deleted_at]
+    Delete --> Done([204])
+```
+
+### Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant C as RestaurantController
+    participant D as RestaurantDeletionService
+    participant S as RestaurantService
+    participant O as OrderService
+
+    Admin->>C: DELETE /api/v1/restaurants/{id} (restaurant.delete)
+    C->>D: deleteRestaurant(id)
+    D->>S: findActiveRestaurant(id)
+    alt not found
+        S-->>C: RestaurantNotFoundException (404)
+        C-->>Admin: 404 Not Found
+    end
+    D->>O: hasActiveRestaurantOrders(id)
+    alt has active orders
+        D-->>C: RestaurantHasActiveOrdersException (409)
+        C-->>Admin: 409 Conflict
+    end
+    D->>D: user.setUserDeletedAt(now) (dirty checking)
+    C-->>Admin: 204 No Content
+```
+
+## Testing
+
+`DeleteRestaurantEndpointTest`, end-to-end, as the seeded admin unless stated. The paths afterwards:
+`AddCartItemEndpointTest`, `ModifyCartItemEndpointTest`, `CheckoutCartEndpointTest` and
+`CreateOrderEndpointTest`.
+
+| Case | Expected |
+| --- | --- |
+| Admin deletes | 204, soft-deleted; a second delete is 404 |
+| Details afterwards | 404 |
+| Its email, for a new restaurant | 201 |
+| Only a `DELIVERED` order | 204 |
+| A `PLACED` order | 409, not deleted |
+| No token | 401, not deleted |
+| `CUSTOMER` token / the restaurant's own owner | 403 "Access denied", not deleted |
+| An owner on an unknown id | 403, not 404 |
+| Unknown id | 404 |
+| Add a deleted restaurant's item to a cart | 404, "Item not found" |
+| Modify a cart line of a deleted restaurant | 404, "Item not found"; quantity unchanged |
+| Checkout, or create-order, of a cart holding a deleted restaurant's item | 404, "Restaurant not found"; cart kept, no order |
+
+# Notes
+
+1. **Its own service.** The active-order check needs `OrderService`, and order (checkout) and cart
+   already need `RestaurantService`; inside it, the check would close an injection cycle. Same
+   shape as `CustomerDeletionService`.
+2. **Accepted race:** an order placed between the active-order check and the commit. After the
+   commit, checkout refuses.
+3. **Menus are not yet guarded.** Menu endpoints refusing a deleted restaurant's menus belong to
+   the menu CRUD, [#92](https://github.com/msmohammed0077-cmd/mentorship-restaurant/issues/92).

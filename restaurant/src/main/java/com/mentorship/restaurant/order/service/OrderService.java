@@ -19,8 +19,10 @@ import com.mentorship.restaurant.order.service.createorder.ItemsValidatorHandler
 import com.mentorship.restaurant.order.service.createorder.OrderFinalizer;
 import com.mentorship.restaurant.order.service.createorder.OrderHandler;
 import com.mentorship.restaurant.order.service.createorder.ProcessPaymentHandler;
+import com.mentorship.restaurant.order.service.createorder.RestaurantValidatorHandler;
 import com.mentorship.restaurant.order.service.createorder.SendNotificationHandler;
 import com.mentorship.restaurant.payment.service.PaymentProcessor;
+import com.mentorship.restaurant.restaurant.service.RestaurantService;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class OrderService {
   private final AddressService addressService;
   private final CustomerService customerService;
   private final PaymentProcessor paymentProcessor;
+  private final RestaurantService restaurantService;
 
   /** A chain of responsibility: each link validates or acts, then hands on to the next. */
   @Transactional
@@ -52,6 +55,7 @@ public class OrderService {
             new CartValidatorHandler(cart, customerId),
             new AddressValidatorHandler(address, customerId),
             new ItemsValidatorHandler(cart),
+            new RestaurantValidatorHandler(cart, restaurantService),
             new ProcessPaymentHandler(paymentProcessor),
             new OrderFinalizer(cart, address, orderMapper, orderRepository, cartService),
             new SendNotificationHandler());
@@ -86,6 +90,14 @@ public class OrderService {
    */
   public boolean hasActiveOrders(Long customerId) {
     return orderRepository.existsByCustomer_IdAndStatusIn(customerId, OrderStatus.ACTIVE);
+  }
+
+  /**
+   * Whether the restaurant has an order in a non-terminal status. For delete-restaurant; joins the
+   * caller's transaction.
+   */
+  public boolean hasActiveRestaurantOrders(Long restaurantId) {
+    return orderRepository.existsByRestaurant_IdAndStatusIn(restaurantId, OrderStatus.ACTIVE);
   }
 
   /**

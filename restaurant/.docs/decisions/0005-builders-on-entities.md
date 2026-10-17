@@ -17,3 +17,6 @@ Services built entities with `new` and a run of setters, one line per field. The
 - Construction reads as one expression per entity, and no constructor is callable from outside the entity, so the public no-args constructors are gone.
 - A new initialised field without `@Builder.Default` is a silent null; `CLAUDE.md` names the trap.
 - Where two entities point at each other (`Order` and its `OrderItem`s), one is built first and the link set after.
+
+## Amendment — 2026-10-10
+`Restaurant` is now created by the application (create-restaurant, #86), so it gains the builder and the private all-args constructor. `Menu` and `MenuItem` stay builder-less until the menu CRUD (#92) creates them.
