@@ -15,5 +15,6 @@ The restaurant index (#88) is the second paged endpoint. Order history ([0006](.
 
 ## Consequences
 - An offset endpoint needs no cursor code and no hand-written validation.
-- Each page costs a count query as well as the select.
+- A page can cost a count query as well as the select: Spring Data skips it only when the page itself
+  shows the total (a page with some rows, but fewer than it asked for).
 - Whether order history keeps its hand-built cursor is revisited in #110.

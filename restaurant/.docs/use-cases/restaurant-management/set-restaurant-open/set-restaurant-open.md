@@ -145,8 +145,8 @@ sequenceDiagram
 
 ## Testing
 
-`SetRestaurantOpenEndpointTest`, end-to-end, as the restaurant's owner unless stated;
-`CreateOrderEndpointTest` for the checkout guard.
+`SetRestaurantOpenEndpointTest`, end-to-end, as the restaurant's owner unless stated. The closed
+guard: `ModifyCartItemEndpointTest`, `CheckoutCartEndpointTest` and `CreateOrderEndpointTest`.
 
 | Case | Expected |
 | --- | --- |
@@ -159,7 +159,8 @@ sequenceDiagram
 | Unknown id | 403, not 404 |
 | The owner's own soft-deleted restaurant | 404 |
 | `{}` | 400 |
-| Checkout of a cart holding a closed restaurant's item | 409, "Restaurant is closed"; cart kept, no order |
+| Modify a cart line of a closed restaurant | 409, "Restaurant is closed"; quantity unchanged |
+| Checkout, or create-order, of a cart holding a closed restaurant's item | 409, "Restaurant is closed"; cart kept, no order |
 
 # Notes
 

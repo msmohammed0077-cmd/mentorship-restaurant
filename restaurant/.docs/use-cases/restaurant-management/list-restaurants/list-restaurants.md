@@ -80,8 +80,8 @@ Page<Restaurant> findByUser_UserDeletedAtIsNull(Pageable pageable);
 ```
 
 A derived query: Spring writes the select, the `limit`/`offset` and the count query. The entity
-graph fetches the user (for the email) in the same select, so a page is two statements: the rows
-and the count.
+graph fetches the user (for the email) in the same select, so a page is the rows plus, unless the
+page itself shows the total (some rows, but fewer than it asked for), the count.
 
 ## Main Success Scenario
 

@@ -125,8 +125,9 @@ sequenceDiagram
 
 ## Testing
 
-`DeleteRestaurantEndpointTest`, end-to-end, as the seeded admin unless stated;
-`AddCartItemEndpointTest` and `CreateOrderEndpointTest` for the paths afterwards.
+`DeleteRestaurantEndpointTest`, end-to-end, as the seeded admin unless stated. The paths afterwards:
+`AddCartItemEndpointTest`, `ModifyCartItemEndpointTest`, `CheckoutCartEndpointTest` and
+`CreateOrderEndpointTest`.
 
 | Case | Expected |
 | --- | --- |
@@ -140,7 +141,8 @@ sequenceDiagram
 | An owner on an unknown id | 403, not 404 |
 | Unknown id | 404 |
 | Add a deleted restaurant's item to a cart | 404, "Item not found" |
-| Checkout of a cart holding a deleted restaurant's item | 404, "Restaurant not found"; cart kept, no order |
+| Modify a cart line of a deleted restaurant | 404, "Item not found"; quantity unchanged |
+| Checkout, or create-order, of a cart holding a deleted restaurant's item | 404, "Restaurant not found"; cart kept, no order |
 
 # Notes
 
