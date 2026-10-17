@@ -2,6 +2,8 @@ package com.mentorship.restaurant.cart;
 
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.setMenuItemAvailable;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -81,6 +83,50 @@ class CheckoutCartEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Restaurant not found");
+
+    assertThat(stockFor(menuItemId)).isEqualTo(50);
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
+  }
+
+  @Test
+  void rejectsACartWithAnUnavailableItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long cartId = insertCartWithItem(menuItemId, 1);
+    setMenuItemAvailable(jdbcTemplate, menuItemId, false);
+
+    asCustomer(CUSTOMER_WITHOUT_CART)
+        .post()
+        .uri("/api/v1/cart/{cartId}/checkout", cartId)
+        .exchange()
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item is unavailable");
+
+    assertThat(stockFor(menuItemId)).isEqualTo(50);
+    assertThat(cartItemCountFor(cartId)).isEqualTo(1);
+  }
+
+  @Test
+  void rejectsACartWithADeletedItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long cartId = insertCartWithItem(menuItemId, 1);
+    softDeleteMenuItem(jdbcTemplate, menuItemId);
+
+    asCustomer(CUSTOMER_WITHOUT_CART)
+        .post()
+        .uri("/api/v1/cart/{cartId}/checkout", cartId)
+        .exchange()
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item not found");
 
     assertThat(stockFor(menuItemId)).isEqualTo(50);
     assertThat(cartItemCountFor(cartId)).isEqualTo(1);

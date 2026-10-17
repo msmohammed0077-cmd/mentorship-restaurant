@@ -1,21 +1,18 @@
 package com.mentorship.restaurant.restaurant.model.response;
 
-import lombok.*;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class MenuResponse {
 
-    private Long id;
-
-    private String menuCode;
-
-    private String menuCategory;
-
-    private String restaurantName;
-    private Long restaurantId;
-
+  private Long menuId;
+  private Long restaurantId;
+  private String code;
+  private String category;
+  private List<MenuItemResponse> items;
 }

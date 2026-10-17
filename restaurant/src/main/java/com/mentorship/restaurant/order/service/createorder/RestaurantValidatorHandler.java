@@ -18,6 +18,9 @@ public class RestaurantValidatorHandler extends OrderHandler {
     Long restaurantId = cart.getItems().get(0).getMenuItem().getMenu().getRestaurant().getId();
 
     restaurantService.ensureOrderable(restaurantId);
+    // And each line's item: deleted is 404, unavailable 409, as checkout answers.
+    restaurantService.ensureOrderableItems(
+        cart.getItems().stream().map(cartItem -> cartItem.getMenuItem().getId()).toList());
 
     return handleNext(request, response);
   }

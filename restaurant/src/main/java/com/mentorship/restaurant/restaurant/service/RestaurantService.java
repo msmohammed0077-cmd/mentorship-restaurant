@@ -1,6 +1,7 @@
 package com.mentorship.restaurant.restaurant.service;
 
 import com.mentorship.restaurant.restaurant.exception.MenuItemNotFoundException;
+import com.mentorship.restaurant.restaurant.exception.MenuItemUnavailableException;
 import com.mentorship.restaurant.restaurant.exception.OutOfStockException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantAccessDeniedException;
 import com.mentorship.restaurant.restaurant.exception.RestaurantClosedException;
@@ -18,6 +19,9 @@ import com.mentorship.restaurant.restaurant.repository.MenuItemRepository;
 import com.mentorship.restaurant.restaurant.repository.RestaurantRepository;
 import com.mentorship.restaurant.user.model.entity.User;
 import com.mentorship.restaurant.user.service.UserService;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -149,10 +153,25 @@ public class RestaurantService {
     }
   }
 
+  /** Deleted items, items of a deleted menu and a deleted restaurant's items are not found. */
   public MenuItem findMenuItem(Long menuItemId) {
     return menuItemRepository
         .findActiveById(menuItemId)
         .orElseThrow(() -> new MenuItemNotFoundException("Item not found"));
+  }
+
+  /**
+   * Checkout's and create-order's guard on a cart's lines: each item must still exist (404) and be
+   * available (409), as add-to-cart answers. Reads the items afresh rather than trusting the cart.
+   */
+  public void ensureOrderableItems(Collection<Long> menuItemIds) {
+    List<MenuItem> items = menuItemRepository.findActiveByIdIn(menuItemIds);
+    if (items.size() < new HashSet<>(menuItemIds).size()) {
+      throw new MenuItemNotFoundException("Item not found");
+    }
+    if (items.stream().anyMatch(item -> !item.isAvailable())) {
+      throw new MenuItemUnavailableException("Item is unavailable");
+    }
   }
 
   /**

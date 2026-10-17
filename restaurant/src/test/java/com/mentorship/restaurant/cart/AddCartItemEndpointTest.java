@@ -2,11 +2,14 @@ package com.mentorship.restaurant.cart;
 
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.setMenuItemAvailable;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
 
 import com.mentorship.restaurant.support.CartEndpointTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.client.RestTestClient;
 
 class AddCartItemEndpointTest extends CartEndpointTestSupport {
 
@@ -127,6 +130,45 @@ class AddCartItemEndpointTest extends CartEndpointTestSupport {
         .exchange()
         .expectStatus()
         .isNotFound();
+  }
+
+  @Test
+  void rejectsAnUnavailableItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    setMenuItemAvailable(jdbcTemplate, menuItemId, false);
+
+    addAsCustomerWithoutCart(menuItemId)
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item is unavailable");
+  }
+
+  @Test
+  void rejectsADeletedItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    softDeleteMenuItem(jdbcTemplate, menuItemId);
+
+    addAsCustomerWithoutCart(menuItemId)
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item not found");
+  }
+
+  private RestTestClient.ResponseSpec addAsCustomerWithoutCart(long menuItemId) {
+    return asCustomer(CUSTOMER_WITHOUT_CART)
+        .post()
+        .uri("/api/v1/cart/items")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(addItemBody(menuItemId, 1))
+        .exchange();
   }
 
   @Test

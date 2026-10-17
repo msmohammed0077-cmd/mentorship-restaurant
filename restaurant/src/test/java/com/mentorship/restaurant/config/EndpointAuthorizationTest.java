@@ -47,7 +47,8 @@ class EndpointAuthorizationTest {
       Set.of(
           "GET /api/v1/health",
           "GET /api/v1/restaurants",
-          "GET /api/v1/restaurants/{restaurantId}");
+          "GET /api/v1/restaurants/{restaurantId}",
+          "GET /api/v1/restaurants/{restaurantId}/menu");
 
   private static final String ADDRESS =
       """
@@ -86,6 +87,18 @@ class EndpointAuthorizationTest {
   private static final String OPEN =
       """
       {"is_open": true}
+      """;
+  private static final String MENU =
+      """
+      {"code": "AUTHZ-MENU", "category": "Main"}
+      """;
+  private static final String MENU_ITEM =
+      """
+      {"code": "AUTHZ-ITEM", "name": "Kofta", "price": 10.00, "stock": 1}
+      """;
+  private static final String AVAILABLE =
+      """
+      {"is_available": true}
       """;
   private static final String REJECTION =
       """
@@ -153,7 +166,29 @@ class EndpointAuthorizationTest {
         row(POST, "/api/v1/restaurants", "", RESTAURANT, "restaurant.create"),
         row(PATCH, "/api/v1/restaurants/{restaurantId}", "", "{}", "restaurant.write"),
         row(PUT, "/api/v1/restaurants/{restaurantId}/open", "", OPEN, "restaurant.write"),
-        row(DELETE, "/api/v1/restaurants/{restaurantId}", "", null, "restaurant.delete"));
+        row(DELETE, "/api/v1/restaurants/{restaurantId}", "", null, "restaurant.delete"),
+        row(POST, "/api/v1/restaurants/{restaurantId}/menu", "", MENU, "menu.write"),
+        row(PATCH, "/api/v1/restaurants/{restaurantId}/menu", "", "{}", "menu.write"),
+        row(DELETE, "/api/v1/restaurants/{restaurantId}/menu", "", null, "menu.write"),
+        row(POST, "/api/v1/restaurants/{restaurantId}/menu/items", "", MENU_ITEM, "menu.write"),
+        row(
+            PATCH,
+            "/api/v1/restaurants/{restaurantId}/menu/items/{menuItemId}",
+            "",
+            "{}",
+            "menu.write"),
+        row(
+            PUT,
+            "/api/v1/restaurants/{restaurantId}/menu/items/{menuItemId}/available",
+            "",
+            AVAILABLE,
+            "menu.write"),
+        row(
+            DELETE,
+            "/api/v1/restaurants/{restaurantId}/menu/items/{menuItemId}",
+            "",
+            null,
+            "menu.write"));
   }
 
   /** Every path variable becomes an id that does not exist. */

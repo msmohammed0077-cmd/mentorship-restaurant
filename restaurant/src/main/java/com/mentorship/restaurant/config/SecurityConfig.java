@@ -36,6 +36,8 @@ public class SecurityConfig {
           PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/api/v1/restaurants"),
           PathPatternRequestMatcher.withDefaults()
               .matcher(HttpMethod.GET, "/api/v1/restaurants/{restaurantId}"),
+          PathPatternRequestMatcher.withDefaults()
+              .matcher(HttpMethod.GET, "/api/v1/restaurants/{restaurantId}/menu"),
           // Spring forwards errors here; a token check would turn a 404 into a 401.
           PathPatternRequestMatcher.withDefaults().matcher("/error"));
 

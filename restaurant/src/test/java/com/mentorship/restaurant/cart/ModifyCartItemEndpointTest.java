@@ -2,6 +2,8 @@ package com.mentorship.restaurant.cart;
 
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.insertRestaurant;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.setMenuItemAvailable;
+import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteMenuItem;
 import static com.mentorship.restaurant.support.RestaurantEndpointTestSupport.softDeleteRestaurant;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -71,6 +73,44 @@ class ModifyCartItemEndpointTest extends CartEndpointTestSupport {
         .expectBody()
         .jsonPath("$.message")
         .isEqualTo("Restaurant is closed");
+
+    assertThat(quantityOf(cartItemId)).isEqualTo(1);
+  }
+
+  @Test
+  void rejectsALineOfAnUnavailableItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long cartId = insertCartWithItem(menuItemId, 1);
+    long cartItemId = cartItemIdFor(cartId);
+    setMenuItemAvailable(jdbcTemplate, menuItemId, false);
+
+    modify(cartId, cartItemId, 4)
+        .expectStatus()
+        .isEqualTo(409)
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item is unavailable");
+
+    assertThat(quantityOf(cartItemId)).isEqualTo(1);
+  }
+
+  @Test
+  void rejectsALineOfADeletedItem() {
+    long restaurantId =
+        insertRestaurant(jdbcTemplate, "Busy Grill", EMAIL_PREFIX + "grill@example.com", true);
+    long menuItemId = insertMenuItem(jdbcTemplate, restaurantId);
+    long cartId = insertCartWithItem(menuItemId, 1);
+    long cartItemId = cartItemIdFor(cartId);
+    softDeleteMenuItem(jdbcTemplate, menuItemId);
+
+    modify(cartId, cartItemId, 4)
+        .expectStatus()
+        .isNotFound()
+        .expectBody()
+        .jsonPath("$.message")
+        .isEqualTo("Item not found");
 
     assertThat(quantityOf(cartItemId)).isEqualTo(1);
   }
