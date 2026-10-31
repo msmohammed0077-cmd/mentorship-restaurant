@@ -7,4 +7,6 @@ _Owner: TODO · Last reviewed: TODO_
 ## Level 1 — System Context
 1. TODO
 
+See also [Authentication and authorization](./authentication.md).
+
 <!-- TODO: component-level diagrams per service; tech stack; deployment/infra; environments. -->
