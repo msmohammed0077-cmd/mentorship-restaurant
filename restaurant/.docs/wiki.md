@@ -14,6 +14,7 @@ Directory where all Foodie documentation lives. This is the entry point — star
 1. [Architecture](./architecture/architecture.md) — C4 context + containers
 2. [Tech Stack](./tech-stack.md)
 3. [ERD](./domain/erd.md) — data model
+4. [Authentication](./architecture/authentication.md) — login, tokens, permissions, realm configuration
 
 ### Decisions
 1. [Architecture Decision Records](./decisions/) — the "why we chose X" log
